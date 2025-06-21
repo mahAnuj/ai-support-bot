@@ -103,10 +103,10 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="text-center">
             <h1 className="text-4xl font-bold text-gray-900 mb-2">
-              RAG Knowledge Playground
+              AI Role-Based Assistant
             </h1>
             <p className="text-lg text-gray-700 mx-auto mb-4">
-              Upload documents and watch AI transform from generic to expert responses.
+              Specialized AI assistants for different business roles. Upload documents for expert-level responses.
             </p>
             <div className="flex items-center justify-center space-x-8 text-sm text-gray-600">
               <div className="flex items-center space-x-2">
@@ -207,8 +207,11 @@ export default function Home() {
             {/* Simple Results Showcase */}
             <div className="mt-6 bg-white rounded-xl shadow-lg p-4">
               <div className="text-center">
-                <p className="text-gray-700">
+                <p className="text-gray-700 mb-2">
                   The AI assistant becomes significantly more confident and accurate once you upload documents related to your questions.
+                </p>
+                <p className="text-xs text-gray-500">
+                  Powered by RAG (Retrieval-Augmented Generation) technology
                 </p>
               </div>
             </div>

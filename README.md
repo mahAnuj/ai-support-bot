@@ -1,165 +1,73 @@
-# 🚀 RAG Knowledge Playground
+# 🤖 AI Role-Based Assistant
 
-> **Transform AI from Generic to Genius in Real-Time**
+> **Specialized AI assistants for different business roles with document-enhanced intelligence**
 
-A powerful demonstration of Retrieval-Augmented Generation (RAG) that shows how uploading documents transforms basic AI responses into domain-expert answers. Built with Next.js, TypeScript, and an optimized in-memory vector database.
+A powerful demonstration showing how AI assistants can be customized for specific business roles (HR, Technical Support, Sales, etc.) and enhanced with your own documents using RAG technology.
 
-## ✨ What Makes This Special
+## ✨ What It Does
 
-### 🎯 **Instant Transformation Demo**
-- **Always-Visible Upload**: Clear, prominent document upload section
-- **Real-Time Enhancement**: Watch responses improve immediately after upload
-- **Professional UI**: Clean design with confidence indicators and source attribution
-- **Universal Appeal**: Works with any document type (PDF, TXT, DOCX)
+### 🎭 **Multiple Business Roles**
+- **HR Assistant**: Employee policies, benefits, workplace procedures
+- **Technical Support**: Product troubleshooting, user guides, technical documentation  
+- **Sales Assistant**: Product information, pricing, customer support
+- **Legal Advisor**: Contract reviews, compliance, legal procedures
+- **Medical Assistant**: Healthcare information, procedures, patient support
+- **E-commerce Support**: Order management, returns, customer service
 
-### ⚡ **Optimized Performance**
-- **In-Memory Vector Database**: No external dependencies, 2-minute setup
-- **Smart Caching**: LRU cache prevents redundant OpenAI API calls
-- **Parallel Processing**: Multiple files processed simultaneously
-- **Cost-Optimized**: Uses GPT-4o-mini with intelligent context management
+### 📚 **Document Enhancement**
+- Upload your business documents (PDF, TXT, DOCX)
+- Watch AI responses transform from generic to expert-level
+- Real-time confidence indicators show improvement
+- Source attribution shows which documents were used
 
-### 🛠 **Production-Ready Architecture**
-- **TypeScript**: Full type safety with comprehensive interfaces
-- **Comprehensive Testing**: Jest + React Testing Library with 90%+ coverage
-- **Error Handling**: Graceful fallbacks for all failure scenarios
-- **Session Management**: Isolated user sessions with automatic cleanup
+### 🎯 **Key Features**
+- **Always-visible upload**: Prominent document upload section
+- **Role-specific prompts**: Suggested questions for each business role
+- **Clickable questions**: Click any suggested question to ask automatically
+- **Professional UI**: Clean design with confidence indicators
+- **Session management**: Isolated conversations with automatic cleanup
 
 ## 🚀 Quick Start
 
 ```bash
-# Clone and setup (2 minutes total!)
-git clone https://github.com/your-org/ai-support-bot.git
+# Clone and setup
+git clone https://github.com/mahAnuj/ai-support-bot.git
 cd ai-support-bot
 npm install
 
 # Add your OpenAI API key
 echo "OPENAI_API_KEY=your_key_here" > .env.local
 
-# Start the demo
+# Start the assistant
 npm run dev
 ```
 
-Visit [http://localhost:3000](http://localhost:3000) and start chatting!
+Visit [http://localhost:3000](http://localhost:3000) and select your role!
 
-## 🎪 User Experience Flow
+## 🎪 How It Works
 
-### 1. **Immediate Engagement**
-- Clean, professional chat interface loads instantly
-- Always-visible upload section with clear call-to-action
-- Example prompts guide users to ask relevant questions
+1. **Choose Your Role**: Select from 6 pre-configured business assistants
+2. **Ask Questions**: Try the suggested questions or ask your own
+3. **Upload Documents**: Add your business documents to enhance responses
+4. **See the Magic**: Watch confidence jump from 30% to 95% with better answers
 
-### 2. **Document Upload**
-- Prominent blue section: "📚 Upload Documents to Improve Responses"
-- Drag-and-drop or click to upload (PDF, TXT, DOCX supported)
-- Real-time processing with progress indicators
+## 📊 Before vs After
 
-### 3. **Instant Transformation**
-- Same questions now get dramatically better answers
-- Visual indicators show enhanced responses (✨ Enhanced badge)
-- Confidence scores jump from 30% to 95%
-- Source attribution shows which documents were used
+| Without Documents | With Documents |
+|------------------|----------------|
+| Generic responses | Domain-specific answers |
+| 30% confidence | 95% confidence |
+| Basic information | Detailed, accurate guidance |
+| No source attribution | Clear document references |
 
-### 4. **Shareable Results**
-- Session-based results can be shared
-- Clear before/after comparison in chat history
-- Professional appearance suitable for business demos
+## 🛠 Technology Stack
 
-## 🏗 Architecture Highlights
-
-### **In-Memory Vector Database**
-```typescript
-interface InMemoryDatabase {
-  sessions: Map<string, DemoSession>
-  documents: Map<string, SessionDocument>  
-  chunks: Map<string, DocumentChunk>
-  // Automatic cleanup after 24 hours
-}
-```
-
-### **Intelligent Caching System**
-```typescript
-// LRU cache prevents redundant API calls
-const embeddingCache = new Map<string, number[]>()
-// 50% reduction in OpenAI costs
-```
-
-### **Parallel File Processing**
-```typescript
-// Process multiple files simultaneously
-const filePromises = files.map(async (file) => {
-  const chunks = await processInParallel(file)
-  return storeWithEmbeddings(chunks)
-})
-await Promise.all(filePromises)
-```
-
-## 📊 Performance Metrics
-
-| Metric | Before Optimization | After Optimization | Improvement |
-|--------|-------------------|-------------------|-------------|
-| Setup Time | 10 minutes | 2 minutes | **80% faster** |
-| File Processing | Sequential | Parallel | **3x faster** |
-| Memory Usage | High (PostgreSQL) | Low (In-memory) | **60% reduction** |
-| API Calls | Redundant | Cached | **50% reduction** |
-| Dependencies | 15+ packages | 8 packages | **47% reduction** |
-
-## 🧪 Testing Strategy
-
-### **Comprehensive Coverage**
-- **Unit Tests**: All core functions with mocked externals
-- **Integration Tests**: End-to-end user flows
-- **Error Scenarios**: Network failures, invalid files, API errors
-- **Performance Tests**: Load testing with multiple concurrent users
-
-### **Fast Execution**
-```bash
-npm test              # All tests in ~5 seconds
-npm test:watch        # Watch mode for development
-npm test:coverage     # Coverage report (90%+ target)
-```
-
-## 🎯 Demo Scenarios
-
-### **Business Use Cases**
-- **HR Policies**: "What's our vacation policy?" → Specific company details
-- **Technical Support**: "How do I reset the device?" → Exact manual steps
-- **Meeting Notes**: "What did we decide about the budget?" → Specific decisions
-
-### **Educational Use Cases**
-- **Course Material**: Generic explanations → Professor's specific approach
-- **Research Papers**: Basic overviews → Detailed findings and methodology
-
-## 🔧 API Reference
-
-### **Chat Endpoint**
-```typescript
-POST /api/chat
-{
-  message: string
-  sessionId?: string
-}
-
-Response: {
-  message: string
-  confidence: number      // 0-100
-  sources: string[]      // Document names
-  isEnhanced: boolean    // True if using uploaded docs
-  sessionId: string      // Session identifier
-}
-```
-
-### **Upload Endpoint**
-```typescript
-POST /api/upload
-FormData with files + optional sessionId
-
-Response: {
-  documentsProcessed: number
-  totalChunks: number
-  sessionId: string
-  success: boolean
-}
-```
+- **Frontend**: Next.js 14 + TypeScript + Tailwind CSS
+- **Backend**: Next.js API routes
+- **AI**: OpenAI GPT-4o-mini
+- **Vector Search**: In-memory database with cosine similarity
+- **File Processing**: PDF, TXT, DOCX support
+- **Enhancement**: RAG (Retrieval-Augmented Generation)
 
 ## 🚀 Deployment
 
@@ -172,61 +80,59 @@ vercel --prod
 ### **Environment Variables**
 ```bash
 OPENAI_API_KEY=your_openai_api_key
-NODE_ENV=production
 ```
 
 ## 🎨 Customization
 
-### **Styling**
-- Built with Tailwind CSS + Shadcn/ui components
-- Professional color scheme: whites/grays with blue accents
-- Fully responsive design
+### **Adding New Roles**
+Edit `src/app/page.tsx` to add new assistant roles:
 
-### **Configuration**
 ```typescript
-// src/lib/config.ts
-export const CONFIG = {
-  CHUNK_SIZE: 600,           // Optimized for context
-  CHUNK_OVERLAP: 100,        // Prevents information loss
-  MAX_CONTEXT_LENGTH: 2000,  // Token efficiency
-  SIMILARITY_THRESHOLD: 0.6, // Relevance filtering
-  SESSION_TIMEOUT: 24        // Hours
+const ASSISTANT_ROLES = {
+  newRole: {
+    title: "🔧 New Assistant",
+    description: "Your custom assistant description",
+    systemPrompt: "You are a helpful assistant for...",
+    suggestedQuestions: ["Question 1", "Question 2"],
+    sampleKnowledge: "Sample knowledge description..."
+  }
 }
 ```
 
-## 📈 Monitoring & Analytics
+### **Styling**
+- Built with Tailwind CSS + Shadcn/ui components
+- Professional blue/gray color scheme
+- Fully responsive design
 
-### **Built-in Metrics**
-- Response confidence tracking
-- Session duration analytics  
-- Document processing stats
-- Error rate monitoring
+## 📝 Use Cases
 
-### **Cost Optimization**
-- Embedding cache hit rate: ~70%
-- Average tokens per request: 450
-- Estimated cost per demo: $0.02
+### **HR Department**
+Upload employee handbooks, policy documents, benefits guides
+- "What's our vacation policy?"
+- "How do I enroll in health insurance?"
+
+### **Technical Support**
+Upload product manuals, troubleshooting guides, FAQs
+- "How do I reset the device?"
+- "What are the system requirements?"
+
+### **Sales Team**
+Upload product catalogs, pricing sheets, customer guides
+- "What's the price for enterprise plan?"
+- "How does our product compare to competitors?"
 
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create feature branch: `git checkout -b feature/amazing-feature`
-3. Run tests: `npm test`
-4. Commit changes: `git commit -m 'Add amazing feature'`
-5. Push to branch: `git push origin feature/amazing-feature`
-6. Open Pull Request
+2. Create feature branch: `git checkout -b feature/new-role`
+3. Add your changes
+4. Test: `npm test`
+5. Submit pull request
 
 ## 📝 License
 
 MIT License - see [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
-
-- **OpenAI** for GPT-4o-mini API
-- **Vercel** for seamless deployment
-- **Shadcn/ui** for beautiful components
-- **Next.js** team for the amazing framework
-
 ---
 
-**Ready to transform your AI?** [Start the demo](http://localhost:3000) and watch generic responses become domain expertise in real-time! 🚀
+**Transform your business communication** with specialized AI assistants powered by your own documents! 🚀
