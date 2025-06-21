@@ -82,17 +82,12 @@ const ASSISTANT_ROLES = {
 export default function Home() {
   const [selectedRole, setSelectedRole] = useState<keyof typeof ASSISTANT_ROLES>('ecommerce')
   const currentRole = ASSISTANT_ROLES[selectedRole]
-  const chatInterfaceRef = useRef<any>(null)
-
-  const handleShareResult = (messageId: string) => {
-    // Future: Implement sharing functionality
-    console.log('Sharing result:', messageId)
-  }
+  const chatRef = useRef<any>(null)
 
   const handleQuestionClick = (question: string) => {
     // Trigger the question in the chat interface
-    if (chatInterfaceRef.current && chatInterfaceRef.current.sendQuestion) {
-      chatInterfaceRef.current.sendQuestion(question)
+    if (chatRef.current && chatRef.current.sendQuestion) {
+      chatRef.current.sendQuestion(question)
     }
   }
 
@@ -170,7 +165,7 @@ export default function Home() {
                     onClick={() => handleQuestionClick(question)}
                     className="w-full text-left p-3 bg-gray-50 rounded-lg text-sm text-gray-700 hover:bg-blue-50 hover:border-blue-200 border border-transparent transition-all cursor-pointer"
                   >
-                    "{question}"
+                    &quot;{question}&quot;
                   </button>
                 ))}
               </div>
@@ -196,7 +191,7 @@ export default function Home() {
               
               <div className="h-[600px]">
                 <ChatInterface 
-                  ref={chatInterfaceRef}
+                  ref={chatRef}
                   systemPrompt={currentRole.systemPrompt}
                   roleContext={selectedRole}
                   suggestedQuestions={currentRole.suggestedQuestions}
@@ -223,8 +218,8 @@ export default function Home() {
       <div className="bg-gray-900 text-white py-8 mt-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h3 className="text-xl font-bold mb-2">Ready to Transform Your AI?</h3>
-          <p className="text-gray-300 mb-4">
-            This demo shows how RAG (Retrieval-Augmented Generation) can turn any AI into a domain expert across different business roles.
+          <p className="text-gray-600 mb-8">
+            Upload documents and watch AI transform from generic to expert responses across different business roles
           </p>
           <div className="flex justify-center space-x-6 text-sm text-gray-400">
             <span>🔧 Built with Next.js + TypeScript</span>

@@ -3,7 +3,13 @@
 import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
 import FileUpload from './FileUpload'
 import MarkdownRenderer from './MarkdownRenderer'
-import { ChatMessage, ChatInterfaceProps } from '@/types'
+import { ChatMessage } from '@/types'
+
+export interface ChatInterfaceProps {
+  systemPrompt?: string
+  roleContext?: string
+  suggestedQuestions?: string[]
+}
 
 interface ChatResponse {
   message: string
@@ -13,17 +19,19 @@ interface ChatResponse {
   sessionId: string
 }
 
-const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, ChatInterfaceProps>(({ onShareResult, systemPrompt, roleContext, suggestedQuestions }, ref) => {
+const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, ChatInterfaceProps>(({
+  systemPrompt,
+  roleContext,
+  suggestedQuestions
+}, ref) => {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [inputValue, setInputValue] = useState('')
-  const [isTyping, setIsTyping] = useState(false)
-  const [sessionId, setSessionId] = useState<string>('')
-  const [hasUploadedFiles, setHasUploadedFiles] = useState(false)
-  const [showUploadPrompt, setShowUploadPrompt] = useState(false)
-  const [lowConfidenceCount, setLowConfidenceCount] = useState(0)
-  const [isUploading, setIsUploading] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState(0)
+  const [isLoading, setIsLoading] = useState(false)
+  const [showUploadPrompt] = useState(false)
+  const [lowConfidenceCount] = useState(0)
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [sessionId] = useState(() => crypto.randomUUID())
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -50,7 +58,7 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, C
 
     setMessages(prev => [...prev, userMessage])
     setInputValue('')
-    setIsTyping(true)
+    setIsLoading(true)
 
     try {
       const response = await fetch('/api/chat', {
@@ -104,13 +112,12 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, C
       }
       setMessages(prev => [...prev, errorMessage])
     } finally {
-      setIsTyping(false)
+      setIsLoading(false)
     }
   }
 
   const handleFileUpload = async (files: File[]) => {
-    setIsUploading(true)
-    setUploadProgress(0)
+    setIsLoading(true)
 
     try {
       const formData = new FormData()
@@ -120,18 +127,10 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, C
         formData.append('sessionId', sessionId)
       }
 
-      // Simulate progress for better UX
-      const progressInterval = setInterval(() => {
-        setUploadProgress(prev => Math.min(prev + 5, 85))
-      }, 300)
-
       const response = await fetch('/api/upload', {
         method: 'POST',
         body: formData,
       })
-
-      clearInterval(progressInterval)
-      setUploadProgress(100)
 
       if (!response.ok) {
         throw new Error('Upload failed')
@@ -144,7 +143,7 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, C
         setSessionId(result.sessionId)
       }
 
-      setHasUploadedFiles(true)
+      setUploadedFiles(files)
 
       // Add a system message showing upload success
       const uploadMessage: ChatMessage = {
@@ -156,16 +155,8 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, C
       }
       setMessages(prev => [...prev, uploadMessage])
 
-      // Small delay to show completion state
-      setTimeout(() => {
-        setIsUploading(false)
-        setUploadProgress(0)
-      }, 500)
-
     } catch (error) {
       console.error('Upload error:', error)
-      setIsUploading(false)
-      setUploadProgress(0)
       
       // Better error messaging based on error type
       let errorText = '❌ Failed to upload documents. Please try again.'
@@ -186,6 +177,8 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, C
         timestamp: new Date()
       }
       setMessages(prev => [...prev, errorMessage])
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -210,7 +203,7 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, C
 
     setMessages(prev => [...prev, userMessage])
     setInputValue('')
-    setIsTyping(true)
+    setIsLoading(true)
 
     try {
       const response = await fetch('/api/chat', {
@@ -264,7 +257,7 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, C
       }
       setMessages(prev => [...prev, errorMessage])
     } finally {
-      setIsTyping(false)
+      setIsLoading(false)
     }
   }
 
@@ -279,7 +272,6 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, C
             <div>
               <h3 className="text-sm font-medium text-blue-900">
                 Upload Documents to Enhance AI
-                {hasUploadedFiles && <span className="text-green-600 ml-2">✅ Enhanced</span>}
               </h3>
               <p className="text-xs text-blue-600">
                 Add TXT, DOCX files for specific answers
@@ -290,8 +282,7 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, C
           <div className="flex-shrink-0">
             <FileUpload 
               onUpload={handleFileUpload}
-              isProcessing={isUploading}
-              progress={uploadProgress}
+              isProcessing={isLoading}
               isComplete={false}
               compact={true}
             />
@@ -317,9 +308,9 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, C
                     <button
                       key={index}
                       onClick={() => handleSuggestedQuestionClick(question)}
-                      className="w-full p-3 text-left bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg text-sm text-blue-800 transition-colors duration-200 hover:shadow-sm"
+                      className="block w-full text-left p-2 text-sm text-blue-600 hover:bg-blue-50 rounded transition-colors"
                     >
-                      "{question}"
+                      &quot;{question}&quot;
                     </button>
                   ))}
                 </div>
@@ -384,7 +375,7 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, C
           </div>
         ))}
         
-        {isTyping && (
+        {isLoading && (
           <div className="flex justify-start">
             <div className="bg-gray-100 text-gray-800 p-3 rounded-lg">
               <div className="flex items-center gap-2">
@@ -404,8 +395,7 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, C
               </p>
               <FileUpload 
                 onUpload={handleFileUpload}
-                isProcessing={isUploading}
-                progress={uploadProgress}
+                isProcessing={isLoading}
               />
             </div>
           </div>
@@ -424,14 +414,14 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, C
             onKeyDown={handleKeyDown}
             placeholder="Ask me anything..."
             className="flex-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            disabled={isTyping}
+            disabled={isLoading}
           />
           <button
             onClick={handleSendMessage}
-            disabled={!inputValue.trim() || isTyping}
+            disabled={!inputValue.trim() || isLoading}
             className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {isTyping ? 'Sending...' : 'Send'}
+            {isLoading ? 'Sending...' : 'Send'}
           </button>
         </div>
       </div>

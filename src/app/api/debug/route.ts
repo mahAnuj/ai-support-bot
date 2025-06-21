@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getDatabaseStats, getInMemoryDatabase } from '../../../lib/database'
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const stats = await getDatabaseStats()
     const db = getInMemoryDatabase()
