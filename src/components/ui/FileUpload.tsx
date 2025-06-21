@@ -12,8 +12,10 @@ const SUPPORTED_TYPES = [
 
 export default function FileUpload({ 
   onUpload, 
+  onProgress, 
   isProcessing = false, 
   isComplete = false, 
+  progress = 0,
   compact = false
 }: FileUploadProps) {
   const [isDragOver, setIsDragOver] = useState(false)

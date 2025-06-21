@@ -21,36 +21,38 @@ export interface GenerateResponseOptions {
 }
 
 // Generate chat response using OpenAI
-export async function generateResponse(
-  messages: { role: 'user' | 'assistant' | 'system'; content: string }[],
-  context?: string,
-  systemPrompt?: string
-): Promise<string> {
+export async function generateResponse({
+  query,
+  context,
+  isEnhanced = false,
+  systemPrompt: customSystemPrompt,
+  roleContext
+}: GenerateResponseOptions): Promise<ChatResponse> {
   try {
     let systemPrompt = ''
-    let userPrompt = messages[messages.length - 1].content
+    let userPrompt = query
 
     // Use custom system prompt if provided, otherwise use default logic
-    if (systemPrompt) {
-      systemPrompt = systemPrompt
+    if (customSystemPrompt) {
+      systemPrompt = customSystemPrompt
       
-      if (context) {
+      if (isEnhanced && context) {
         // Enhance the custom prompt with context instructions
         systemPrompt += `\n\nYou have access to specific documents that are relevant to the user's questions. Use the provided context to give detailed, accurate answers. Always cite your sources when possible.`
-        userPrompt = `${context}\n\nUser Question: ${userPrompt}`
+        userPrompt = `${context}\n\nUser Question: ${query}`
       } else {
         // Use role-based prompt without context
         systemPrompt += `\n\nYou should provide helpful information based on your role, but acknowledge when you don't have access to specific details. Suggest that the user might benefit from uploading relevant documents for more detailed answers.`
       }
     } else {
       // Default system prompts (fallback)
-      if (context) {
+      if (isEnhanced && context) {
         systemPrompt = `You are a helpful AI assistant with access to specific documents. 
         Provide detailed, accurate answers based on the provided context. 
         Always cite your sources when possible.
         If the context doesn't fully answer the question, be honest about limitations.`
         
-        userPrompt = `${context}\n\nUser Question: ${userPrompt}`
+        userPrompt = `${context}\n\nUser Question: ${query}`
       } else {
         systemPrompt = `You are a helpful AI assistant. 
         You should provide general information but acknowledge when you don't have access to specific details.
@@ -71,7 +73,7 @@ export async function generateResponse(
           content: userPrompt
         }
       ],
-      max_tokens: context ? 500 : 300, // More tokens for enhanced responses
+      max_tokens: isEnhanced ? 500 : 300, // More tokens for enhanced responses
       temperature: 0.7,
     })
 
@@ -80,7 +82,7 @@ export async function generateResponse(
     // Calculate confidence based on response type and content quality
     let confidence = 30 // Default low confidence
     
-    if (context) {
+    if (isEnhanced && context) {
       // Enhanced responses get higher confidence
       confidence = 85
       
@@ -100,14 +102,20 @@ export async function generateResponse(
       }
     }
 
-    return message
+    return {
+      message,
+      confidence
+    }
   } catch (error) {
     console.error('OpenAI API error:', error)
     
     // Return fallback response
-         return context 
-       ? "I'm having trouble accessing your uploaded knowledge right now. Please try again."
-       : "I don't have access to your specific information. Could you provide more details or upload relevant documents for a more accurate answer?"
+    return {
+      message: isEnhanced 
+        ? "I'm having trouble accessing your uploaded knowledge right now. Please try again."
+        : "I don't have access to your specific information. Could you provide more details or upload relevant documents for a more accurate answer?",
+      confidence: 10
+    }
   }
 }
 
