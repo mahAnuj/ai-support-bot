@@ -1,0 +1,383 @@
+# RAG Knowledge Playground - Interactive Chat Assistant Demo
+
+## 🎯 HIGH-LEVEL GOAL
+**Showcase a working chat assistant that can work with ANY knowledge base**
+- Demonstrate the transformative power of RAG (Retrieval-Augmented Generation)
+- Show dramatic before/after improvements when knowledge is added
+- Create a viral, shareable demo that educates people about AI + knowledge integration
+- Prove that ANY business/domain can enhance their AI with their specific knowledge
+
+## 🚀 PROJECT VISION (UPDATED: Single-Page Experience)
+Build a **single, seamless chat interface** where users can:
+1. **Start chatting immediately** - no barriers, instant engagement
+2. **Experience AI limitations** - generic responses build natural frustration
+3. **Upload documents inline** - contextual prompt appears in chat flow
+4. **See immediate transformation** - same questions, dramatically better answers
+5. **Share the magic moment** - clear before/after in chat history
+
+**Core Message**: "Watch AI transform from generic to genius in real-time"
+
+**Key Design Principles**:
+- **Zero friction**: Single page, no separate interfaces
+- **Natural progression**: Upload happens when user is motivated
+- **Immediate gratification**: Results shown in same chat interface
+- **Professional appearance**: Clean whites/grays with blue accents
+
+## 📋 CURSOR RULES META-RULE
+**IMPORTANT**: When project vision, scope, or technical decisions change:
+1. Always update this .cursorrules file FIRST
+2. Discuss the change with context of current rules
+3. Get confirmation before proceeding with major pivots
+4. Keep the high-level goal intact unless explicitly changed
+5. Document the reasoning for changes in comments
+
+**DEVELOPMENT SERVER RULE**: 
+- Do NOT run `npm run dev` repeatedly - the Next.js dev server auto-reloads on file changes
+- Only restart dev server if there are configuration changes or errors that require it
+- Code changes are automatically reflected in the browser without manual restarts
+
+Example: "I notice we're considering adding user auth. Should I update .cursorrules to reflect this scope change, or should we stay focused on the demo-first approach?"
+
+## 🎪 DEMO-FIRST APPROACH
+Everything should serve the demo experience:
+- **Wow Factor**: Obvious before/after improvement
+- **Shareability**: Easy to show others the results
+- **Educational**: Non-technical users understand the concept
+- **Universal**: Works with any type of knowledge/documents
+- **Fast**: Quick setup, immediate results
+
+## 🛠 TECH STACK (Optimized for Speed + Demo)
+- **Frontend**: Next.js 14 + TypeScript + Tailwind CSS + Shadcn/ui
+- **Backend**: Next.js API routes (serverless)
+- **Database**: Supabase PostgreSQL + pgvector (FREE tier)
+- **Vector Search**: Supabase vector similarity functions
+- **LLM**: OpenAI GPT-4o-mini (cost-optimized for demo)
+- **File Processing**: Node.js built-in modules + pdf-parse
+- **Testing**: Jest + React Testing Library + MSW (mocked externals)
+- **Deployment**: Vercel (free tier)
+- **Styling**: Tailwind + Shadcn/ui for professional look
+
+## 🧪 DEVELOPMENT METHODOLOGY: TDD with Mocks
+**Always follow Red-Green-Refactor**:
+1. **RED**: Write failing test first (with realistic mocks)
+2. **GREEN**: Write minimal code to pass test
+3. **REFACTOR**: Improve code quality while keeping tests green
+4. **Mock externals**: OpenAI API, Supabase operations, file system
+5. **No E2E tests**: Too slow and expensive for rapid iteration
+6. **Focus on YOUR logic**: Don't test external APIs
+
+## 📁 PROJECT STRUCTURE
+```
+ai-support-bot/
+├── .cursorrules              # This file
+├── src/
+│   ├── components/
+│   │   ├── ui/              # Shadcn/ui components
+│   │   │   ├── ChatComparison.tsx    # Side-by-side comparison
+│   │   │   ├── FileUpload.tsx        # Document upload
+│   │   │   ├── ResponseCard.tsx      # Individual response display
+│   │   │   ├── ImprovementVisual.tsx # Before/after visualization
+│   │   │   └── ShareResults.tsx      # Share functionality
+│   │   └── layout/          # Layout components
+│   ├── lib/
+│   │   ├── supabase.ts      # Database operations
+│   │   ├── openai.ts        # LLM integration
+│   │   ├── documents.ts     # File processing & chunking
+│   │   ├── vectors.ts       # Embedding operations
+│   │   ├── rag.ts           # RAG pipeline orchestration
+│   │   └── demo-helpers.ts  # Demo-specific utilities
+│   ├── pages/
+│   │   ├── api/
+│   │   │   ├── upload.ts    # Document upload endpoint
+│   │   │   ├── query.ts     # Chat query endpoint
+│   │   │   ├── compare.ts   # Before/after comparison
+│   │   │   └── session.ts   # Session management
+│   │   ├── index.tsx        # Main demo page
+│   │   └── _app.tsx         # App configuration
+│   ├── __tests__/           # Test files mirror src structure
+│   ├── types/               # TypeScript definitions
+│   ├── utils/               # Helper functions
+│   └── mocks/               # Test mocks and fixtures
+└── README.md                # Project documentation
+```
+
+## 🎨 UI/UX PRINCIPLES (Single-Page Focus)
+- **Professional Design**: Clean whites/grays with subtle blue accents
+- **Zero Friction**: No tabs, no separate pages, no complex navigation
+- **Contextual Progression**: Upload prompt appears naturally when user is frustrated
+- **In-Chat Transformation**: Before/after comparison happens in same conversation
+- **Visual Clarity**: Subtle indicators show AI improvement (not jarring colors)
+- **Mobile First**: Single scroll, touch-friendly, easy sharing
+- **Accessibility**: Screen reader friendly, keyboard navigation
+- **Smooth Transitions**: Elegant animations highlight the transformation
+
+## 🔧 KEY COMPONENTS TO BUILD (UPDATED: Single Interface)
+
+### 1. **UnifiedChatInterface** (Core Component)
+```typescript
+// Single chat interface that handles everything
+- Clean chat UI with professional styling
+- Generic AI responses initially (build frustration)
+- Contextual upload prompt when user is motivated
+- Inline file upload without leaving chat
+- Same chat shows improved responses after upload
+- Subtle visual indicators for AI enhancement
+- Message history shows clear before/after
+```
+
+### 2. **InlineChatUpload** (Seamless Integration)
+```typescript
+// Upload that happens within chat flow
+- Appears as chat message when appropriate
+- Drag-and-drop or click to upload
+- Processing shown as typing indicator
+- Success confirmation as AI message
+- No separate pages or modals
+```
+
+### 3. **MessageEnhancementIndicator** (Subtle Wow Factor)
+```typescript
+// Show improvement without being jarring
+- Subtle badges on enhanced messages
+- Source attribution in clean format
+- Confidence indicators (professional styling)
+- Before/after comparison on hover/click
+- Share functionality for individual exchanges
+```
+
+## 🔌 API DESIGN (Demo-Optimized)
+
+### POST /api/upload
+```typescript
+// Process documents for RAG
+- Accept multiple file formats
+- Extract and chunk text
+- Generate embeddings (cached)
+- Store in session-based knowledge base
+- Return processing status
+```
+
+### POST /api/compare
+```typescript
+// Generate before/after responses
+- Take user query + session ID
+- Generate response WITHOUT context
+- Generate response WITH context from uploaded docs
+- Return both responses + improvement metrics
+- Include source attribution
+```
+
+### GET /api/session/[id]
+```typescript
+// Retrieve session knowledge
+- Return uploaded documents
+- Show knowledge base status
+- Provide session sharing info
+```
+
+## 💾 DATABASE SCHEMA (Session-Based)
+```sql
+-- No user accounts needed for demo
+CREATE TABLE demo_sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at TIMESTAMP DEFAULT NOW(),
+  last_accessed TIMESTAMP DEFAULT NOW(),
+  document_count INTEGER DEFAULT 0
+);
+
+CREATE TABLE session_documents (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id UUID REFERENCES demo_sessions(id) ON DELETE CASCADE,
+  filename TEXT NOT NULL,
+  content_preview TEXT, -- First 200 chars for display
+  chunk_count INTEGER,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE document_chunks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  document_id UUID REFERENCES session_documents(id) ON DELETE CASCADE,
+  content TEXT NOT NULL,
+  embedding VECTOR(1536), -- OpenAI embedding size
+  chunk_index INTEGER,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Vector similarity search function
+CREATE OR REPLACE FUNCTION find_relevant_chunks(
+  session_uuid UUID,
+  query_embedding VECTOR(1536),
+  similarity_threshold FLOAT DEFAULT 0.7,
+  max_results INTEGER DEFAULT 5
+) RETURNS TABLE (
+  content TEXT,
+  filename TEXT,
+  similarity FLOAT
+) AS $$
+  SELECT 
+    dc.content,
+    sd.filename,
+    1 - (dc.embedding <=> query_embedding) AS similarity
+  FROM document_chunks dc
+  JOIN session_documents sd ON dc.document_id = sd.id
+  WHERE sd.session_id = session_uuid
+    AND 1 - (dc.embedding <=> query_embedding) > similarity_threshold
+  ORDER BY dc.embedding <=> query_embedding
+  LIMIT max_results;
+$$ LANGUAGE SQL STABLE;
+```
+
+## 🧪 TESTING STRATEGY (Fast Iteration)
+
+### Mock All External Services
+```typescript
+// OpenAI API Mocks
+const mockOpenAI = {
+  embeddings: {
+    create: jest.fn().mockResolvedValue({
+      data: [{ embedding: Array(1536).fill(0.1) }]
+    })
+  },
+  chat: {
+    completions: {
+      create: jest.fn().mockImplementation(({ messages }) => {
+        const hasContext = messages.some(m => 
+          m.content.includes("Based on the provided context")
+        );
+        
+        return Promise.resolve({
+          choices: [{
+            message: {
+              content: hasContext 
+                ? "Enhanced response with specific details from your document..."
+                : "I don't have specific information about that topic..."
+            }
+          }]
+        });
+      })
+    }
+  }
+};
+
+// Supabase Mocks
+const mockSupabase = {
+  from: () => ({
+    insert: jest.fn().mockResolvedValue({ data: mockData }),
+    select: jest.fn().mockResolvedValue({ data: mockQueryResults })
+  }),
+  rpc: jest.fn().mockResolvedValue({ data: mockSimilarityResults })
+};
+```
+
+### Test Priorities
+1. **Document Processing** (80% of tests)
+   - File parsing accuracy
+   - Text chunking logic
+   - Embedding generation workflow
+   - Error handling for invalid files
+
+2. **RAG Pipeline** (15% of tests)
+   - Context retrieval accuracy
+   - Response enhancement logic
+   - Source attribution
+   - Query routing
+
+3. **UI Components** (5% of tests)
+   - File upload interactions
+   - Comparison display
+   - Loading states
+   - Error messaging
+
+## 🚀 DEMO SCENARIOS (Test Cases)
+Create realistic demo scenarios that show clear improvement:
+
+### Business Scenarios
+- **HR Policy**: "What's our vacation policy?" 
+  - Without: Generic response about vacation policies
+  - With: Specific company policy details
+
+- **Product Manual**: "How do I reset the device?"
+  - Without: General troubleshooting advice  
+  - With: Exact steps from manual
+
+- **Meeting Notes**: "What did we decide about the budget?"
+  - Without: "I don't have access to your meeting information"
+  - With: Specific decisions and action items
+
+### Educational Scenarios
+- **Course Material**: "Explain quantum entanglement"
+  - Without: Basic Wikipedia-level explanation
+  - With: Professor's specific teaching approach
+
+- **Research Paper**: "What are the key findings?"
+  - Without: General topic overview
+  - With: Specific results and methodology
+
+## 💰 COST OPTIMIZATION (Demo Sustainability)
+- **Cache embeddings** aggressively (same doc = same embeddings)
+- **Limit demo usage** per session (prevent abuse)
+- **Use GPT-4o-mini** instead of GPT-4 for cost (good enough for demo)
+- **Smart chunking** to minimize token usage
+- **Session cleanup** after 24 hours to manage storage
+
+## 🎯 SUCCESS METRICS (Demo Effectiveness)
+- **Completion Rate**: % users who upload doc + ask question
+- **Wow Factor**: Qualitative feedback on response improvement
+- **Share Rate**: % users who share their results
+- **Engagement**: Time spent on comparison page
+- **Technical**: Response quality improvement scores
+
+## 🚫 OUT OF SCOPE (Stay Focused)
+- User authentication/accounts
+- Advanced file formats (images, videos)
+- Real-time collaboration
+- Complex analytics dashboard
+- Custom model training
+- Enterprise features
+- Advanced caching systems
+- Multi-language support (unless specifically requested)
+
+## ⚡ DEVELOPMENT PRIORITIES (2-Day Sprint)
+
+### Day 1: Core Functionality
+- Document upload + processing
+- Basic RAG pipeline
+- Simple comparison interface
+- Database setup
+
+### Day 2: Demo Polish
+- Professional UI
+- Smooth animations
+- Error handling
+- Deployment
+- Demo scenarios
+
+## 📱 MOBILE-FIRST CONSIDERATIONS
+- Touch-friendly file upload
+- Readable text sizes
+- Swipe between before/after on mobile
+- Fast loading on slower connections
+- Works offline after initial load
+
+## 🔒 SECURITY & PRIVACY (Demo-Appropriate)
+- Session-based isolation (no cross-session data leaks)
+- Automatic cleanup after 24 hours
+- No sensitive data storage
+- Basic input validation
+- Rate limiting on API endpoints
+
+## 🎪 VIRAL/SHARING FEATURES
+- **Screenshot generation** of before/after comparison
+- **Shareable URLs** with session results
+- **Social media optimization** with proper meta tags
+- **Embed widget** for other websites
+- **Demo templates** for common use cases
+
+## 🛠 DEPLOYMENT & MONITORING
+- **Vercel deployment** with proper environment variables
+- **Basic error tracking** (console errors)
+- **Simple analytics** (page views, demo completions)
+- **Health checks** for external APIs
+- **Cost monitoring** for OpenAI usage
+
+Remember: Every feature should answer "Does this make the RAG concept more obvious and shareable?" If not, it's probably scope creep for the demo phase. 

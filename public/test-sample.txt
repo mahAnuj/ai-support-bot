@@ -1,0 +1,15 @@
+This is a test document for the RAG knowledge playground.
+
+Company Policy: Vacation Days
+Employees are entitled to 15 vacation days per year.
+Vacation requests must be submitted 2 weeks in advance.
+Unused vacation days cannot be carried over to the next year.
+
+Technical Support Information:
+To reset the device, follow these steps:
+1. Hold the power button for 10 seconds
+2. Wait for the device to completely shut down
+3. Press the power button once to restart
+4. The device will perform a factory reset automatically
+
+This document contains specific information that should improve AI responses when uploaded to the knowledge base. 

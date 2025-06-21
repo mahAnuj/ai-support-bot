@@ -1,103 +1,235 @@
-import Image from "next/image";
+'use client'
+
+import { useState, useRef } from 'react'
+import ChatInterface from '@/components/ui/ChatInterface'
+
+// Role-based configuration
+const ASSISTANT_ROLES = {
+  ecommerce: {
+    title: "🛒 E-commerce Support",
+    description: "Customer service for online orders, returns, and product inquiries",
+    systemPrompt: "You are a helpful e-commerce customer support assistant. You help customers with orders, returns, product information, shipping, and general shopping questions. Be friendly, professional, and solution-oriented.",
+    suggestedQuestions: [
+      "What's the status of my order #12345?",
+      "How do I return a defective item?",
+      "Do you offer international shipping?",
+      "What's your refund policy?"
+    ],
+    sampleKnowledge: "Sample knowledge: Order processing takes 1-2 business days. Returns accepted within 30 days. Free shipping on orders over $50..."
+  },
+  hr: {
+    title: "👥 HR Assistant", 
+    description: "Employee support for policies, benefits, and workplace procedures",
+    systemPrompt: "You are a knowledgeable HR assistant helping employees with company policies, benefits, procedures, and workplace questions. Provide accurate, helpful information while maintaining confidentiality.",
+    suggestedQuestions: [
+      "What's our vacation policy?",
+      "How do I enroll in health insurance?",
+      "What's the remote work policy?",
+      "How do I request time off?"
+    ],
+    sampleKnowledge: "Sample knowledge: 15 vacation days annually. Health insurance enrollment during open season. Remote work requires manager approval..."
+  },
+  technical: {
+    title: "🔧 Technical Support",
+    description: "IT help desk for troubleshooting and technical documentation",
+    systemPrompt: "You are a technical support specialist helping users with software, hardware, and IT-related issues. Provide clear, step-by-step solutions and escalate complex issues when needed.",
+    suggestedQuestions: [
+      "How do I reset my password?",
+      "My computer won't connect to WiFi",
+      "How do I install the VPN software?",
+      "The printer isn't working, what should I do?"
+    ],
+    sampleKnowledge: "Sample knowledge: Password reset via IT portal. WiFi troubleshooting steps. VPN installation guide. Printer maintenance procedures..."
+  },
+  sales: {
+    title: "💼 Sales Assistant",
+    description: "Product information, pricing, and sales support",
+    systemPrompt: "You are a knowledgeable sales assistant helping customers understand products, pricing, and making informed purchase decisions. Be persuasive but honest, and focus on customer needs.",
+    suggestedQuestions: [
+      "What's the difference between Pro and Basic plans?",
+      "Do you offer volume discounts?",
+      "What's included in the enterprise package?",
+      "Can I get a demo of the software?"
+    ],
+    sampleKnowledge: "Sample knowledge: Pro plan includes advanced features. Volume discounts start at 10+ licenses. Enterprise includes priority support..."
+  },
+  legal: {
+    title: "⚖️ Legal Advisor",
+    description: "Contract review, compliance, and legal procedure guidance",
+    systemPrompt: "You are a legal assistant helping with contract reviews, compliance questions, and legal procedures. Provide accurate information but always recommend consulting with qualified legal counsel for complex matters.",
+    suggestedQuestions: [
+      "What are the key terms in this contract?",
+      "What's our data privacy policy?",
+      "How do we handle GDPR compliance?",
+      "What's the process for contract amendments?"
+    ],
+    sampleKnowledge: "Sample knowledge: Standard contract terms. GDPR compliance procedures. Data privacy policies. Amendment processes..."
+  },
+  medical: {
+    title: "🏥 Medical Assistant",
+    description: "Healthcare information, procedures, and patient support",
+    systemPrompt: "You are a medical assistant providing general health information and procedure guidance. Always emphasize that this information doesn't replace professional medical advice and recommend consulting healthcare providers for medical decisions.",
+    suggestedQuestions: [
+      "What are the symptoms of diabetes?",
+      "How do I prepare for a blood test?",
+      "What's the normal blood pressure range?",
+      "When should I see a doctor for a fever?"
+    ],
+    sampleKnowledge: "Sample knowledge: Diabetes symptoms include thirst, fatigue. Blood test preparation guidelines. Normal BP ranges. Fever management protocols..."
+  }
+}
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [selectedRole, setSelectedRole] = useState<keyof typeof ASSISTANT_ROLES>('ecommerce')
+  const currentRole = ASSISTANT_ROLES[selectedRole]
+  const chatInterfaceRef = useRef<any>(null)
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  const handleShareResult = (messageId: string) => {
+    // Future: Implement sharing functionality
+    console.log('Sharing result:', messageId)
+  }
+
+  const handleQuestionClick = (question: string) => {
+    // Trigger the question in the chat interface
+    if (chatInterfaceRef.current && chatInterfaceRef.current.sendQuestion) {
+      chatInterfaceRef.current.sendQuestion(question)
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-blue-100 to-indigo-100 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="text-center">
+            <h1 className="text-4xl font-bold text-gray-900 mb-2">
+              RAG Knowledge Playground
+            </h1>
+            <p className="text-lg text-gray-700 mx-auto mb-4">
+              Upload documents and watch AI transform from generic to expert responses.
+            </p>
+            <div className="flex items-center justify-center space-x-8 text-sm text-gray-600">
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 bg-red-400 rounded-full"></div>
+                <span>Generic AI (30% confidence)</span>
+              </div>
+              <div className="text-2xl">→</div>
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 bg-green-400 rounded-full"></div>
+                <span>Enhanced AI (95% confidence)</span>
+              </div>
+            </div>
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          
+          {/* Left Sidebar - Role Selection & Questions */}
+          <div className="lg:col-span-1">
+            {/* Role Selection */}
+            <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">
+                🎭 Choose Assistant Role
+              </h3>
+              <select 
+                value={selectedRole}
+                onChange={(e) => setSelectedRole(e.target.value as keyof typeof ASSISTANT_ROLES)}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 mb-4"
+              >
+                {Object.entries(ASSISTANT_ROLES).map(([key, role]) => (
+                  <option key={key} value={key}>
+                    {role.title}
+                  </option>
+                ))}
+              </select>
+              
+              {/* Current Role Info */}
+              <div className="p-4 bg-blue-50 rounded-lg">
+                <h4 className="font-semibold text-blue-900 mb-2">{currentRole.title}</h4>
+                <p className="text-blue-700 text-sm mb-3">{currentRole.description}</p>
+                <div className="text-xs text-blue-600 bg-blue-100 p-2 rounded">
+                  <strong>Sample Knowledge:</strong> {currentRole.sampleKnowledge}
+                </div>
+              </div>
+            </div>
+
+            {/* Suggested Questions */}
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">
+                💡 Try These Questions
+              </h3>
+              <div className="space-y-2">
+                <p className="text-sm text-gray-600 mb-3">
+                  Click any question to ask it automatically in the chat:
+                </p>
+                {currentRole.suggestedQuestions.map((question, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handleQuestionClick(question)}
+                    className="w-full text-left p-3 bg-gray-50 rounded-lg text-sm text-gray-700 hover:bg-blue-50 hover:border-blue-200 border border-transparent transition-all cursor-pointer"
+                  >
+                    "{question}"
+                  </button>
+                ))}
+              </div>
+              <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-yellow-800 text-sm">
+                  <strong>💡 Pro Tip:</strong> Try asking these questions before and after uploading relevant documents to see the dramatic improvement!
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Side - Chat Interface */}
+          <div className="lg:col-span-2">
+            <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+              <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4">
+                <h2 className="text-xl font-bold text-white mb-2">
+                  {currentRole.title} Demo
+                </h2>
+                <p className="text-blue-100 text-sm">
+                  Currently configured as: {currentRole.description}
+                </p>
+              </div>
+              
+              <div className="h-[600px]">
+                <ChatInterface 
+                  ref={chatInterfaceRef}
+                  systemPrompt={currentRole.systemPrompt}
+                  roleContext={selectedRole}
+                  suggestedQuestions={currentRole.suggestedQuestions}
+                />
+              </div>
+            </div>
+
+            {/* Simple Results Showcase */}
+            <div className="mt-6 bg-white rounded-xl shadow-lg p-4">
+              <div className="text-center">
+                <p className="text-gray-700">
+                  The AI assistant becomes significantly more confident and accurate once you upload documents related to your questions.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="bg-gray-900 text-white py-8 mt-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h3 className="text-xl font-bold mb-2">Ready to Transform Your AI?</h3>
+          <p className="text-gray-300 mb-4">
+            This demo shows how RAG (Retrieval-Augmented Generation) can turn any AI into a domain expert across different business roles.
+          </p>
+          <div className="flex justify-center space-x-6 text-sm text-gray-400">
+            <span>🔧 Built with Next.js + TypeScript</span>
+            <span>🧠 Powered by OpenAI + Vector Search</span>
+            <span>🎭 Multi-Role AI Assistant</span>
+          </div>
+        </div>
+      </div>
     </div>
-  );
+  )
 }
