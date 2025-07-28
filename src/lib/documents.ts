@@ -11,6 +11,48 @@ export interface DocumentChunk {
   source: string
 }
 
+// Extract text from file path (used when we have actual file paths)
+export async function extractTextFromFilePath(filePath: string, fileName: string): Promise<string> {
+  const fs = require('fs')
+  
+  try {
+    console.log(`📄 Processing file: ${fileName}, path: ${filePath}`)
+    
+    if (fileName.toLowerCase().endsWith('.txt')) {
+      // Handle plain text files
+      return fs.readFileSync(filePath, 'utf8')
+    } else if (fileName.toLowerCase().endsWith('.pdf')) {
+      // Handle PDF files using fs.readFileSync (exactly like online examples)
+      console.log('📖 Reading PDF with fs.readFileSync...')
+      const dataBuffer = fs.readFileSync(filePath)
+      
+      // Use pdf-parse exactly like the documentation
+      console.log('🔍 Parsing PDF with pdf-parse...')
+      const pdfParse = require('pdf-parse')
+      const data = await pdfParse(dataBuffer)
+      
+      if (!data || !data.text) {
+        throw new Error('No text content found in PDF')
+      }
+      
+      const extractedText = data.text.trim()
+      if (extractedText.length === 0) {
+        throw new Error('PDF appears to contain no readable text')
+      }
+      
+      console.log(`✅ PDF text extracted: ${extractedText.length} characters from ${data.numpages} pages`)
+      console.log(`📊 PDF info:`, data.info)
+      
+      return extractedText
+    } else {
+      throw new Error(`Unsupported file type: ${fileName}`)
+    }
+  } catch (error) {
+    console.error(`❌ Error extracting text from ${fileName}:`, error)
+    throw new Error(`Failed to extract text from ${fileName}: ${error instanceof Error ? error.message : 'Unknown error'}`)
+  }
+}
+
 // Extract text from different file types
 export async function extractTextFromFile(file: File): Promise<string> {
   const fileType = file.type.toLowerCase()
@@ -21,8 +63,78 @@ export async function extractTextFromFile(file: File): Promise<string> {
       // Handle plain text files
       return await file.text()
     } else if (fileType.includes('application/pdf') || fileName.endsWith('.pdf')) {
-      // Temporarily disable PDF parsing while we resolve library issues
-      throw new Error('PDF parsing is temporarily disabled. Please upload a TXT or DOCX file instead. We are working to restore PDF support soon.')
+      // Handle PDF files using fs.readFileSync approach (like online examples)
+      const fs = await import('fs')
+      const path = await import('path')
+      const os = await import('os')
+      
+      let tempFilePath: string | null = null
+      
+      try {
+        console.log(`Processing PDF file: ${file.name}, size: ${file.size} bytes`)
+        
+        // Write File to temporary location first (like multer does)
+        const arrayBuffer = await file.arrayBuffer()
+        const buffer = Buffer.from(arrayBuffer)
+        
+        const tempDir = os.tmpdir()
+        const tempFileName = `pdf-${Date.now()}-${Math.random().toString(36).substring(7)}.pdf`
+        tempFilePath = path.join(tempDir, tempFileName)
+        
+        console.log(`Writing PDF to temporary file: ${tempFilePath}`)
+        fs.writeFileSync(tempFilePath, buffer)
+        
+        // Now use fs.readFileSync exactly like online examples
+        console.log('Reading PDF with fs.readFileSync...')
+        const dataBuffer = fs.readFileSync(tempFilePath)
+        
+        // Use pdf-parse exactly like the documentation
+        console.log('Parsing PDF with pdf-parse...')
+        const pdfParse = require('pdf-parse')
+        const data = await pdfParse(dataBuffer)
+        
+        if (!data || !data.text) {
+          throw new Error('No text content found in PDF')
+        }
+        
+        const extractedText = data.text.trim()
+        if (extractedText.length === 0) {
+          throw new Error('PDF appears to contain no readable text')
+        }
+        
+        console.log(`PDF text extracted successfully: ${extractedText.length} characters from ${data.numpages} pages`)
+        console.log(`PDF info:`, data.info)
+        
+        return extractedText
+        
+      } catch (pdfError) {
+        console.error(`PDF parsing error for ${file.name}:`, pdfError)
+        
+        // Provide more specific error messages
+        if (pdfError instanceof Error) {
+          if (pdfError.message.includes('Invalid PDF') || pdfError.message.includes('PDF signature')) {
+            throw new Error('The uploaded file does not appear to be a valid PDF.')
+          } else if (pdfError.message.includes('Password') || pdfError.message.includes('encrypted')) {
+            throw new Error('This PDF is password protected and cannot be processed.')
+          } else if (pdfError.message.includes('no readable text') || pdfError.message.includes('No text content')) {
+            throw new Error('This PDF appears to contain no readable text. It may be a scanned image or require OCR processing.')
+          } else {
+            throw new Error(`PDF parsing failed: ${pdfError.message}`)
+          }
+        } else {
+          throw new Error('Unknown error occurred while processing PDF')
+        }
+      } finally {
+        // Clean up temporary file
+        if (tempFilePath) {
+          try {
+            console.log(`Cleaning up temporary file: ${tempFilePath}`)
+            fs.unlinkSync(tempFilePath)
+          } catch (cleanupError) {
+            console.warn(`Failed to cleanup temporary file ${tempFilePath}:`, cleanupError)
+          }
+        }
+      }
     } else if (fileType.includes('application/vnd.openxmlformats-officedocument.wordprocessingml.document') || fileName.endsWith('.docx')) {
       // For DOCX files, we'll do basic text extraction
       // In production, you'd want to use mammoth.js or similar
@@ -203,6 +315,47 @@ export function validateFiles(files: File[] | FileList): { isValid: boolean; err
     
     if (!isValidType) {
       errors.push(`Unsupported file type for ${file.name}. Please upload PDF, TXT, or DOCX files.`)
+    }
+  }
+  
+  return {
+    isValid: errors.length === 0,
+    errors
+  }
+}
+
+// Validate files by path (for formidable uploads)
+export function validateFilePaths(filePaths: Array<{filepath: string, originalFilename: string, size: number, mimetype: string}>): { isValid: boolean; errors: string[] } {
+  const errors: string[] = []
+  const maxFileSize = 10 * 1024 * 1024 // 10MB
+  const allowedTypes = ['text/plain', 'application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
+  
+  if (filePaths.length === 0) {
+    errors.push('No files selected')
+    return { isValid: false, errors }
+  }
+  
+  if (filePaths.length > 5) {
+    errors.push('You can upload a maximum of 5 files at once. Please select fewer files and try again.')
+  }
+  
+  for (const file of filePaths) {
+    if (!file || typeof file.size === 'undefined') {
+      errors.push(`Invalid file object received`)
+      continue
+    }
+    
+    // Check file size
+    if (file.size > maxFileSize) {
+      errors.push(`${file.originalFilename} is too large (max 10MB)`)
+    }
+    
+    // Check file type
+    const isValidType = allowedTypes.includes(file.mimetype) || 
+                       file.originalFilename.match(/\.(txt|pdf|docx)$/i)
+    
+    if (!isValidType) {
+      errors.push(`Unsupported file type for ${file.originalFilename}. Please upload PDF, TXT, or DOCX files.`)
     }
   }
   

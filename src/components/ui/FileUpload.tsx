@@ -4,7 +4,7 @@ import React, { useState, useRef } from 'react'
 import { FileUploadProps } from '@/types'
 
 const SUPPORTED_TYPES = [
-  // 'application/pdf', // Temporarily disabled while fixing library issues
+  'application/pdf',
   'text/plain',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   'application/msword'
@@ -149,7 +149,7 @@ export default function FileUpload({
           data-testid="file-input"
           type="file"
           multiple
-          accept=".txt,.docx,.doc"
+          accept=".pdf,.txt,.docx,.doc"
           onChange={handleInputChange}
           className="hidden"
         />
@@ -194,7 +194,7 @@ export default function FileUpload({
           data-testid="file-input"
           type="file"
           multiple
-          accept=".txt,.docx,.doc"
+          accept=".pdf,.txt,.docx,.doc"
           onChange={handleInputChange}
           className="hidden"
         />
@@ -208,7 +208,7 @@ export default function FileUpload({
         </h3>
         
         <p className="text-gray-600 mb-6 text-lg">
-          {isDragOver ? 'Release to make AI smarter!' : 'TXT, DOCX supported (up to 10MB) - PDF coming soon!'}
+          {isDragOver ? 'Release to make AI smarter!' : 'PDF, TXT, DOCX supported (up to 10MB)'}
         </p>
         
         <button className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-8 py-3 rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 font-semibold">

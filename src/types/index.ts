@@ -35,4 +35,5 @@ export interface ChatInterfaceProps {
   systemPrompt?: string // Custom system prompt for role-based behavior
   roleContext?: string // Current role context for enhanced responses
   suggestedQuestions?: string[] // Questions that can be clicked to auto-send
+  onSessionUpdate?: (sessionId: string | null, hasFiles: boolean) => void // Called when session state changes
 } 

@@ -25,34 +25,7 @@ jest.mock('openai', () => {
   }
 })
 
-// Mock pg module
-jest.mock('pg', () => {
-  const mockQuery = jest.fn()
-  const mockConnect = jest.fn()
-  const mockEnd = jest.fn()
-  const mockRelease = jest.fn()
-  
-  const mockClient = {
-    query: mockQuery,
-    release: mockRelease
-  }
-  
-  const mockPool = {
-    query: mockQuery,
-    connect: jest.fn().mockResolvedValue(mockClient),
-    end: mockEnd
-  }
-  
-  return {
-    Pool: jest.fn().mockImplementation(() => mockPool),
-    __mockQuery: mockQuery,
-    __mockConnect: mockConnect,
-    __mockEnd: mockEnd,
-    __mockRelease: mockRelease,
-    __mockPool: mockPool,
-    __mockClient: mockClient
-  }
-})
+
 
 // Mock scrollIntoView for JSDOM
 Object.defineProperty(Element.prototype, 'scrollIntoView', {

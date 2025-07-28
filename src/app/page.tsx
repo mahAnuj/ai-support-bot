@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react'
 import ChatInterface from '@/components/ui/ChatInterface'
+import WidgetGenerator from '@/components/ui/WidgetGenerator'
 
 // Role-based configuration
 const ASSISTANT_ROLES = {
@@ -81,6 +82,9 @@ const ASSISTANT_ROLES = {
 
 export default function Home() {
   const [selectedRole, setSelectedRole] = useState<keyof typeof ASSISTANT_ROLES>('ecommerce')
+  const [showWidgetGenerator, setShowWidgetGenerator] = useState(false)
+  const [sessionId, setSessionId] = useState<string | null>(null)
+  const [hasUploadedFiles, setHasUploadedFiles] = useState(false)
   const currentRole = ASSISTANT_ROLES[selectedRole]
   const chatRef = useRef<any>(null)
 
@@ -89,6 +93,18 @@ export default function Home() {
     if (chatRef.current && chatRef.current.sendQuestion) {
       chatRef.current.sendQuestion(question)
     }
+  }
+
+  // Handle session state updates from ChatInterface
+  const handleSessionUpdate = (newSessionId: string | null, hasFiles: boolean) => {
+    setSessionId(newSessionId)
+    setHasUploadedFiles(hasFiles)
+  }
+
+  const handleWidgetGenerated = (widgetKey: string) => {
+    console.log('Widget generated with key:', widgetKey)
+    // Keep modal open so user can see and copy the generated script
+    // User can close manually after copying
   }
 
   return (
@@ -180,13 +196,26 @@ export default function Home() {
           {/* Right Side - Chat Interface */}
           <div className="lg:col-span-2">
             <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-              <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4">
-                <h2 className="text-xl font-bold text-white mb-2">
-                  {currentRole.title} Demo
-                </h2>
-                <p className="text-blue-100 text-sm">
-                  Currently configured as: {currentRole.description}
-                </p>
+              <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4 flex justify-between items-center">
+                <div>
+                  <h2 className="text-xl font-bold text-white mb-2">
+                    {currentRole.title} Demo
+                  </h2>
+                  <p className="text-blue-100 text-sm">
+                    Currently configured as: {currentRole.description}
+                  </p>
+                </div>
+                
+                {/* Widget Generation Button */}
+                {hasUploadedFiles && sessionId && (
+                  <button
+                    onClick={() => setShowWidgetGenerator(true)}
+                    className="bg-white text-blue-600 px-4 py-2 rounded-lg font-medium hover:bg-blue-50 transition-colors flex items-center gap-2 text-sm whitespace-nowrap"
+                  >
+                    <span>🚀</span>
+                    Generate Bot
+                  </button>
+                )}
               </div>
               
               <div className="h-[600px]">
@@ -195,6 +224,7 @@ export default function Home() {
                   systemPrompt={currentRole.systemPrompt}
                   roleContext={selectedRole}
                   suggestedQuestions={currentRole.suggestedQuestions}
+                  onSessionUpdate={handleSessionUpdate}
                 />
               </div>
             </div>
@@ -228,6 +258,35 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {/* Widget Generator Modal */}
+      {showWidgetGenerator && sessionId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">
+                  🚀 Generate Embeddable AI Bot
+                </h2>
+                <button
+                  onClick={() => setShowWidgetGenerator(false)}
+                  className="text-gray-400 hover:text-gray-600 text-xl"
+                >
+                  ✕
+                </button>
+              </div>
+              
+              <WidgetGenerator
+                sessionId={sessionId}
+                hasUploadedFiles={hasUploadedFiles}
+                roleContext={selectedRole}
+                systemPrompt={currentRole.systemPrompt}
+                onGenerate={handleWidgetGenerated}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

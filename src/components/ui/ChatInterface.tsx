@@ -13,7 +13,7 @@ interface ChatResponse {
   sessionId: string
 }
 
-const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, ChatInterfaceProps>(({ onShareResult, systemPrompt, roleContext, suggestedQuestions }, ref) => {
+const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, ChatInterfaceProps>(({ onShareResult, systemPrompt, roleContext, suggestedQuestions, onSessionUpdate }, ref) => {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [inputValue, setInputValue] = useState('')
   const [isTyping, setIsTyping] = useState(false)
@@ -32,6 +32,11 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, C
   useEffect(() => {
     scrollToBottom()
   }, [messages])
+
+  // Notify parent of session state changes
+  useEffect(() => {
+    onSessionUpdate?.(sessionId || null, hasUploadedFiles)
+  }, [sessionId, hasUploadedFiles, onSessionUpdate])
 
   // Expose the sendQuestion method to parent components
   useImperativeHandle(ref, () => ({
@@ -282,7 +287,7 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, C
                 {hasUploadedFiles && <span className="text-green-600 ml-2">✅ Enhanced</span>}
               </h3>
               <p className="text-xs text-blue-600">
-                Add TXT, DOCX files for specific answers
+                Add PDF, TXT, DOCX files for specific answers
                 {sessionId && <span className="ml-2 text-gray-500">• Session: {sessionId.slice(0, 8)}...</span>}
               </p>
             </div>
@@ -298,6 +303,8 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, C
           </div>
         </div>
       </div>
+
+      
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">

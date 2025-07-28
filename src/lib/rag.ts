@@ -27,7 +27,7 @@ export interface RAGQueryResult {
 const embeddingCache = new Map<string, number[]>()
 
 // Get cached embedding or generate new one
-async function getCachedEmbedding(text: string): Promise<number[]> {
+export async function getCachedEmbedding(text: string): Promise<number[]> {
   const cacheKey = text.trim().toLowerCase()
   
   if (embeddingCache.has(cacheKey)) {
@@ -127,7 +127,7 @@ export async function queryRAG(
   sessionId: string, 
   query: string,
   maxResults: number = 5,
-  similarityThreshold: number = 0.5 // Lowered threshold for better recall
+  similarityThreshold: number = 0.3 // Lowered threshold for better document recall
 ): Promise<RAGQueryResult> {
   // Check if session exists and update access time
   const session = await getSession(sessionId)
