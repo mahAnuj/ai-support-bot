@@ -70,12 +70,29 @@ export const ENTERPRISE_PLANS = {
     max_queries_per_month: 1000,
     features: {
       sso_enabled: false,
+      custom_domains: [],
+      ip_whitelisting: [],
+      audit_logging: false,
       custom_branding: false,
+      white_labeling: false,
+      custom_css: '',
+      custom_javascript: '',
+      webhook_endpoints: [],
       api_access: false,
+      crm_integrations: [],
       advanced_analytics: false,
+      custom_reports: false,
+      real_time_monitoring: false,
+      data_export: false,
       dedicated_infrastructure: false,
       priority_support: false,
-      sla_guarantee: 99.0
+      sla_guarantee: 99.0,
+      rate_limiting: {
+        requests_per_minute: 10,
+        requests_per_hour: 100,
+        requests_per_day: 1000,
+        concurrent_connections: 5
+      }
     }
   },
   pro: {
@@ -84,12 +101,29 @@ export const ENTERPRISE_PLANS = {
     max_queries_per_month: 10000,
     features: {
       sso_enabled: true,
+      custom_domains: [],
+      ip_whitelisting: [],
+      audit_logging: false,
       custom_branding: true,
+      white_labeling: false,
+      custom_css: '',
+      custom_javascript: '',
+      webhook_endpoints: [],
       api_access: true,
+      crm_integrations: [],
       advanced_analytics: true,
+      custom_reports: false,
+      real_time_monitoring: true,
+      data_export: false,
       dedicated_infrastructure: false,
       priority_support: true,
-      sla_guarantee: 99.5
+      sla_guarantee: 99.5,
+      rate_limiting: {
+        requests_per_minute: 100,
+        requests_per_hour: 5000,
+        requests_per_day: 50000,
+        concurrent_connections: 50
+      }
     }
   },
   enterprise: {
@@ -98,17 +132,29 @@ export const ENTERPRISE_PLANS = {
     max_queries_per_month: -1,
     features: {
       sso_enabled: true,
+      custom_domains: [],
+      ip_whitelisting: [],
+      audit_logging: true,
       custom_branding: true,
       white_labeling: true,
+      custom_css: '',
+      custom_javascript: '',
+      webhook_endpoints: [],
       api_access: true,
+      crm_integrations: [],
       advanced_analytics: true,
       custom_reports: true,
       real_time_monitoring: true,
       data_export: true,
       dedicated_infrastructure: true,
       priority_support: true,
-      audit_logging: true,
-      sla_guarantee: 99.9
+      sla_guarantee: 99.9,
+      rate_limiting: {
+        requests_per_minute: 1000,
+        requests_per_hour: 50000,
+        requests_per_day: 1000000,
+        concurrent_connections: 500
+      }
     }
   }
 }
