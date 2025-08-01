@@ -334,7 +334,7 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, C
               ? "Ask me anything about your business..." 
               : "Ask me anything (upload docs for better answers)..."
             }
-            className="flex-1 p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 placeholder-gray-500"
+            className="flex-1 p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 placeholder-gray-500 text-gray-900 bg-white"
             disabled={isTyping}
           />
           <button
@@ -379,21 +379,21 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, C
                 placeholder="Your Name"
                 value={leadInfo.name}
                 onChange={(e) => setLeadInfo(prev => ({...prev, name: e.target.value}))}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white placeholder-gray-500"
               />
               <input
                 type="email"
                 placeholder="Email Address"
                 value={leadInfo.email}
                 onChange={(e) => setLeadInfo(prev => ({...prev, email: e.target.value}))}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white placeholder-gray-500"
               />
               <input
                 type="text"
                 placeholder="Company (Optional)"
                 value={leadInfo.company}
                 onChange={(e) => setLeadInfo(prev => ({...prev, company: e.target.value}))}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white placeholder-gray-500"
               />
             </div>
             

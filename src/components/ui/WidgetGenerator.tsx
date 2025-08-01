@@ -161,7 +161,7 @@ const WidgetGenerator: React.FC<WidgetGeneratorProps> = ({
               type="text"
               value={config.title}
               onChange={(e) => setConfig({ ...config, title: e.target.value })}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white placeholder-gray-500"
               placeholder="Support Assistant"
             />
           </div>
@@ -174,7 +174,7 @@ const WidgetGenerator: React.FC<WidgetGeneratorProps> = ({
               type="text"
               value={config.welcome_message}
               onChange={(e) => setConfig({ ...config, welcome_message: e.target.value })}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white placeholder-gray-500"
               placeholder="Hi! How can I help you with your questions?"
             />
           </div>
@@ -203,7 +203,7 @@ const WidgetGenerator: React.FC<WidgetGeneratorProps> = ({
             <select
               value={config.position}
               onChange={(e) => setConfig({ ...config, position: e.target.value as any })}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
             >
               <option value="bottom-right">Bottom Right (Recommended)</option>
               <option value="bottom-left">Bottom Left</option>

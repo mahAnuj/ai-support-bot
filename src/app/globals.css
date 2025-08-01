@@ -167,6 +167,25 @@ html {
   }
 }
 
+/* Form input styling for better contrast */
+input[type="text"], 
+input[type="email"], 
+input[type="password"], 
+input[type="url"],
+input[type="tel"],
+input[type="number"],
+textarea,
+select {
+  color: #1f2937 !important;
+  background-color: #ffffff !important;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #6b7280 !important;
+  opacity: 1;
+}
+
 /* Enhanced scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
