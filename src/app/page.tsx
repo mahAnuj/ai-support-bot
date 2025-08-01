@@ -80,7 +80,7 @@ export default function HomePage() {
 
     } catch (error) {
       console.error('Error uploading files:', error)
-      
+
       // Show specific error message to user
       if (error instanceof Error) {
         if (error.message.includes('OPENAI_API_KEY')) {
@@ -249,7 +249,7 @@ export default function HomePage() {
               </div>
             </div>
           </div>
-          
+
           <div className="p-8">
             <div className="grid md:grid-cols-4 gap-6">
               <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
@@ -262,7 +262,7 @@ export default function HomePage() {
                 <div className="text-2xl font-bold text-gray-900 mb-1">{analytics.totalChats.toLocaleString()}</div>
                 <div className="text-gray-600 text-sm">Total Conversations</div>
               </div>
-              
+
               <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
                 <div className="flex items-center justify-between mb-4">
                   <div className="bg-green-100 w-10 h-10 rounded-lg flex items-center justify-center">
@@ -273,7 +273,7 @@ export default function HomePage() {
                 <div className="text-2xl font-bold text-gray-900 mb-1">{analytics.avgResponseTime}</div>
                 <div className="text-gray-600 text-sm">Avg Response Time</div>
               </div>
-              
+
               <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
                 <div className="flex items-center justify-between mb-4">
                   <div className="bg-yellow-100 w-10 h-10 rounded-lg flex items-center justify-center">
@@ -284,7 +284,7 @@ export default function HomePage() {
                 <div className="text-2xl font-bold text-gray-900 mb-1">{analytics.satisfactionScore}%</div>
                 <div className="text-gray-600 text-sm">Satisfaction Score</div>
               </div>
-              
+
               <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
                 <div className="flex items-center justify-between mb-4">
                   <div className="bg-purple-100 w-10 h-10 rounded-lg flex items-center justify-center">
@@ -305,7 +305,7 @@ export default function HomePage() {
             <h2 className="text-3xl font-bold text-gray-900 mb-2">🚀 Enterprise Features</h2>
             <p className="text-gray-600">Advanced capabilities that set us apart from basic chatbots</p>
           </div>
-          
+
           <div className="p-8">
             <div className="grid md:grid-cols-2 gap-8">
               <div className="space-y-6">
@@ -329,7 +329,7 @@ export default function HomePage() {
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
                   <div className="flex items-center gap-4 mb-4">
                     <div className="bg-gradient-to-r from-purple-500 to-pink-500 w-12 h-12 rounded-xl flex items-center justify-center">
@@ -349,7 +349,7 @@ export default function HomePage() {
                   </div>
                 </div>
               </div>
-              
+
               <div className="space-y-6">
                 <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
                   <div className="flex items-center gap-4 mb-4">
@@ -370,7 +370,7 @@ export default function HomePage() {
                     ))}
                   </div>
                 </div>
-                
+
                 <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
                   <div className="flex items-center gap-4 mb-4">
                     <div className="bg-gradient-to-r from-orange-500 to-red-500 w-12 h-12 rounded-xl flex items-center justify-center">
@@ -485,11 +485,14 @@ export default function HomePage() {
 
         {/* Widget Configuration Section */}
         {uploadedDocuments.length > 0 && (
-          <div className="mt-16 bg-gradient-to-r from-green-50 to-blue-50 rounded-3xl shadow-2xl border border-green-200 overflow-hidden">
+          
+<div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-3xl shadow-2xl border border-green-200 overflow-hidden">
             <div className="bg-gradient-to-r from-green-500 to-blue-600 px-8 py-6 text-white">
               <div className="flex items-center gap-4">
                 <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center">
-                  <span className="text-3xl">🚀</span>
+                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                  </svg>
                 </div>
                 <div>
                   <h2 className="text-3xl font-bold mb-2">Step 3: Deploy Your AI Assistant</h2>
@@ -507,7 +510,7 @@ export default function HomePage() {
                       <span className="text-2xl">🎨</span>
                       Customize Your Assistant
                     </h3>
-                    
+
                     <div className="space-y-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -619,7 +622,7 @@ export default function HomePage() {
                       <span className="text-2xl">👀</span>
                       Live Preview
                     </h3>
-                    
+
                     <div className="bg-gray-100 rounded-lg p-4 mb-6 h-64 flex items-center justify-center">
                       <div className="text-center text-gray-500">
                         <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center text-white text-2xl"
