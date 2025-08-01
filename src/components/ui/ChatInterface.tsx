@@ -24,11 +24,24 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, C
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    // Only scroll if the messages container exists and we're within the chat area
+    if (messagesEndRef.current) {
+      const chatContainer = messagesEndRef.current.closest('.overflow-y-auto')
+      if (chatContainer) {
+        messagesEndRef.current.scrollIntoView({ 
+          behavior: 'smooth',
+          block: 'end',
+          inline: 'nearest'
+        })
+      }
+    }
   }
 
   useEffect(() => {
-    scrollToBottom()
+    // Only auto-scroll when new messages are added, not on initial load
+    if (messages.length > 0) {
+      scrollToBottom()
+    }
   }, [messages])
 
   // Sync session ID from parent prop
@@ -184,7 +197,7 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, C
       </div>
 
       {/* Chat Messages */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+      <div className="flex-1 overflow-y-auto p-6 space-y-4 scroll-smooth" style={{ scrollBehavior: 'smooth', overscrollBehavior: 'contain' }}>
         {messages.length === 0 && (
           <div className="text-center py-8">
             <div className="mb-8">
@@ -313,6 +326,10 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, C
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
+            onFocus={(e) => {
+              // Prevent page scroll when input is focused
+              e.preventDefault()
+            }}
             placeholder={hasUploadedFiles 
               ? "Ask me anything about your business..." 
               : "Ask me anything (upload docs for better answers)..."
