@@ -132,19 +132,19 @@ export default function EnterprisePanel({ businessId, planType = 'free' }: Enter
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <div className="bg-blue-50 rounded-lg p-4 text-center">
                   <div className="text-2xl font-bold text-blue-600">{enterpriseMetrics.apiCalls.toLocaleString()}</div>
-                  <div className="text-sm text-gray-600">API Calls Today</div>
+                  <div className="text-sm text-gray-800">API Calls Today</div>
                 </div>
                 <div className="bg-green-50 rounded-lg p-4 text-center">
                   <div className="text-2xl font-bold text-green-600">{enterpriseMetrics.webhooks.toLocaleString()}</div>
-                  <div className="text-sm text-gray-600">Webhook Deliveries</div>
+                  <div className="text-sm text-gray-800">Webhook Deliveries</div>
                 </div>
                 <div className="bg-purple-50 rounded-lg p-4 text-center">
                   <div className="text-2xl font-bold text-purple-600">{enterpriseMetrics.ssoLogins}</div>
-                  <div className="text-sm text-gray-600">SSO Logins Today</div>
+                  <div className="text-sm text-gray-800">SSO Logins Today</div>
                 </div>
                 <div className="bg-orange-50 rounded-lg p-4 text-center">
                   <div className="text-2xl font-bold text-orange-600">{enterpriseMetrics.auditEvents}</div>
-                  <div className="text-sm text-gray-600">Audit Events</div>
+                  <div className="text-sm text-gray-800">Audit Events</div>
                 </div>
               </div>
             )}
@@ -234,12 +234,12 @@ export default function EnterprisePanel({ businessId, planType = 'free' }: Enter
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-gray-50 rounded-lg p-4">
                   <h4 className="font-medium mb-2">Custom Reports</h4>
-                  <p className="text-sm text-gray-600">Create and schedule custom analytics reports</p>
+                  <p className="text-sm text-gray-800">Create and schedule custom analytics reports</p>
                   <button className="mt-2 text-blue-600 hover:text-blue-800 text-sm">Configure →</button>
                 </div>
                 <div className="bg-gray-50 rounded-lg p-4">
                   <h4 className="font-medium mb-2">Data Export</h4>
-                  <p className="text-sm text-gray-600">Export conversation data and analytics</p>
+                  <p className="text-sm text-gray-800">Export conversation data and analytics</p>
                   <button className="mt-2 text-blue-600 hover:text-blue-800 text-sm">Export →</button>
                 </div>
               </div>
