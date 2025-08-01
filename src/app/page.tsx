@@ -240,9 +240,14 @@ export default function HomePage() {
           <div className="bg-gradient-to-r from-green-500 to-emerald-500 px-8 py-6 text-white">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-3xl font-bold mb-2">📊 Real-time Business Intelligence</h2>
-                <p className="text-green-100">See how your AI assistant performs and drives business value</p>
+              <div className="flex items-center gap-3 mb-2">
+                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                <h2 className="text-3xl font-bold">Real-time Business Intelligence</h2>
               </div>
+              <p className="text-green-100">See how your AI assistant performs and drives business value</p>
+            </div>
               <div className="bg-white/20 rounded-lg p-4 text-center">
                 <div className="text-2xl font-bold">$2,847</div>
                 <div className="text-sm text-green-100">Monthly Savings</div>
@@ -485,7 +490,7 @@ export default function HomePage() {
 
         {/* Widget Configuration Section */}
         {uploadedDocuments.length > 0 && (
-          
+
 <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-3xl shadow-2xl border border-green-200 overflow-hidden">
             <div className="bg-gradient-to-r from-green-500 to-blue-600 px-8 py-6 text-white">
               <div className="flex items-center gap-4">
@@ -621,9 +626,7 @@ export default function HomePage() {
                     <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
                       <span className="text-2xl">👀</span>
                       Live Preview
-                    </h3>
-
-                    <div className="bg-gray-100 rounded-lg p-4 mb-6 h-64 flex items-center justify-center">
+                    </h3>                    <div className="bg-gray-100 rounded-lg p-4 mb-6 h-64 flex items-center justify-center">
                       <div className="text-center text-gray-500">
                         <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center text-white text-2xl"
                              style={{ backgroundColor: widgetConfig.primary_color }}>
