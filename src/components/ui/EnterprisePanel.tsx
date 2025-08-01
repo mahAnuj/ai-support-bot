@@ -259,10 +259,10 @@ function FeatureCard({ title, enabled, description }: {
   return (
     <div className="border rounded-lg p-4">
       <div className="flex items-center justify-between mb-2">
-        <h4 className="font-medium">{title}</h4>
+        <h4 className="font-medium text-gray-900">{title}</h4>
         <span className={`w-3 h-3 rounded-full ${enabled ? 'bg-green-500' : 'bg-gray-300'}`}></span>
       </div>
-      <p className="text-sm text-gray-600">{description}</p>
+      <p className="text-sm text-gray-800">{description}</p>
     </div>
   )
 }
