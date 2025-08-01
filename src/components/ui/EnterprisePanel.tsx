@@ -251,6 +251,142 @@ export default function EnterprisePanel({ businessId, planType = 'free' }: Enter
             )}
           </div>
         )}
+
+        {activeTab === 'customization' && (
+          <div className="space-y-6">
+            <h3 className="text-lg font-semibold text-gray-900">Advanced Branding & Customization</h3>
+
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="bg-gradient-to-r from-orange-500 to-red-500 w-12 h-12 rounded-xl flex items-center justify-center">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17v4a2 2 0 002 2h4M13 13h4a2 2 0 012 2v4a2 2 0 01-2 2H9a2 2 0 01-2-2v-4a2 2 0 012-2h4z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-gray-900">Brand Themes</h4>
+                    <p className="text-gray-600 text-sm">Complete visual customization</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="bg-gradient-to-r from-blue-400 to-blue-600 rounded-lg h-12 flex items-center justify-center text-white text-sm font-medium">
+                    Brand Theme 1
+                  </div>
+                  <div className="bg-gradient-to-r from-purple-400 to-pink-600 rounded-lg h-12 flex items-center justify-center text-white text-sm font-medium">
+                    Brand Theme 2
+                  </div>
+                </div>
+                <button 
+                  disabled={planType === 'free'}
+                  className="w-full bg-orange-600 text-white py-2 rounded hover:bg-orange-700 disabled:opacity-50"
+                >
+                  {planType === 'free' ? 'Pro Feature' : 'Customize Themes'}
+                </button>
+              </div>
+
+              <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="bg-gradient-to-r from-indigo-500 to-purple-500 w-12 h-12 rounded-xl flex items-center justify-center">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-gray-900">Logo & Assets</h4>
+                    <p className="text-gray-600 text-sm">Upload custom logos and images</p>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+                    <svg className="mx-auto w-8 h-8 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                    <p className="text-sm text-gray-500">Upload Company Logo</p>
+                  </div>
+                  <button 
+                    disabled={planType === 'free'}
+                    className="w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700 disabled:opacity-50"
+                  >
+                    {planType === 'free' ? 'Pro Feature' : 'Manage Assets'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="bg-gradient-to-r from-green-500 to-teal-500 w-12 h-12 rounded-xl flex items-center justify-center">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-gray-900">Custom CSS</h4>
+                    <p className="text-gray-600 text-sm">Advanced styling controls</p>
+                  </div>
+                </div>
+                <div className="bg-gray-900 rounded-lg p-3 mb-3">
+                  <code className="text-green-400 text-xs">
+                    .chat-widget &#123;<br/>
+                    &nbsp;&nbsp;border-radius: 20px;<br/>
+                    &nbsp;&nbsp;box-shadow: 0 4px 20px rgba(0,0,0,0.1);<br/>
+                    &#125;
+                  </code>
+                </div>
+                <button 
+                  disabled={planType !== 'enterprise'}
+                  className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 disabled:opacity-50"
+                >
+                  {planType !== 'enterprise' ? 'Enterprise Feature' : 'Edit Custom CSS'}
+                </button>
+              </div>
+
+              <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="bg-gradient-to-r from-pink-500 to-rose-500 w-12 h-12 rounded-xl flex items-center justify-center">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-gray-900">White Labeling</h4>
+                    <p className="text-gray-600 text-sm">Remove all branding references</p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-700">Hide "Powered by" text</span>
+                    <div className={`w-10 h-6 rounded-full ${planType === 'enterprise' ? 'bg-green-500' : 'bg-gray-300'} relative`}>
+                      <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-transform ${planType === 'enterprise' ? 'translate-x-5' : 'translate-x-1'}`}></div>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-700">Custom domain</span>
+                    <div className={`w-10 h-6 rounded-full ${planType === 'enterprise' ? 'bg-green-500' : 'bg-gray-300'} relative`}>
+                      <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-transform ${planType === 'enterprise' ? 'translate-x-5' : 'translate-x-1'}`}></div>
+                    </div>
+                  </div>
+                </div>
+                <button 
+                  disabled={planType !== 'enterprise'}
+                  className="w-full mt-4 bg-pink-600 text-white py-2 rounded hover:bg-pink-700 disabled:opacity-50"
+                >
+                  {planType !== 'enterprise' ? 'Enterprise Feature' : 'Configure White Label'}
+                </button>
+              </div>
+            </div>
+
+            {planType === 'free' && (
+              <div className="bg-gradient-to-r from-orange-50 to-red-50 rounded-xl p-6 border border-orange-200 text-center">
+                <h4 className="text-lg font-bold text-orange-900 mb-2">Unlock Advanced Branding</h4>
+                <p className="text-orange-700 mb-4">Customize your chat widget with advanced branding options</p>
+                <button className="bg-orange-600 text-white px-6 py-3 rounded-lg hover:bg-orange-700 font-medium">
+                  Upgrade to Pro
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -439,49 +575,7 @@ function BusinessIntelligenceTab({ planType }: { planType: string }) {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="bg-gradient-to-r from-green-500 to-emerald-500 w-12 h-12 rounded-xl flex items-center justify-center">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-              </svg>
-            </div>
-            <div>
-              <h4 className="font-bold text-gray-900">CRM Integration</h4>
-              <p className="text-gray-600 text-sm">Sync with Salesforce, HubSpot, Zendesk</p>
-            </div>
-          </div>
-          <div className="space-y-2">
-            {['Salesforce', 'HubSpot', 'Zendesk', 'Intercom'].map((tool, i) => (
-              <div key={i} className="flex items-center justify-between bg-gray-50 rounded-lg p-3">
-                <span className="text-gray-700 text-sm font-medium">{tool}</span>
-                <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs">Connected</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="bg-gradient-to-r from-orange-500 to-red-500 w-12 h-12 rounded-xl flex items-center justify-center">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17v4a2 2 0 002 2h4M13 13h4a2 2 0 012 2v4a2 2 0 01-2 2H9a2 2 0 01-2-2v-4a2 2 0 012-2h4z" />
-              </svg>
-            </div>
-            <div>
-              <h4 className="font-bold text-gray-900">Advanced Branding</h4>
-              <p className="text-gray-600 text-sm">Complete visual customization</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-gradient-to-r from-blue-400 to-blue-600 rounded-lg h-12 flex items-center justify-center text-white text-sm font-medium">
-              Brand Theme 1
-            </div>
-            <div className="bg-gradient-to-r from-purple-400 to-pink-600 rounded-lg h-12 flex items-center justify-center text-white text-sm font-medium">
-              Brand Theme 2
-            </div>
-          </div>
-        </div>
+        
       </div>
 
       {planType === 'free' && (
