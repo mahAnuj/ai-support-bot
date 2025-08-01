@@ -1,31 +1,29 @@
-# 🤖 AI Role-Based Assistant
+# 🚀 AI Assistant Builder
 
-> **Specialized AI assistants for different business roles with document-enhanced intelligence**
+> **Create custom AI assistants trained on your business knowledge in minutes**
 
-A powerful demonstration showing how AI assistants can be customized for specific business roles (HR, Technical Support, Sales, etc.) and enhanced with your own documents using RAG technology.
+A powerful platform that lets any business build, test, and deploy intelligent AI assistants trained on their specific documents and knowledge base. Transform generic AI into domain experts with just a few clicks.
 
 ## ✨ What It Does
 
-### 🎭 **Multiple Business Roles**
-- **HR Assistant**: Employee policies, benefits, workplace procedures
-- **Technical Support**: Product troubleshooting, user guides, technical documentation  
-- **Sales Assistant**: Product information, pricing, customer support
-- **Legal Advisor**: Contract reviews, compliance, legal procedures
-- **Medical Assistant**: Healthcare information, procedures, patient support
-- **E-commerce Support**: Order management, returns, customer service
+### 🎯 **Complete AI Assistant Builder**
+- **Custom Configuration**: Set display name, welcome message, colors, and positioning
+- **Document Training**: Upload business documents (PDF, TXT, MD, DOCX) for AI training
+- **Live Preview**: See exactly how your assistant will look and behave
+- **One-Click Deployment**: Generate embeddable JavaScript code for your website
+- **Professional UI**: Clean, mobile-responsive design that works on any website
 
-### 📚 **Document Enhancement**
-- Upload your business documents (PDF, TXT, DOCX)
-- Watch AI responses transform from generic to expert-level
-- Real-time confidence indicators show improvement
-- Source attribution shows which documents were used
+### 📚 **Intelligent Document Processing**
+- **Smart Chunking**: Automatically processes and segments your documents
+- **Vector Search**: Uses advanced embeddings for accurate information retrieval
+- **Source Attribution**: Shows which documents were used in each response
+- **Confidence Scoring**: Real-time indicators show response quality and reliability
 
-### 🎯 **Key Features**
-- **Always-visible upload**: Prominent document upload section
-- **Role-specific prompts**: Suggested questions for each business role
-- **Clickable questions**: Click any suggested question to ask automatically
-- **Professional UI**: Clean design with confidence indicators
-- **Session management**: Isolated conversations with automatic cleanup
+### 🌐 **Production-Ready Deployment**
+- **Embeddable Widget**: Copy-paste JavaScript code to add to any website
+- **Customizable Appearance**: Match your brand colors and positioning preferences
+- **Mobile Optimized**: Works seamlessly on desktop, tablet, and mobile devices
+- **Secure & Private**: Session-based isolation with automatic data cleanup
 
 ## 🚀 Quick Start
 
@@ -35,99 +33,192 @@ git clone https://github.com/mahAnuj/ai-support-bot.git
 cd ai-support-bot
 npm install
 
-# Add your OpenAI API key
-echo "OPENAI_API_KEY=your_key_here" > .env.local
+# Setup environment variables
+cp .env.example .env.local
+# Add your API keys to .env.local:
+# OPENAI_API_KEY=your_openai_key
+# SUPABASE_URL=your_supabase_url
+# SUPABASE_ANON_KEY=your_supabase_key
 
-# Start the assistant
+# Setup database (optional - uses file storage by default)
+npm run setup-db
+
+# Start the builder
 npm run dev
 ```
 
-Visit [http://localhost:3000](http://localhost:3000) and select your role!
+Visit [http://localhost:3000](http://localhost:3000) and start building your AI assistant!
+
+## 🎥 Demo Features
+
+### **🎨 Live Configuration**
+- Real-time preview as you customize
+- See exactly what customers will experience
+- Instant updates when you change settings
+
+### **📄 Smart Document Processing**
+- Drag & drop PDF, DOCX, TXT, MD files
+- Automatic chunking and indexing
+- Progress indicators and success confirmation
+
+### **🚀 One-Click Deployment**
+- Generate production-ready JavaScript code
+- Copy-paste integration for any website
+- Complete implementation guide included
 
 ## 🎪 How It Works
 
-1. **Choose Your Role**: Select from 6 pre-configured business assistants
-2. **Ask Questions**: Try the suggested questions or ask your own
-3. **Upload Documents**: Add your business documents to enhance responses
-4. **See the Magic**: Watch confidence jump from 30% to 95% with better answers
+1. **Test the AI**: Try sample questions to see baseline performance
+2. **Upload Documents**: Add your business knowledge (PDFs, docs, text files)
+3. **Configure Assistant**: Customize name, welcome message, colors, and position
+4. **Live Preview**: See real-time improvements in the chat interface
+5. **Deploy**: Generate and copy embeddable code for your website
 
 ## 📊 Before vs After
 
 | Without Documents | With Documents |
 |------------------|----------------|
-| Generic responses | Domain-specific answers |
+| Generic responses | Business-specific answers |
+| "I don't know" | Cites your actual policies |
 | 30% confidence | 95% confidence |
 | Basic information | Detailed, accurate guidance |
 | No source attribution | Clear document references |
 
 ## 🛠 Technology Stack
 
-- **Frontend**: Next.js 14 + TypeScript + Tailwind CSS
-- **Backend**: Next.js API routes
-- **AI**: OpenAI GPT-4o-mini
-- **Vector Search**: In-memory database with cosine similarity
-- **File Processing**: PDF, TXT, DOCX support
+- **Frontend**: Next.js 14 + TypeScript + Tailwind CSS + Shadcn/ui
+- **Backend**: Next.js API routes (serverless)
+- **Database**: Supabase PostgreSQL + pgvector
+- **AI**: OpenAI GPT-4o-mini (cost-optimized)
+- **Vector Search**: Supabase vector similarity functions
+- **File Processing**: Built-in PDF, TXT, MD, DOCX support
 - **Enhancement**: RAG (Retrieval-Augmented Generation)
+- **Deployment**: Vercel-ready with one-click deploy
 
 ## 🚀 Deployment
 
 ### **Vercel (Recommended)**
 ```bash
+# Build and deploy
 npm run build
 vercel --prod
+
+# Set environment variables in Vercel dashboard:
+# OPENAI_API_KEY, SUPABASE_URL, SUPABASE_ANON_KEY
 ```
 
 ### **Environment Variables**
 ```bash
+# Required
 OPENAI_API_KEY=your_openai_api_key
+
+# Database (optional - falls back to file storage)
+SUPABASE_URL=your_supabase_project_url
+SUPABASE_ANON_KEY=your_supabase_anon_key
+
+# Optional
+NEXT_PUBLIC_APP_URL=https://yourdomain.com
 ```
 
-## 🎨 Customization
+## ⚙️ Configuration
 
-### **Adding New Roles**
-Edit `src/app/page.tsx` to add new assistant roles:
+### **Assistant Settings**
+The platform allows full customization of AI assistants:
 
 ```typescript
-const ASSISTANT_ROLES = {
-  newRole: {
-    title: "🔧 New Assistant",
-    description: "Your custom assistant description",
-    systemPrompt: "You are a helpful assistant for...",
-    suggestedQuestions: ["Question 1", "Question 2"],
-    sampleKnowledge: "Sample knowledge description..."
-  }
+// Widget configuration options
+const widgetConfig = {
+  name: 'Business Support Assistant',    // Internal reference
+  title: 'AI Support Assistant',        // Displayed to users
+  welcome_message: 'Hi! How can I help?', // First message
+  primary_color: '#3B82F6',             // Brand color
+  position: 'bottom-right',             // bottom-right | bottom-left
+  size: 'medium'                        // small | medium | large
 }
 ```
 
-### **Styling**
-- Built with Tailwind CSS + Shadcn/ui components
-- Professional blue/gray color scheme
-- Fully responsive design
+### **Advanced Customization**
+- **System Prompts**: Modify `UNIVERSAL_ASSISTANT.systemPrompt` in `src/app/page.tsx`
+- **Styling**: Built with Tailwind CSS + Shadcn/ui components
+- **Branding**: Professional blue/gray color scheme, fully customizable
+- **Responsive**: Mobile-first design that works on all devices
 
 ## 📝 Use Cases
 
-### **HR Department**
-Upload employee handbooks, policy documents, benefits guides
-- "What's our vacation policy?"
-- "How do I enroll in health insurance?"
+### **E-commerce**
+Upload product catalogs, return policies, shipping guides
+- *"What's your return policy for shoes?"*
+- *"Do you have size guides available?"*
 
-### **Technical Support**
-Upload product manuals, troubleshooting guides, FAQs
-- "How do I reset the device?"
-- "What are the system requirements?"
+### **SaaS Support**
+Upload user manuals, API docs, troubleshooting guides
+- *"How do I invite team members?"*
+- *"What are the API rate limits?"*
 
-### **Sales Team**
-Upload product catalogs, pricing sheets, customer guides
-- "What's the price for enterprise plan?"
-- "How does our product compare to competitors?"
+### **Healthcare**
+Upload patient information, procedure guides, insurance details
+- *"Do you accept my insurance?"*
+- *"What should I bring to my appointment?"*
+
+### **Professional Services**
+Upload service descriptions, process guides, FAQ documents
+- *"What's the process for making an offer?"*
+- *"What documents do I need for closing?"*
+
+## 🔧 Development
+
+### **Project Structure**
+```
+ai-support-bot/
+├── src/
+│   ├── app/                 # Next.js App Router pages
+│   ├── components/ui/       # Reusable UI components
+│   ├── lib/                 # Core functionality (RAG, OpenAI, etc.)
+│   ├── types/               # TypeScript definitions
+│   └── __tests__/           # Test files
+├── public/                  # Static assets
+└── scripts/                 # Database setup scripts
+```
+
+### **Key Components**
+- **ChatInterface**: Main conversation component with live preview
+- **FileUpload**: Document upload and processing
+- **WidgetGenerator**: Embeddable code generation
+
+### **Testing**
+```bash
+# Run tests
+npm test
+
+# Run with coverage
+npm run test:coverage
+
+# Watch mode
+npm run test:watch
+```
 
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Create feature branch: `git checkout -b feature/new-role`
-3. Add your changes
-4. Test: `npm test`
-5. Submit pull request
+1. **Fork** the repository
+2. **Create** feature branch: `git checkout -b feature/widget-customization`
+3. **Add** your changes and tests
+4. **Test**: `npm test` and `npm run lint`
+5. **Submit** pull request with detailed description
+
+### **Development Guidelines**
+- Follow TDD (Test-Driven Development) practices
+- Use TypeScript for type safety
+- Follow the existing code style and conventions
+- Add tests for new features
+
+## 🚀 Roadmap
+
+- [ ] **Multi-language Support**: Support for non-English documents
+- [ ] **Advanced Analytics**: Track widget performance and user engagement
+- [ ] **Custom Domains**: White-label deployment options
+- [ ] **Team Collaboration**: Multi-user workspace management
+- [ ] **API Access**: RESTful API for programmatic assistant management
+- [ ] **Advanced Theming**: Full CSS customization options
 
 ## 📝 License
 
@@ -135,4 +226,13 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ---
 
-**Transform your business communication** with specialized AI assistants powered by your own documents! 🚀
+## 🌟 Why Choose AI Assistant Builder?
+
+✅ **5-Minute Setup** - From documents to deployed assistant in minutes  
+✅ **No Technical Skills Required** - Visual interface, no coding needed  
+✅ **Production Ready** - Scalable, secure, mobile-optimized  
+✅ **Cost Effective** - Reduce support tickets by 60%+  
+✅ **Brand Consistent** - Match your company's look and feel  
+✅ **Privacy First** - Your data stays isolated and secure  
+
+**Transform your customer support** with intelligent AI assistants powered by your business knowledge! 🚀
