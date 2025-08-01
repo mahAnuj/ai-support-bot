@@ -178,7 +178,10 @@ export default function HomePage() {
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
           <div className="text-center">
             <div className="inline-flex items-center px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 mb-8">
-              <span className="text-white/90 text-sm font-medium">🚀 Transform Your Business Support</span>
+              <svg className="w-5 h-5 text-white/90 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              <span className="text-white/90 text-sm font-medium">Transform Your Business Support</span>
             </div>
             <h1 className="text-5xl md:text-7xl font-bold text-white mb-6 tracking-tight">
               Build Your
