@@ -19,6 +19,8 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, C
   const [isTyping, setIsTyping] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [lowConfidenceCount, setLowConfidenceCount] = useState(0)
+  const [showLeadCapture, setShowLeadCapture] = useState(false)
+  const [leadInfo, setLeadInfo] = useState({ name: '', email: '', company: '' })
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const scrollToBottom = () => {
@@ -126,9 +128,16 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, C
 
       setMessages(prev => [...prev, aiMessage])
 
-      // Track low confidence responses
+      // Track low confidence responses and trigger lead capture
       if (data.confidence < 50) {
-        setLowConfidenceCount(prev => prev + 1)
+        setLowConfidenceCount(prev => {
+          const newCount = prev + 1
+          // Show lead capture after 2 low confidence responses
+          if (newCount >= 2 && !showLeadCapture) {
+            setTimeout(() => setShowLeadCapture(true), 2000)
+          }
+          return newCount
+        })
       }
 
     } catch (error) {
@@ -345,6 +354,66 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, C
           </button>
         </div>
       </div>
+
+      {/* Lead Capture Modal */}
+      {showLeadCapture && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-2xl">🎯</span>
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">Get Better Support</h3>
+              <p className="text-gray-600">Let us connect you with a human expert for personalized assistance</p>
+            </div>
+            
+            <div className="space-y-4">
+              <input
+                type="text"
+                placeholder="Your Name"
+                value={leadInfo.name}
+                onChange={(e) => setLeadInfo(prev => ({...prev, name: e.target.value}))}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+              <input
+                type="email"
+                placeholder="Email Address"
+                value={leadInfo.email}
+                onChange={(e) => setLeadInfo(prev => ({...prev, email: e.target.value}))}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+              <input
+                type="text"
+                placeholder="Company (Optional)"
+                value={leadInfo.company}
+                onChange={(e) => setLeadInfo(prev => ({...prev, company: e.target.value}))}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  // Here you would normally send the lead info to your CRM
+                  console.log('Lead captured:', leadInfo)
+                  setShowLeadCapture(false)
+                  // Show success message
+                  alert('Thanks! Our team will reach out to you soon.')
+                }}
+                className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 transition-all duration-200"
+              >
+                Connect Me
+              </button>
+              <button
+                onClick={() => setShowLeadCapture(false)}
+                className="px-6 py-3 text-gray-600 hover:text-gray-800 font-medium"
+              >
+                Maybe Later
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 })

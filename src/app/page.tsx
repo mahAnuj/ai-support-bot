@@ -32,6 +32,12 @@ export default function HomePage() {
     position: 'bottom-right' as 'bottom-right' | 'bottom-left',
     size: 'medium' as 'small' | 'medium' | 'large'
   })
+  const [analytics, setAnalytics] = useState({
+    totalChats: 0,
+    avgResponseTime: '1.2s',
+    satisfactionScore: 94,
+    topQuestions: ['What are your business hours?', 'How can I contact support?', 'What services do you offer?']
+  })
   const chatRef = useRef<any>(null)
 
   // Derived state - hasUploadedFiles is true when there are documents in the current session
@@ -207,6 +213,166 @@ export default function HomePage() {
             </div>
             <h3 className="text-2xl font-bold text-gray-900 mb-4">Instant Deploy</h3>
             <p className="text-gray-600 leading-relaxed">Get embeddable code in minutes. Copy, paste, and your intelligent assistant is live on your website.</p>
+          </div>
+        </div>
+
+        {/* Analytics Preview Section */}
+        <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-3xl shadow-xl border border-green-100 overflow-hidden mb-16">
+          <div className="bg-gradient-to-r from-green-500 to-emerald-500 px-8 py-6 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-3xl font-bold mb-2">📊 Real-time Business Intelligence</h2>
+                <p className="text-green-100">See how your AI assistant performs and drives business value</p>
+              </div>
+              <div className="bg-white/20 rounded-lg p-4 text-center">
+                <div className="text-2xl font-bold">$2,847</div>
+                <div className="text-sm text-green-100">Monthly Savings</div>
+              </div>
+            </div>
+          </div>
+          
+          <div className="p-8">
+            <div className="grid md:grid-cols-4 gap-6">
+              <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="bg-blue-100 w-10 h-10 rounded-lg flex items-center justify-center">
+                    <span className="text-blue-600 font-bold">💬</span>
+                  </div>
+                  <span className="text-green-500 text-sm font-medium">↗ +23%</span>
+                </div>
+                <div className="text-2xl font-bold text-gray-900 mb-1">{analytics.totalChats.toLocaleString()}</div>
+                <div className="text-gray-600 text-sm">Total Conversations</div>
+              </div>
+              
+              <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="bg-green-100 w-10 h-10 rounded-lg flex items-center justify-center">
+                    <span className="text-green-600 font-bold">⚡</span>
+                  </div>
+                  <span className="text-green-500 text-sm font-medium">↗ +15%</span>
+                </div>
+                <div className="text-2xl font-bold text-gray-900 mb-1">{analytics.avgResponseTime}</div>
+                <div className="text-gray-600 text-sm">Avg Response Time</div>
+              </div>
+              
+              <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="bg-yellow-100 w-10 h-10 rounded-lg flex items-center justify-center">
+                    <span className="text-yellow-600 font-bold">⭐</span>
+                  </div>
+                  <span className="text-green-500 text-sm font-medium">↗ +8%</span>
+                </div>
+                <div className="text-2xl font-bold text-gray-900 mb-1">{analytics.satisfactionScore}%</div>
+                <div className="text-gray-600 text-sm">Satisfaction Score</div>
+              </div>
+              
+              <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="bg-purple-100 w-10 h-10 rounded-lg flex items-center justify-center">
+                    <span className="text-purple-600 font-bold">🎯</span>
+                  </div>
+                  <span className="text-green-500 text-sm font-medium">↗ +45%</span>
+                </div>
+                <div className="text-2xl font-bold text-gray-900 mb-1">87%</div>
+                <div className="text-gray-600 text-sm">Resolution Rate</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Advanced Features Showcase */}
+        <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-3xl shadow-xl border border-indigo-100 overflow-hidden mb-16">
+          <div className="px-8 py-6 border-b border-indigo-200">
+            <h2 className="text-3xl font-bold text-gray-900 mb-2">🚀 Enterprise Features</h2>
+            <p className="text-gray-600">Advanced capabilities that set us apart from basic chatbots</p>
+          </div>
+          
+          <div className="p-8">
+            <div className="grid md:grid-cols-2 gap-8">
+              <div className="space-y-6">
+                <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="bg-gradient-to-r from-blue-500 to-cyan-500 w-12 h-12 rounded-xl flex items-center justify-center">
+                      <span className="text-white text-xl">🧠</span>
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-gray-900">Smart Lead Capture</h4>
+                      <p className="text-gray-600 text-sm">Automatically collect visitor information</p>
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-4 text-sm">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-gray-700">Leads Generated Today:</span>
+                      <span className="font-bold text-green-600">+47</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div className="bg-gradient-to-r from-green-400 to-blue-500 h-2 rounded-full" style={{width: '78%'}}></div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="bg-gradient-to-r from-purple-500 to-pink-500 w-12 h-12 rounded-xl flex items-center justify-center">
+                      <span className="text-white text-xl">🌍</span>
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-gray-900">Multi-language Support</h4>
+                      <p className="text-gray-600 text-sm">Serve global customers in their language</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {['🇺🇸 English', '🇪🇸 Spanish', '🇫🇷 French', '🇩🇪 German', '+12 more'].map((lang, i) => (
+                      <span key={i} className="bg-purple-50 text-purple-700 px-3 py-1 rounded-full text-xs font-medium">
+                        {lang}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="space-y-6">
+                <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="bg-gradient-to-r from-green-500 to-emerald-500 w-12 h-12 rounded-xl flex items-center justify-center">
+                      <span className="text-white text-xl">🔗</span>
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-gray-900">CRM Integration</h4>
+                      <p className="text-gray-600 text-sm">Sync with Salesforce, HubSpot, Zendesk</p>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    {['Salesforce', 'HubSpot', 'Zendesk', 'Intercom'].map((tool, i) => (
+                      <div key={i} className="flex items-center justify-between bg-gray-50 rounded-lg p-3">
+                        <span className="text-gray-700 text-sm font-medium">{tool}</span>
+                        <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs">Connected</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="bg-gradient-to-r from-orange-500 to-red-500 w-12 h-12 rounded-xl flex items-center justify-center">
+                      <span className="text-white text-xl">🎨</span>
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-gray-900">Advanced Branding</h4>
+                      <p className="text-gray-600 text-sm">Complete visual customization</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-gradient-to-r from-blue-400 to-blue-600 rounded-lg h-12 flex items-center justify-center text-white text-sm font-medium">
+                      Brand Theme 1
+                    </div>
+                    <div className="bg-gradient-to-r from-purple-400 to-pink-600 rounded-lg h-12 flex items-center justify-center text-white text-sm font-medium">
+                      Brand Theme 2
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
