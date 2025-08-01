@@ -1,4 +1,3 @@
-
 'use client'
 
 import React, { useState, useEffect } from 'react'
@@ -182,7 +181,7 @@ export default function EnterprisePanel({ businessId, planType = 'free' }: Enter
                 description="Comprehensive compliance tracking"
               />
             </div>
-            
+
             <div className="bg-gray-50 rounded-lg p-4">
               <h3 className="font-semibold mb-3">Quick Actions</h3>
               <div className="flex flex-wrap gap-3">
@@ -282,7 +281,7 @@ function IntegrationsTab({ businessId, planType }: { businessId: string; planTyp
   return (
     <div className="space-y-6">
       <h3 className="text-lg font-semibold">CRM & Communication Integrations</h3>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {integrations.map(integration => (
           <div key={integration.id} className="border rounded-lg p-4">
@@ -315,13 +314,13 @@ function SecurityTab({ businessId, planType }: { businessId: string; planType: s
   return (
     <div className="space-y-6">
       <h3 className="text-lg font-semibold">Security & Access Control</h3>
-      
+
       <div className="space-y-4">
         <div className="border rounded-lg p-4">
           <div className="flex justify-between items-center">
             <div>
-              <h4 className="font-medium">Single Sign-On (SSO)</h4>
-              <p className="text-sm text-gray-600">SAML/OAuth integration for enterprise authentication</p>
+              <h4 className="font-medium text-gray-900">Single Sign-On (SSO)</h4>
+              <p className="text-sm text-gray-800">SAML/OAuth integration for enterprise authentication</p>
             </div>
             <button 
               disabled={planType === 'free'}
@@ -335,8 +334,8 @@ function SecurityTab({ businessId, planType }: { businessId: string; planType: s
         <div className="border rounded-lg p-4">
           <div className="flex justify-between items-center">
             <div>
-              <h4 className="font-medium">IP Whitelisting</h4>
-              <p className="text-sm text-gray-600">Restrict access to specific IP addresses</p>
+              <h4 className="font-medium text-gray-900">IP Whitelisting</h4>
+              <p className="text-sm text-gray-800">Restrict access to specific IP addresses</p>
             </div>
             <button 
               disabled={planType !== 'enterprise'}
@@ -350,8 +349,8 @@ function SecurityTab({ businessId, planType }: { businessId: string; planType: s
         <div className="border rounded-lg p-4">
           <div className="flex justify-between items-center">
             <div>
-              <h4 className="font-medium">Audit Logging</h4>
-              <p className="text-sm text-gray-600">Comprehensive activity logs for compliance</p>
+              <h4 className="font-medium text-gray-900">Audit Logging</h4>
+              <p className="text-sm text-gray-800">Comprehensive activity logs for compliance</p>
             </div>
             <button 
               disabled={planType !== 'enterprise'}
