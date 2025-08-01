@@ -142,7 +142,7 @@ export async function POST(request: NextRequest) {
     
     // Generate response using OpenAI with widget-specific prompts
     const systemPrompt = knowledgeBase?.system_prompt || 
-      'You are a helpful AI assistant embedded in a website widget. Provide helpful and accurate information.'
+      'You are a helpful AI assistant embedded in a website widget. Provide helpful and accurate information formatted with proper markdown for easy reading.'
     
     const response = await generateResponse({
       query: message,
@@ -153,7 +153,7 @@ export async function POST(request: NextRequest) {
       roleContext: knowledgeBase?.role_context
     })
     
-    const responseData = {
+    const responseData: any = {
       message: response.message,
       confidence: response.confidence || confidence,
       sources: ragResult?.sources || [],

@@ -18,8 +18,8 @@ export async function extractTextFromFilePath(filePath: string, fileName: string
   try {
     console.log(`📄 Processing file: ${fileName}, path: ${filePath}`)
     
-    if (fileName.toLowerCase().endsWith('.txt')) {
-      // Handle plain text files
+    if (fileName.toLowerCase().endsWith('.txt') || fileName.toLowerCase().endsWith('.md')) {
+      // Handle plain text files and markdown files
       return fs.readFileSync(filePath, 'utf8')
     } else if (fileName.toLowerCase().endsWith('.pdf')) {
       // Handle PDF files using fs.readFileSync (exactly like online examples)
@@ -283,7 +283,7 @@ export function createContextFromDocuments(docs: ProcessedDocument[], maxContext
 export function validateFiles(files: File[] | FileList): { isValid: boolean; errors: string[] } {
   const errors: string[] = []
   const maxFileSize = 10 * 1024 * 1024 // 10MB (increased for PDFs)
-  const allowedTypes = ['text/plain', 'application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
+  const allowedTypes = ['text/plain', 'text/markdown', 'application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
   
   if (files.length === 0) {
     errors.push('No files selected')
@@ -311,10 +311,10 @@ export function validateFiles(files: File[] | FileList): { isValid: boolean; err
     
     // Check file type
     const isValidType = allowedTypes.includes(file.type) || 
-                       file.name.match(/\.(txt|pdf|docx)$/i)
+                       file.name.match(/\.(txt|md|pdf|docx)$/i)
     
     if (!isValidType) {
-      errors.push(`Unsupported file type for ${file.name}. Please upload PDF, TXT, or DOCX files.`)
+      errors.push(`Unsupported file type for ${file.name}. Please upload PDF, TXT, MD, or DOCX files.`)
     }
   }
   

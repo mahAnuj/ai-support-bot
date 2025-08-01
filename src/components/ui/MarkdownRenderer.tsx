@@ -8,6 +8,8 @@ interface MarkdownRendererProps {
 }
 
 const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className = '' }) => {
+  // Ensure content is always a string
+  const safeContent = typeof content === 'string' ? content : String(content || '')
   // Custom components for markdown rendering
   const components: Components = {
     // Headings
@@ -116,7 +118,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className 
   return (
     <div className={`markdown-content ${className}`}>
       <ReactMarkdown components={components}>
-        {content}
+        {safeContent}
       </ReactMarkdown>
     </div>
   )

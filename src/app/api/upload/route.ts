@@ -1,30 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { processDocumentsForRAG } from '../../../lib/rag'
-import { validateFiles, extractTextFromFilePath, validateFilePaths } from '../../../lib/documents'
+import { validateFiles, extractTextFromFilePath } from '../../../lib/documents'
+import { createSession, storeDocument } from '../../../lib/database'
+import { getCachedEmbedding } from '../../../lib/rag'
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('📤 Upload API called')
     const formData = await request.formData()
     const files = formData.getAll('files') as File[]
     
+    console.log(`📂 Received ${files.length} files`)
+    
     if (!files || files.length === 0) {
+      console.log('❌ No files provided')
       return NextResponse.json(
         { error: 'No files provided' },
         { status: 400 }
       )
     }
 
+    // Log file details for debugging
+    files.forEach((file, index) => {
+      console.log(`📄 File ${index + 1}: ${file.name}, size: ${file.size} bytes, type: ${file.type}`)
+    })
+
     // Validate files first
+    console.log('🔍 Validating files...')
     const validation = validateFiles(files)
     if (!validation.isValid) {
+      console.log('❌ File validation failed:', validation.errors)
       return NextResponse.json(
         { error: 'File validation failed', details: validation.errors },
         { status: 400 }
       )
     }
+    console.log('✅ File validation passed')
 
     // Convert File objects to file paths by writing them to temp directory
     const tempFiles: string[] = []
@@ -108,12 +121,30 @@ export async function POST(request: NextRequest) {
       }
 
       // Store the extracted content in the RAG system
-      const { createSession, storeDocument } = await import('../../../lib/database')
+      const { createSession, storeDocument, getSession } = await import('../../../lib/database')
       const { getCachedEmbedding } = await import('../../../lib/rag')
       
-      // Create new session for RAG
-      const session = await createSession()
-      console.log(`📝 Created RAG session: ${session.id}`)
+      // Check if sessionId was provided and exists, otherwise create new session
+      const providedSessionId = formData.get('sessionId') as string
+      let session
+      
+      if (providedSessionId) {
+        console.log(`🔍 Checking for existing session: ${providedSessionId}`)
+        const existingSession = await getSession(providedSessionId)
+        
+        if (existingSession) {
+          console.log(`🔗 Using existing session: ${providedSessionId}`)
+          session = existingSession
+        } else {
+          console.log(`❌ Session ${providedSessionId} not found, creating new one`)
+          session = await createSession()
+          console.log(`📝 Created new RAG session: ${session.id}`)
+        }
+      } else {
+        // Create new session for RAG
+        session = await createSession()
+        console.log(`📝 Created RAG session: ${session.id}`)
+      }
       
       // Store each processed document in the RAG system
       for (const doc of processedDocs) {
@@ -153,6 +184,12 @@ export async function POST(request: NextRequest) {
         success: true,
         sessionId: session.id,
         message: `Successfully processed ${processedDocs.length} document(s)`,
+        documents: processedDocs.map(doc => ({
+          filename: doc.filename,
+          chunks: doc.chunks.length,
+          chunkCount: doc.chunks.length,
+          wordCount: doc.wordCount
+        })),
         details: {
           documentsProcessed: processedDocs.length,
           totalChunks: totalChunks,

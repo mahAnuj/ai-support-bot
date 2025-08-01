@@ -36,4 +36,9 @@ export interface ChatInterfaceProps {
   roleContext?: string // Current role context for enhanced responses
   suggestedQuestions?: string[] // Questions that can be clicked to auto-send
   onSessionUpdate?: (sessionId: string | null, hasFiles: boolean) => void // Called when session state changes
+  onGenerateWidget?: () => void // Called when user wants to generate widget code
+  hasUploadedFiles?: boolean // Whether files have been uploaded (controlled by parent)
+  sessionId?: string | null // Session ID from parent (controlled by parent)
+  title?: string // Display title for the AI assistant
+  welcomeMessage?: string // Welcome message shown to users
 } 

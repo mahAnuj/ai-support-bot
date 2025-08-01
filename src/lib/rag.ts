@@ -26,6 +26,125 @@ export interface RAGQueryResult {
 // Cache for embeddings to avoid regenerating for same content
 const embeddingCache = new Map<string, number[]>()
 
+// Cache for query variations to avoid duplicate OpenAI calls
+const variationCache = new Map<string, string[]>()
+
+// Preprocess queries to improve semantic matching
+function preprocessQuery(query: string): string {
+  // Simple preprocessing - just clean up the query
+  return query.trim()
+}
+
+// Generate multiple query variations using OpenAI for better semantic matching
+async function generateQueryVariations(query: string): Promise<string[]> {
+  const cacheKey = query.trim().toLowerCase()
+  
+  // Check cache first
+  if (variationCache.has(cacheKey)) {
+    console.log(`🤖 Using cached variations for: "${query}"`)
+    return variationCache.get(cacheKey)!
+  }
+  
+  const variations = [query] // Always include the original
+  
+  try {
+    console.log(`🤖 Generating query variations for: "${query}"`)
+    
+    // Use OpenAI directly with structured JSON response for reliability
+    const openai = (await import('openai')).default
+    const client = new openai({
+      apiKey: process.env.OPENAI_API_KEY,
+    })
+
+    const response = await client.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a helpful assistant that generates alternative phrasings for user questions to improve semantic search results.'
+        },
+        {
+          role: 'user',
+          content: `Generate 3 alternative ways to ask this question: "${query}"
+
+Focus on:
+- Different phrasings and word choices
+- More specific or more general versions  
+- Common ways users might express the same need
+- Synonyms and related terms
+
+Examples:
+- "What file formats are supported?" → "What types of files can I upload?", "Which document formats are accepted?", "What file extensions are allowed?"
+- "How do I get started?" → "What should I do first?", "How do I begin using this?", "Where do I start?"
+
+Return ONLY the 3 alternative questions in valid JSON format.`
+        }
+      ],
+      response_format: { 
+        type: "json_schema",
+        json_schema: {
+          name: "query_variations",
+          schema: {
+            type: "object",
+            properties: {
+              variations: {
+                type: "array",
+                items: { type: "string" },
+                minItems: 3,
+                maxItems: 3,
+                description: "Three alternative ways to ask the same question"
+              }
+            },
+            required: ["variations"],
+            additionalProperties: false
+          }
+        }
+      },
+      max_tokens: 150,
+      temperature: 0.7
+    })
+
+    const content = response.choices[0]?.message?.content
+    if (!content) {
+      throw new Error('No response from OpenAI')
+    }
+
+    // Parse the structured JSON response
+    const parsed = JSON.parse(content)
+    const aiVariations = parsed.variations || []
+
+    if (aiVariations.length > 0) {
+      variations.push(...aiVariations)
+      console.log(`🤖 Generated ${aiVariations.length} AI variations:`, aiVariations)
+    } else {
+      throw new Error('No valid variations generated')
+    }
+  } catch (error) {
+    console.warn('🤖 AI variation generation error, using fallback:', error)
+    // Fallback for any errors - simple variations
+    const lowerQuery = query.toLowerCase()
+    if (!lowerQuery.includes('what') && !lowerQuery.includes('how')) {
+      variations.push(`what ${query}`)
+      variations.push(`how ${query}`)
+    }
+  }
+  
+  const result = [...new Set(variations.slice(0, 5))] // Limit to 5 total, remove duplicates
+  
+  // Cache the result
+  variationCache.set(cacheKey, result)
+  
+  // Limit cache size to prevent memory issues
+  if (variationCache.size > 100) {
+    const firstKey = variationCache.keys().next().value
+    if (firstKey) {
+      variationCache.delete(firstKey)
+    }
+  }
+  
+  return result
+}
+
 // Get cached embedding or generate new one
 export async function getCachedEmbedding(text: string): Promise<number[]> {
   const cacheKey = text.trim().toLowerCase()
@@ -67,8 +186,8 @@ export async function processDocumentsForRAG(files: File[]): Promise<RAGProcessR
         return { chunks: 0, words: 0 }
       }
       
-      // Chunk the text with optimized parameters
-      const chunks = chunkText(extractedText, 600, 100) // Smaller chunks for better retrieval
+      // Chunk the text with FAQ-optimized parameters
+      const chunks = chunkText(extractedText, 400, 50) // Smaller chunks for FAQ-style content
       
       // Generate embeddings in batches to avoid rate limits
       const batchSize = 5
@@ -127,7 +246,7 @@ export async function queryRAG(
   sessionId: string, 
   query: string,
   maxResults: number = 5,
-  similarityThreshold: number = 0.3 // Lowered threshold for better document recall
+  similarityThreshold: number = 0.4 // Balanced threshold - will be adjusted dynamically
 ): Promise<RAGQueryResult> {
   // Check if session exists and update access time
   const session = await getSession(sessionId)
@@ -137,18 +256,71 @@ export async function queryRAG(
   
   await updateSessionAccess(sessionId)
   
-  // Generate embedding for the query with caching
-  const queryEmbedding = await getCachedEmbedding(query)
+  // Preprocess query to improve semantic matching
+  const preprocessedQuery = preprocessQuery(query)
+  console.log(`RAG Query - Original: "${query}"`)
+  console.log(`RAG Query - Preprocessed: "${preprocessedQuery}"`)
   
-  // Find relevant chunks
-  console.log(`RAG Query - Searching for chunks in session: ${sessionId}`)
-  const relevantChunks = await findRelevantChunks({
-    session_id: sessionId,
-    query_embedding: queryEmbedding,
-    similarity_threshold: similarityThreshold,
-    max_results: maxResults
-  })
-  console.log(`RAG Query - Found ${relevantChunks.length} relevant chunks`)
+  // Generate query variations for better semantic matching
+  const queryVariations = await generateQueryVariations(preprocessedQuery)
+  console.log(`RAG Query - Variations: ${JSON.stringify(queryVariations)}`)
+  
+  // Smart multi-threshold search with quality filtering
+  let bestResults: VectorSearchResult[] = []
+  let bestVariation = queryVariations[0]
+  
+  for (const variation of queryVariations) {
+    const queryEmbedding = await getCachedEmbedding(variation)
+    
+    // Try multiple thresholds: start high, go lower if needed
+    const thresholds = [0.5, 0.4, 0.3, 0.25]
+    let variationResults: VectorSearchResult[] = []
+    
+    for (const threshold of thresholds) {
+      const results = await findRelevantChunks({
+        session_id: sessionId,
+        query_embedding: queryEmbedding,
+        similarity_threshold: threshold,
+        max_results: maxResults
+      })
+      
+      // Use this threshold if we get good results or if it's our last attempt
+      if (results.length >= 2 || threshold === thresholds[thresholds.length - 1]) {
+        variationResults = results
+        console.log(`RAG Query - Using threshold ${threshold} for "${variation}" (found ${results.length} chunks)`)
+        break
+      }
+    }
+    
+    // Apply quality filtering: remove chunks that are much worse than the best
+    if (variationResults.length > 0) {
+      const topSimilarity = variationResults[0].similarity
+      const qualityThreshold = Math.max(0.25, topSimilarity - 0.15) // Max 15% gap from best
+      
+      const filteredResults = variationResults.filter(chunk => 
+        chunk.similarity >= qualityThreshold
+      )
+      
+      console.log(`RAG Query - Quality filter: ${variationResults.length} → ${filteredResults.length} chunks (gap threshold: ${qualityThreshold.toFixed(3)})`)
+      
+      // Keep the best variation (highest average similarity)
+      if (filteredResults.length > 0) {
+        const avgSimilarity = filteredResults.reduce((sum, chunk) => sum + chunk.similarity, 0) / filteredResults.length
+        const currentBestAvg = bestResults.length > 0 
+          ? bestResults.reduce((sum, chunk) => sum + chunk.similarity, 0) / bestResults.length 
+          : 0
+          
+        if (avgSimilarity > currentBestAvg) {
+          bestResults = filteredResults
+          bestVariation = variation
+          console.log(`RAG Query - New best variation: "${variation}" (avg similarity: ${avgSimilarity.toFixed(3)})`)
+        }
+      }
+    }
+  }
+  
+  const relevantChunks = bestResults
+  console.log(`RAG Query - Final results: ${relevantChunks.length} chunks from "${bestVariation}"`)
   
   // Create context from relevant chunks with smart truncation
   const maxContextLength = 2000 // Optimize for token limits
@@ -174,26 +346,45 @@ export async function queryRAG(
   // Extract unique source filenames
   const sources = Array.from(usedSources)
   
-  // Calculate confidence based on similarity scores and number of results
-  const avgSimilarity = relevantChunks.length > 0 
-    ? relevantChunks.reduce((sum, chunk) => sum + chunk.similarity, 0) / relevantChunks.length
-    : 0
+  // Smart confidence calculation based on quality and consistency
+  let confidence = 30 // Default for no results
   
-  // Improved confidence calculation
-  let confidence = Math.round(avgSimilarity * 100)
-  
-  // Boost confidence if we have multiple relevant chunks
-  if (relevantChunks.length >= 3) {
-    confidence = Math.min(95, confidence + 10)
-  } else if (relevantChunks.length >= 2) {
-    confidence = Math.min(90, confidence + 5)
-  }
-  
-  // Ensure minimum confidence for any results
   if (relevantChunks.length > 0) {
-    confidence = Math.max(confidence, 40)
-  } else {
-    confidence = 30
+    const avgSimilarity = relevantChunks.reduce((sum, chunk) => sum + chunk.similarity, 0) / relevantChunks.length
+    const topSimilarity = relevantChunks[0].similarity
+    const minSimilarity = relevantChunks[relevantChunks.length - 1].similarity
+    
+    // Base confidence from average similarity
+    confidence = Math.round(avgSimilarity * 100)
+    
+    // Boost for high-quality top result
+    if (topSimilarity >= 0.6) {
+      confidence += 15
+    } else if (topSimilarity >= 0.5) {
+      confidence += 10
+    } else if (topSimilarity >= 0.4) {
+      confidence += 5
+    }
+    
+    // Boost for multiple consistent results (low variance)
+    if (relevantChunks.length >= 2) {
+      const variance = topSimilarity - minSimilarity
+      if (variance <= 0.1) { // Very consistent results
+        confidence += 10
+      } else if (variance <= 0.15) { // Moderately consistent
+        confidence += 5
+      }
+    }
+    
+    // Boost for multiple sources
+    if (relevantChunks.length >= 3) {
+      confidence += 5
+    }
+    
+    // Cap at reasonable limits
+    confidence = Math.min(95, Math.max(40, confidence))
+    
+    console.log(`RAG Query - Confidence calculation: avg=${avgSimilarity.toFixed(3)}, top=${topSimilarity.toFixed(3)}, variance=${relevantChunks.length > 1 ? (topSimilarity - minSimilarity).toFixed(3) : 'N/A'} → ${confidence}%`)
   }
   
   return {

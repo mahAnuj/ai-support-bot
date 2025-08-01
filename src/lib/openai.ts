@@ -9,6 +9,16 @@ export interface ChatResponse {
   message: string
   confidence: number
   sources?: string[]
+  reasoning?: string
+  action_items?: string[]
+}
+
+export interface StructuredResponse {
+  answer: string
+  reasoning?: string
+  action_items?: string[]
+  confidence: number
+  sources?: string[]
 }
 
 export interface GenerateResponseOptions {
@@ -18,6 +28,7 @@ export interface GenerateResponseOptions {
   isEnhanced?: boolean
   systemPrompt?: string
   roleContext?: string
+  structured?: boolean // New option for structured responses
 }
 
 // Generate chat response using OpenAI
@@ -26,7 +37,8 @@ export async function generateResponse({
   context,
   isEnhanced = false,
   systemPrompt: customSystemPrompt,
-  roleContext
+  roleContext,
+  structured = false
 }: GenerateResponseOptions): Promise<ChatResponse> {
   try {
     let systemPrompt = ''
@@ -47,17 +59,43 @@ export async function generateResponse({
     } else {
       // Default system prompts (fallback)
       if (isEnhanced && context) {
-        systemPrompt = `You are a helpful AI assistant with access to specific documents. 
-        Provide detailed, accurate answers based on the provided context. 
-        Always cite your sources when possible.
-        If the context doesn't fully answer the question, be honest about limitations.`
+        systemPrompt = `You are a helpful AI business assistant with access to specific company documents.
+
+FORMATTING RULES:
+- Use **bold text** for emphasis and important points
+- Use numbered lists for step-by-step instructions: "1. First step\n\n2. Second step"
+- Use bullet points for features or lists: "• Feature one\n• Feature two"
+- Use proper line breaks between paragraphs for readability
+- Use backticks for technical terms and code
+- Format responses to be clear and easy to scan
+
+RESPONSE RULES:
+- Start with the direct answer, then provide supporting details
+- Be comprehensive but organized with good formatting
+- Cite sources when relevant
+- If context is incomplete, say "Based on available documents..." and be specific about limitations
+
+Always format your response with proper markdown for easy reading.`
         
         userPrompt = `${context}\n\nUser Question: ${query}`
       } else {
-        systemPrompt = `You are a helpful AI assistant. 
-        You should provide general information but acknowledge when you don't have access to specific details.
-        Be honest about your limitations and suggest that the user might need to provide more specific information or documentation for detailed answers.
-        Keep responses concise and helpful.`
+        systemPrompt = `You are a helpful AI assistant providing general guidance.
+
+FORMATTING RULES:
+- Use **bold text** for emphasis and important points
+- Use numbered lists for step-by-step instructions: "1. First step\n\n2. Second step"
+- Use bullet points for features or lists: "• Feature one\n• Feature two"
+- Use proper line breaks between paragraphs for readability
+- Use backticks for technical terms and code
+- Format responses to be clear and easy to scan
+
+RESPONSE RULES:
+- Be direct and actionable
+- Acknowledge limitations clearly
+- Suggest uploading relevant documents for specific details
+- Use simple, clear language
+
+FORMAT: Direct answer first, then brief suggestion if applicable.`
       }
     }
 
@@ -73,11 +111,17 @@ export async function generateResponse({
           content: userPrompt
         }
       ],
-      max_tokens: isEnhanced ? 500 : 300, // More tokens for enhanced responses
-      temperature: 0.7,
+      max_tokens: isEnhanced ? 250 : 150, // Reduced for conciseness
+      temperature: 0.3, // Lower temperature for more focused responses
+      presence_penalty: 0.1, // Slight penalty to avoid repetition
+      frequency_penalty: 0.1, // Encourage conciseness
     })
 
-    const message = response.choices[0]?.message?.content || 'I apologize, but I was unable to generate a response.'
+    let message = response.choices[0]?.message?.content || 'I apologize, but I was unable to generate a response.'
+    
+    // Post-process for conciseness
+    const maxWords = isEnhanced ? 100 : 80
+    message = ensureConciseResponse(message, maxWords)
     
     // Calculate confidence based on response type and content quality
     let confidence = 30 // Default low confidence
@@ -162,6 +206,155 @@ export async function testOpenAIConnection(): Promise<boolean> {
     console.error('OpenAI connection test failed:', error)
     return false
   }
+}
+
+// Generate structured response with specific format
+export async function generateStructuredResponse({
+  query,
+  context,
+  isEnhanced = false,
+  systemPrompt: customSystemPrompt,
+  roleContext
+}: Omit<GenerateResponseOptions, 'structured'>): Promise<StructuredResponse> {
+  try {
+        let systemPrompt = customSystemPrompt || `You are a helpful AI assistant. You must respond with valid JSON only.
+
+Response JSON STRUCTURE:
+{
+  "answer": "your helpful response here formatted in proper markdown",
+  "confidence": 85,
+  "sources": ["source1", "source2"]
+}
+
+No of fields in JSON response are 3: answer, confidence, sources
+
+Type of fields in JSON response:
+- "answer" field is a string, formatted in markdown format
+- "confidence" field is a number between 0 and 100
+- "sources" field is an array of strings
+
+MARKDOWN FORMATTING RULES for the "answer" field:
+1. Use **bold text** for emphasis
+2. Use numbered lists for steps: "1. First step\n2. Second step\n3. Third step"
+3. Use bullet points for features: "• Feature one\n• Feature two"
+4. Use proper line breaks between paragraphs
+5. Use backtick code formatting for technical terms
+6. Format the response to be clear and readable
+
+CORRECT Examples:
+{"answer": "Our business hours are **9 AM to 5 PM** Monday through Friday.", "confidence": 90, "sources": ["general_knowledge"]}
+{"answer": "To reset your password, follow these steps:\n\n1. Go to the login page\n2. Click **Forgot Password**\n3. Enter your email address\n4. Check your email for the reset link\n\nThe process is secure and you'll receive a confirmation email.", "confidence": 85, "sources": ["general_knowledge"]}
+`
+
+    if (isEnhanced && context) {
+      systemPrompt += `\n\nYou have access to specific documents. Use them to provide accurate, cited information in JSON format. In the "sources" field, reference the specific document sections you used. Format your answer with proper markdown including numbered steps where appropriate.`
+      query = `${context}\n\nUser Question: ${query}\n\nPlease respond in JSON format as specified.`
+    } else {
+      query = `${query}\n\nPlease respond in JSON format as specified.`
+    }
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: systemPrompt
+        },
+        {
+          role: 'user',
+          content: query
+        }
+      ],
+      max_tokens: 500, // Increased for JSON responses
+      temperature: 0.1, // Very low for consistent JSON structure
+    })
+
+    const rawResponse = response.choices[0]?.message?.content || '{}'
+    
+    console.log('🔍 Raw OpenAI response:', rawResponse)
+    
+    try {
+      const parsed = JSON.parse(rawResponse)
+      console.log('✅ Parsed JSON successfully:', parsed)
+      console.log('🔍 Available fields:', Object.keys(parsed))
+      console.log('📝 Answer field value:', parsed.answer)
+      console.log('📝 Action items field value:', parsed.action_items)
+      console.log('📝 Reasoning field value:', parsed.reasoning)
+      console.log('📝 Sources field value:', parsed.sources)
+      console.log('📝 All field values:', JSON.stringify(parsed, null, 2))
+      
+      // Handle the new simplified JSON response format
+      let answerText = ''
+      
+      if (parsed.answer) {
+        // New format: {"answer": "markdown formatted text", "sources": [...]}
+        answerText = parsed.answer
+      } else {
+        // Fallback to any text field
+        answerText = parsed.message || 
+                    parsed.response || 
+                    parsed.content || 
+                    parsed.text ||
+                    JSON.stringify(parsed) // Show the JSON if we can't find the answer field
+      }
+      
+      console.log('🎯 Final answer text:', answerText)
+      
+      return {
+        answer: answerText,
+        confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 30,
+        sources: parsed.sources || (isEnhanced && context ? ['uploaded_documents'] : ['general_knowledge'])
+      }
+    } catch (parseError) {
+      console.error('Failed to parse structured response:', parseError)
+      console.error('Raw response was:', rawResponse)
+      
+      return {
+        answer: 'I encountered an error generating a structured response.',
+        confidence: 10,
+        sources: ['general_knowledge']
+      }
+    }
+    
+  } catch (error) {
+    console.error('Structured response error:', error)
+    return {
+      answer: 'Unable to generate response at this time.',
+      confidence: 0,
+      sources: ['general_knowledge']
+    }
+  }
+}
+
+// Post-process response to ensure conciseness
+export function ensureConciseResponse(message: string, maxWords: number = 100): string {
+  const words = message.trim().split(/\s+/)
+  
+  if (words.length <= maxWords) {
+    return message
+  }
+  
+  // Try to find a good breaking point (sentence end)
+  const sentences = message.split(/[.!?]+/)
+  let result = ''
+  let wordCount = 0
+  
+  for (const sentence of sentences) {
+    const sentenceWords = sentence.trim().split(/\s+/).length
+    if (wordCount + sentenceWords <= maxWords) {
+      result += sentence.trim() + '. '
+      wordCount += sentenceWords
+    } else {
+      break
+    }
+  }
+  
+  // If no complete sentences fit, truncate at word boundary
+  if (!result.trim()) {
+    result = words.slice(0, maxWords).join(' ') + '...'
+  }
+  
+  return result.trim()
 }
 
 export default openai 
