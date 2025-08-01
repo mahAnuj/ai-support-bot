@@ -324,7 +324,12 @@ export default function HomePage() {
         {/* Advanced Features Showcase */}
         <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-3xl shadow-xl border border-indigo-100 overflow-hidden mb-16">
           <div className="px-8 py-6 border-b border-indigo-200">
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">🚀 Enterprise Features</h2>
+            <h2 className="text-3xl font-bold text-gray-900 mb-2 flex items-center gap-3">
+              <svg className="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+              </svg>
+              Enterprise Features
+            </h2>
             <p className="text-gray-600">Advanced capabilities that set us apart from basic chatbots</p>
           </div>
 
@@ -334,7 +339,9 @@ export default function HomePage() {
                 <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
                   <div className="flex items-center gap-4 mb-4">
                     <div className="bg-gradient-to-r from-blue-500 to-cyan-500 w-12 h-12 rounded-xl flex items-center justify-center">
-                      <span className="text-white text-xl">🧠</span>
+                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
                     </div>
                     <div>
                       <h4 className="font-bold text-gray-900">Smart Lead Capture</h4>
@@ -355,7 +362,9 @@ export default function HomePage() {
                 <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
                   <div className="flex items-center gap-4 mb-4">
                     <div className="bg-gradient-to-r from-purple-500 to-pink-500 w-12 h-12 rounded-xl flex items-center justify-center">
-                      <span className="text-white text-xl">🌍</span>
+                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                      </svg>
                     </div>
                     <div>
                       <h4 className="font-bold text-gray-900">Multi-language Support</h4>
@@ -376,7 +385,9 @@ export default function HomePage() {
                 <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
                   <div className="flex items-center gap-4 mb-4">
                     <div className="bg-gradient-to-r from-green-500 to-emerald-500 w-12 h-12 rounded-xl flex items-center justify-center">
-                      <span className="text-white text-xl">🔗</span>
+                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                      </svg>
                     </div>
                     <div>
                       <h4 className="font-bold text-gray-900">CRM Integration</h4>
@@ -396,7 +407,9 @@ export default function HomePage() {
                 <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
                   <div className="flex items-center gap-4 mb-4">
                     <div className="bg-gradient-to-r from-orange-500 to-red-500 w-12 h-12 rounded-xl flex items-center justify-center">
-                      <span className="text-white text-xl">🎨</span>
+                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17v4a2 2 0 002 2h4M13 13h4a2 2 0 012 2v4a2 2 0 01-2 2H9a2 2 0 01-2-2v-4a2 2 0 012-2h4z" />
+                      </svg>
                     </div>
                     <div>
                       <h4 className="font-bold text-gray-900">Advanced Branding</h4>
