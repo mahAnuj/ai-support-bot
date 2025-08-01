@@ -233,12 +233,12 @@ export default function EnterprisePanel({ businessId, planType = 'free' }: Enter
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-gray-50 rounded-lg p-4">
-                  <h4 className="font-medium mb-2">Custom Reports</h4>
+                  <h4 className="font-medium text-gray-900 mb-2">Custom Reports</h4>
                   <p className="text-sm text-gray-800">Create and schedule custom analytics reports</p>
                   <button className="mt-2 text-blue-600 hover:text-blue-800 text-sm">Configure →</button>
                 </div>
                 <div className="bg-gray-50 rounded-lg p-4">
-                  <h4 className="font-medium mb-2">Data Export</h4>
+                  <h4 className="font-medium text-gray-900 mb-2">Data Export</h4>
                   <p className="text-sm text-gray-800">Export conversation data and analytics</p>
                   <button className="mt-2 text-blue-600 hover:text-blue-800 text-sm">Export →</button>
                 </div>
@@ -288,9 +288,9 @@ function IntegrationsTab({ businessId, planType }: { businessId: string; planTyp
             <div className="flex items-center space-x-3 mb-3">
               <span className="text-2xl">{integration.icon}</span>
               <div>
-                <h4 className="font-medium">{integration.name}</h4>
+                <h4 className="font-medium text-gray-900">{integration.name}</h4>
                 <span className={`text-xs px-2 py-1 rounded ${
-                  integration.enabled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
+                  integration.enabled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
                 }`}>
                   {integration.enabled ? 'Available' : 'Upgrade Required'}
                 </span>
