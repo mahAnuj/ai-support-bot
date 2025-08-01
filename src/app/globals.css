@@ -174,9 +174,17 @@ input[type="password"],
 input[type="url"],
 input[type="tel"],
 input[type="number"],
+input[type="color"],
 textarea,
 select {
-  color: #1f2937 !important;
+  color: #111827 !important;
+  background-color: #ffffff !important;
+  border: 1px solid #d1d5db !important;
+}
+
+/* Ensure all input elements have proper text color */
+input:not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="checkbox"]):not([type="radio"]) {
+  color: #111827 !important;
   background-color: #ffffff !important;
 }
 
@@ -184,6 +192,15 @@ input::placeholder,
 textarea::placeholder {
   color: #6b7280 !important;
   opacity: 1;
+}
+
+/* Focus states for better visibility */
+input:focus,
+textarea:focus,
+select:focus {
+  outline: 2px solid #3b82f6 !important;
+  outline-offset: 2px !important;
+  border-color: #3b82f6 !important;
 }
 
 /* Enhanced scrollbar */
