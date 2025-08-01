@@ -298,20 +298,9 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, C
       {/* Enhanced Status */}
       {hasUploadedFiles && (
         <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-green-400 p-4 mx-6 mb-4 rounded-lg">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3 text-sm text-green-700">
-              <span className="text-lg">✅</span>
-              <span><strong>Enhanced Mode Active</strong> - Providing answers from your documents</span>
-            </div>
-            {onGenerateWidget && (
-              <button
-                onClick={onGenerateWidget}
-                className="bg-gradient-to-r from-yellow-400 to-orange-400 text-gray-900 px-4 py-2 rounded-lg font-bold hover:from-yellow-300 hover:to-orange-300 transition-all duration-200 flex items-center gap-2 text-sm shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-              >
-                <span>🚀</span>
-                Generate Code
-              </button>
-            )}
+          <div className="flex items-center space-x-3 text-sm text-green-700">
+            <span className="text-lg">✅</span>
+            <span><strong>Enhanced Mode Active</strong> - Providing answers from your documents</span>
           </div>
         </div>
       )}
