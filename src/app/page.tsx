@@ -115,12 +115,12 @@ export default function HomePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           sessionId,
-          name: widgetConfig.title || 'Support Widget',
-          title: widgetConfig.title,
-          welcome_message: widgetConfig.welcome_message,
-          primary_color: widgetConfig.primary_color,
-          position: widgetConfig.position,
-          size: widgetConfig.size
+          name: widgetConfig.name || widgetConfig.title || 'Support Widget',
+          title: widgetConfig.title || widgetConfig.name || 'AI Support Assistant',
+          welcome_message: widgetConfig.welcome_message || 'Hi! How can I help you today?',
+          primary_color: widgetConfig.primary_color || '#3B82F6',
+          position: widgetConfig.position || 'bottom-right',
+          size: widgetConfig.size || 'medium'
         }),
       })
 
