@@ -801,7 +801,7 @@ export default function HomePage() {
                 </div>
               </div>
               <div className="text-4xl font-bold text-white mb-2">50%</div>
-              <div className="text-indigo-200">Support Cost Reduction</div></div>
+              <div className="text-indigo-200">Support Cost Reduction</div>
             </div>
           </div>
         </div>
