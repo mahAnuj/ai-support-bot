@@ -1,7 +1,7 @@
 
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import type { RealtimeStats, ConversationMetrics } from '../../lib/analytics'
 
 interface AnalyticsDashboardProps {
@@ -18,7 +18,7 @@ export default function AnalyticsDashboard({
   const [isLoading, setIsLoading] = useState(true)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
-  const fetchAnalytics = async () => {
+  const fetchAnalytics = useCallback(async () => {
     try {
       const params = new URLSearchParams()
       if (businessId) params.set('businessId', businessId)
@@ -36,13 +36,13 @@ export default function AnalyticsDashboard({
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [businessId])
 
   useEffect(() => {
     fetchAnalytics()
     const interval = setInterval(fetchAnalytics, refreshInterval)
     return () => clearInterval(interval)
-  }, [businessId, refreshInterval])
+  }, [businessId, refreshInterval, fetchAnalytics])
 
   if (isLoading) {
     return (
