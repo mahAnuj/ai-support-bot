@@ -1,0 +1,24 @@
+Error: ./src/app/page.tsx:810:7
+Parsing ecmascript source code failed
+[0m [90m 808 |[39m       [33m<[39m[33m/[39m[33mdiv[39m[33m>[39m[0m
+[0m [90m 809 |[39m[0m
+[0m[31m[1m>[22m[39m[90m 810 |[39m       {[90m/* Contact Section */[39m}[0m
+[0m [90m     |[39m       [31m[1m^[22m[39m[0m
+[0m [90m 811 |[39m       [33m<[39m[33mdiv[39m className[33m=[39m[32m"bg-white py-16"[39m[33m>[39m[0m
+[0m [90m 812 |[39m         [33m<[39m[33mdiv[39m className[33m=[39m[32m"max-w-4xl mx-auto px-4 sm:px-6 lg:px-8"[39m[33m>[39m[0m
+[0m [90m 813 |[39m           [33m<[39m[33mdiv[39m className[33m=[39m[32m"text-center mb-12"[39m[33m>[39m[0m
+
+Expected ',', got '{'
+    at BuildError (https://276bd471-ad72-4f06-8f38-2389516bc0c1-00-2761sw198cbj.sisko.replit.dev/_next/static/chunks/node_modules_next_dist_client_8f19e6fb._.js:11135:41)
+    at react-stack-bottom-frame (https://276bd471-ad72-4f06-8f38-2389516bc0c1-00-2761sw198cbj.sisko.replit.dev/_next/static/chunks/node_modules_next_dist_compiled_2ce9398a._.js:14911:24)
+    at renderWithHooksAgain (https://276bd471-ad72-4f06-8f38-2389516bc0c1-00-2761sw198cbj.sisko.replit.dev/_next/static/chunks/node_modules_next_dist_compiled_2ce9398a._.js:6256:24)
+    at renderWithHooks (https://276bd471-ad72-4f06-8f38-2389516bc0c1-00-2761sw198cbj.sisko.replit.dev/_next/static/chunks/node_modules_next_dist_compiled_2ce9398a._.js:6207:28)
+    at updateFunctionComponent (https://276bd471-ad72-4f06-8f38-2389516bc0c1-00-2761sw198cbj.sisko.replit.dev/_next/static/chunks/node_modules_next_dist_compiled_2ce9398a._.js:7543:21)
+    at beginWork (https://276bd471-ad72-4f06-8f38-2389516bc0c1-00-2761sw198cbj.sisko.replit.dev/_next/static/chunks/node_modules_next_dist_compiled_2ce9398a._.js:8142:24)
+    at runWithFiberInDEV (https://276bd471-ad72-4f06-8f38-2389516bc0c1-00-2761sw198cbj.sisko.replit.dev/_next/static/chunks/node_modules_next_dist_compiled_2ce9398a._.js:3073:74)
+    at performUnitOfWork (https://276bd471-ad72-4f06-8f38-2389516bc0c1-00-2761sw198cbj.sisko.replit.dev/_next/static/chunks/node_modules_next_dist_compiled_2ce9398a._.js:10243:97)
+    at workLoopSync (https://276bd471-ad72-4f06-8f38-2389516bc0c1-00-2761sw198cbj.sisko.replit.dev/_next/static/chunks/node_modules_next_dist_compiled_2ce9398a._.js:10135:40)
+    at renderRootSync (https://276bd471-ad72-4f06-8f38-2389516bc0c1-00-2761sw198cbj.sisko.replit.dev/_next/static/chunks/node_modules_next_dist_compiled_2ce9398a._.js:10118:13)
+    at performWorkOnRoot (https://276bd471-ad72-4f06-8f38-2389516bc0c1-00-2761sw198cbj.sisko.replit.dev/_next/static/chunks/node_modules_next_dist_compiled_2ce9398a._.js:9853:212)
+    at performWorkOnRootViaSchedulerTask (https://276bd471-ad72-4f06-8f38-2389516bc0c1-00-2761sw198cbj.sisko.replit.dev/_next/static/chunks/node_modules_next_dist_compiled_2ce9398a._.js:10826:9)
+    at MessagePort.performWorkUntilDeadline (https://276bd471-ad72-4f06-8f38-2389516bc0c1-00-2761sw198cbj.sisko.replit.dev/_next/static/chunks/node_modules_next_dist_compiled_2ce9398a._.js:1982:64)
