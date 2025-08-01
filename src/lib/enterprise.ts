@@ -233,7 +233,16 @@ export class EnterpriseService {
   }
   
   private static async getBusiness(businessId: string): Promise<Business | null> {
-    // Implement business lookup from your database
+    // Demo business data for demonstration
+    if (businessId === 'demo-business-123') {
+      return {
+        id: businessId,
+        name: 'Demo Enterprise Corp',
+        plan_type: 'enterprise',
+        created_at: new Date('2024-01-01'),
+        updated_at: new Date()
+      } as Business
+    }
     return null
   }
   

@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useRef } from 'react'
 import ChatInterface from '@/components/ui/ChatInterface'
 import FileUpload from '@/components/ui/FileUpload'
+import WidgetGenerator from '@/components/ui/WidgetGenerator'
+import EnterprisePanel from '@/components/ui/EnterprisePanel'
 
 // Assistant configurations
 const UNIVERSAL_ASSISTANT = {
@@ -898,6 +900,8 @@ export default function HomePage() {
           </div>
         </div>
       )}
+       {/* Enterprise Panel - Adding the component here */}
+       <EnterprisePanel />
     </div>
   )
 }

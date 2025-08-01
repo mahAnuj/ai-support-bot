@@ -1,7 +1,7 @@
 
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { EnterpriseService } from '../../lib/enterprise'
 
 interface EnterprisePanelProps {
@@ -22,17 +22,62 @@ export default function EnterprisePanel({ businessId, planType }: EnterprisePane
     { id: 'audit', label: 'Audit Logs', icon: '📋' }
   ]
 
+  const [enterpriseMetrics, setEnterpriseMetrics] = useState({
+    apiCalls: 0,
+    webhooks: 0,
+    ssoLogins: 0,
+    auditEvents: 0
+  })
+
+  React.useEffect(() => {
+    const fetchEnterpriseMetrics = async () => {
+      try {
+        const response = await fetch('/api/analytics/realtime')
+        if (response.ok) {
+          const data = await response.json()
+          if (data.success && data.data.enterprise) {
+            setEnterpriseMetrics({
+              apiCalls: data.data.enterprise.api_calls_today,
+              webhooks: data.data.enterprise.webhook_deliveries,
+              ssoLogins: data.data.enterprise.sso_logins_today,
+              auditEvents: data.data.enterprise.audit_events_today
+            })
+          }
+        }
+      } catch (error) {
+        console.log('Enterprise metrics not available')
+      }
+    }
+
+    fetchEnterpriseMetrics()
+    const interval = setInterval(fetchEnterpriseMetrics, 30000)
+    return () => clearInterval(interval)
+  }, [])
+
   const handleExportData = async (format: 'json' | 'csv' | 'xml') => {
     setIsLoading(true)
     try {
-      const data = await EnterpriseService.exportBusinessData(businessId, format)
-      if (data) {
-        const blob = new Blob([data], { type: `application/${format}` })
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `business-data-${businessId}.${format}`
-        a.click()
+      const response = await fetch('/api/enterprise', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'export_data',
+          businessId,
+          data: { format }
+        })
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        if (result.success && result.data) {
+          const blob = new Blob([result.data], { type: `application/${format}` })
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = `business-data-${businessId}.${format}`
+          a.click()
+          URL.revokeObjectURL(url)
+        }
       }
     } catch (error) {
       console.error('Export failed:', error)
@@ -83,6 +128,28 @@ export default function EnterprisePanel({ businessId, planType }: EnterprisePane
       <div className="p-6">
         {activeTab === 'overview' && (
           <div className="space-y-6">
+            {/* Enterprise Metrics */}
+            {planType !== 'free' && (
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div className="bg-blue-50 rounded-lg p-4 text-center">
+                  <div className="text-2xl font-bold text-blue-600">{enterpriseMetrics.apiCalls.toLocaleString()}</div>
+                  <div className="text-sm text-gray-600">API Calls Today</div>
+                </div>
+                <div className="bg-green-50 rounded-lg p-4 text-center">
+                  <div className="text-2xl font-bold text-green-600">{enterpriseMetrics.webhooks.toLocaleString()}</div>
+                  <div className="text-sm text-gray-600">Webhook Deliveries</div>
+                </div>
+                <div className="bg-purple-50 rounded-lg p-4 text-center">
+                  <div className="text-2xl font-bold text-purple-600">{enterpriseMetrics.ssoLogins}</div>
+                  <div className="text-sm text-gray-600">SSO Logins Today</div>
+                </div>
+                <div className="bg-orange-50 rounded-lg p-4 text-center">
+                  <div className="text-2xl font-bold text-orange-600">{enterpriseMetrics.auditEvents}</div>
+                  <div className="text-sm text-gray-600">Audit Events</div>
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <FeatureCard
                 title="API Access"
@@ -99,20 +166,47 @@ export default function EnterprisePanel({ businessId, planType }: EnterprisePane
                 enabled={planType !== 'free'}
                 description="Detailed insights and custom reports"
               />
+              <FeatureCard
+                title="SSO & Security"
+                enabled={planType === 'enterprise'}
+                description="Single sign-on and enterprise security"
+              />
+              <FeatureCard
+                title="Webhook System"
+                enabled={planType !== 'free'}
+                description="Real-time data synchronization"
+              />
+              <FeatureCard
+                title="Audit Logging"
+                enabled={planType === 'enterprise'}
+                description="Comprehensive compliance tracking"
+              />
             </div>
             
             <div className="bg-gray-50 rounded-lg p-4">
               <h3 className="font-semibold mb-3">Quick Actions</h3>
-              <div className="flex space-x-3">
+              <div className="flex flex-wrap gap-3">
                 <button
                   onClick={() => handleExportData('json')}
                   disabled={isLoading || planType === 'free'}
                   className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
                 >
-                  Export Data
+                  {isLoading ? 'Exporting...' : 'Export Data'}
                 </button>
                 <button className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">
                   View API Docs
+                </button>
+                <button 
+                  disabled={planType === 'free'}
+                  className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:opacity-50"
+                >
+                  Generate API Key
+                </button>
+                <button 
+                  disabled={planType !== 'enterprise'}
+                  className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 disabled:opacity-50"
+                >
+                  Configure SSO
                 </button>
               </div>
             </div>
