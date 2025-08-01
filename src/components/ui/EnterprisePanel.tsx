@@ -9,7 +9,7 @@ interface EnterprisePanelProps {
   planType: 'free' | 'pro' | 'enterprise'
 }
 
-export default function EnterprisePanel({ businessId, planType }: EnterprisePanelProps) {
+export default function EnterprisePanel({ businessId, planType = 'free' }: EnterprisePanelProps) {
   const [activeTab, setActiveTab] = useState('overview')
   const [isLoading, setIsLoading] = useState(false)
 

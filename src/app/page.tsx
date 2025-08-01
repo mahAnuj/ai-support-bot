@@ -901,7 +901,20 @@ export default function HomePage() {
         </div>
       )}
        {/* Enterprise Panel - Adding the component here */}
-       <EnterprisePanel />
+       
+        {/* Enterprise Features Section */}
+        <div className="py-20 bg-gray-50">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-16">
+              <h2 className="text-4xl font-bold text-gray-900 mb-4">Enterprise Features</h2>
+              <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+                Scale your AI support with enterprise-grade features, security, and integrations
+              </p>
+            </div>
+
+            <EnterprisePanel businessId="demo-business" planType="enterprise" />
+          </div>
+        </div>
     </div>
   )
 }
