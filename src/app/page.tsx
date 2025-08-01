@@ -455,7 +455,7 @@ export default function HomePage() {
                       sessionId={sessionId}
                       title={widgetConfig.title}
                       welcomeMessage={widgetConfig.welcome_message}
-                      onGenerateWidget={generateWidget}
+                      onGenerateWidget={() => {}} // Empty function, we'll handle generation in step 3
                     />
                   </div>
                 </div>
@@ -463,6 +463,205 @@ export default function HomePage() {
             </div>
           </div>
         </div>
+
+        {/* Widget Configuration Section */}
+        {uploadedDocuments.length > 0 && (
+          <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-3xl shadow-2xl border border-green-200 overflow-hidden">
+            <div className="bg-gradient-to-r from-green-500 to-blue-600 px-8 py-6 text-white">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center">
+                  <span className="text-3xl">🚀</span>
+                </div>
+                <div>
+                  <h2 className="text-3xl font-bold mb-2">Step 3: Deploy Your AI Assistant</h2>
+                  <p className="text-green-100">Configure and generate embeddable code for your website</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-8">
+              <div className="grid lg:grid-cols-2 gap-8">
+                {/* Configuration Panel */}
+                <div className="space-y-6">
+                  <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-200">
+                    <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                      <span className="text-2xl">🎨</span>
+                      Customize Your Assistant
+                    </h3>
+                    
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Assistant Name
+                        </label>
+                        <input
+                          type="text"
+                          value={widgetConfig.name}
+                          onChange={(e) => setWidgetConfig({ ...widgetConfig, name: e.target.value })}
+                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="Business Support Assistant"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Display Title
+                        </label>
+                        <input
+                          type="text"
+                          value={widgetConfig.title}
+                          onChange={(e) => setWidgetConfig({ ...widgetConfig, title: e.target.value })}
+                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="AI Support Assistant"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Welcome Message
+                        </label>
+                        <textarea
+                          value={widgetConfig.welcome_message}
+                          onChange={(e) => setWidgetConfig({ ...widgetConfig, welcome_message: e.target.value })}
+                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          rows={3}
+                          placeholder="Hi! I'm your AI assistant. How can I help you today?"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Brand Color
+                        </label>
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="color"
+                            value={widgetConfig.primary_color}
+                            onChange={(e) => setWidgetConfig({ ...widgetConfig, primary_color: e.target.value })}
+                            className="w-16 h-12 border border-gray-300 rounded-lg cursor-pointer"
+                          />
+                          <input
+                            type="text"
+                            value={widgetConfig.primary_color}
+                            onChange={(e) => setWidgetConfig({ ...widgetConfig, primary_color: e.target.value })}
+                            className="flex-1 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            placeholder="#3B82F6"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Widget Position
+                        </label>
+                        <select
+                          value={widgetConfig.position}
+                          onChange={(e) => setWidgetConfig({ ...widgetConfig, position: e.target.value as any })}
+                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        >
+                          <option value="bottom-right">Bottom Right (Recommended)</option>
+                          <option value="bottom-left">Bottom Left</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Widget Size
+                        </label>
+                        <div className="grid grid-cols-3 gap-3">
+                          {['small', 'medium', 'large'].map((size) => (
+                            <button
+                              key={size}
+                              onClick={() => setWidgetConfig({ ...widgetConfig, size: size as any })}
+                              className={`p-3 border-2 rounded-lg text-center transition-all ${
+                                widgetConfig.size === size 
+                                  ? 'border-blue-500 bg-blue-50 text-blue-700' 
+                                  : 'border-gray-200 hover:border-gray-300'
+                              }`}
+                            >
+                              <div className="font-medium capitalize">{size}</div>
+                              <div className="text-xs text-gray-500 mt-1">
+                                {size === 'small' && 'Compact'}
+                                {size === 'medium' && 'Standard'}
+                                {size === 'large' && 'Prominent'}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Preview and Generate */}
+                <div className="space-y-6">
+                  <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-200">
+                    <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                      <span className="text-2xl">👀</span>
+                      Live Preview
+                    </h3>
+                    
+                    <div className="bg-gray-100 rounded-lg p-4 mb-6 h-64 flex items-center justify-center">
+                      <div className="text-center text-gray-500">
+                        <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center text-white text-2xl"
+                             style={{ backgroundColor: widgetConfig.primary_color }}>
+                          💬
+                        </div>
+                        <div className="font-medium">{widgetConfig.title}</div>
+                        <div className="text-sm mt-2 max-w-xs">{widgetConfig.welcome_message}</div>
+                        <div className="text-xs mt-4 text-gray-400">
+                          Position: {widgetConfig.position} | Size: {widgetConfig.size}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="text-center">
+                      <button
+                        onClick={generateWidget}
+                        disabled={isGeneratingWidget}
+                        className="w-full bg-gradient-to-r from-green-500 to-blue-600 text-white py-4 px-8 rounded-xl font-bold text-lg hover:from-green-600 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:shadow-lg transform hover:-translate-y-0.5 disabled:transform-none"
+                      >
+                        {isGeneratingWidget ? (
+                          <span className="flex items-center justify-center gap-2">
+                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            Generating Widget...
+                          </span>
+                        ) : (
+                          <span className="flex items-center justify-center gap-2">
+                            <span>🚀</span>
+                            Generate Embeddable Code
+                          </span>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-200">
+                    <h4 className="text-lg font-bold text-blue-900 mb-4">✨ What You Get</h4>
+                    <ul className="space-y-3 text-sm text-blue-800">
+                      <li className="flex items-start gap-3">
+                        <span className="text-blue-600">🎯</span>
+                        <span><strong>Smart responses</strong> based on your uploaded documents</span>
+                      </li>
+                      <li className="flex items-start gap-3">
+                        <span className="text-blue-600">⚡</span>
+                        <span><strong>Instant deployment</strong> - just copy and paste one script</span>
+                      </li>
+                      <li className="flex items-start gap-3">
+                        <span className="text-blue-600">📱</span>
+                        <span><strong>Mobile responsive</strong> - works on all devices</span>
+                      </li>
+                      <li className="flex items-start gap-3">
+                        <span className="text-blue-600">🔒</span>
+                        <span><strong>Secure and private</strong> - your data stays isolated</span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Success Metrics */}
