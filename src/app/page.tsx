@@ -80,6 +80,17 @@ export default function HomePage() {
 
     } catch (error) {
       console.error('Error uploading files:', error)
+      
+      // Show specific error message to user
+      if (error instanceof Error) {
+        if (error.message.includes('OPENAI_API_KEY')) {
+          alert('⚠️ Setup Required: Please add your OpenAI API key in the Secrets tab to enable AI features.')
+        } else {
+          alert(`Upload failed: ${error.message}`)
+        }
+      } else {
+        alert('Upload failed. Please check your files and try again.')
+      }
     } finally {
       setIsUploading(false)
     }
@@ -466,7 +477,7 @@ export default function HomePage() {
 
         {/* Widget Configuration Section */}
         {uploadedDocuments.length > 0 && (
-          <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-3xl shadow-2xl border border-green-200 overflow-hidden">
+          <div className="mt-16 bg-gradient-to-r from-green-50 to-blue-50 rounded-3xl shadow-2xl border border-green-200 overflow-hidden">
             <div className="bg-gradient-to-r from-green-500 to-blue-600 px-8 py-6 text-white">
               <div className="flex items-center gap-4">
                 <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center">
