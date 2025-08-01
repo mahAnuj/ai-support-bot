@@ -167,7 +167,24 @@ export class EnterpriseService {
     if (!business) return false
     
     const planFeatures = ENTERPRISE_PLANS[business.plan_type]?.features
-    return planFeatures?.[feature] || false
+    if (!planFeatures) return false
+    
+    const featureValue = planFeatures[feature]
+    
+    // Handle different feature types properly
+    if (typeof featureValue === 'boolean') {
+      return featureValue
+    } else if (typeof featureValue === 'string') {
+      return featureValue.length > 0
+    } else if (Array.isArray(featureValue)) {
+      return featureValue.length > 0
+    } else if (typeof featureValue === 'number') {
+      return featureValue > 0
+    } else if (typeof featureValue === 'object' && featureValue !== null) {
+      return true // Objects like rate_limiting are considered enabled if they exist
+    }
+    
+    return false
   }
   
   static async logAuditEvent(
