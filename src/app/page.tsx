@@ -115,14 +115,22 @@ export default function HomePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           sessionId,
-          config: widgetConfig
+          name: widgetConfig.title || 'Support Widget',
+          title: widgetConfig.title,
+          welcome_message: widgetConfig.welcome_message,
+          primary_color: widgetConfig.primary_color,
+          position: widgetConfig.position,
+          size: widgetConfig.size
         }),
       })
 
-      if (!response.ok) throw new Error('Failed to generate widget')
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.details || 'Failed to generate widget')
+      }
 
       const result = await response.json()
-      setWidgetCode(result.code)
+      setWidgetCode(result.embedCode)
       setShowGeneratedCodeDialog(true)
     } catch (error) {
       console.error('Error generating widget:', error)

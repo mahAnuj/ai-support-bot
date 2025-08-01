@@ -3,25 +3,30 @@ import { createWidgetFromSession } from '../../../../lib/database'
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('🔄 Widget generation started')
     const config = await request.json()
+    console.log('📝 Widget config received:', config)
     
     if (!config.sessionId) {
+      console.error('❌ Missing session ID')
       return NextResponse.json(
         { error: 'Session ID is required' },
         { status: 400 }
       )
     }
 
-    if (!config.name) {
+    if (!config.name && !config.title) {
+      console.error('❌ Missing widget name/title')
       return NextResponse.json(
-        { error: 'Widget name is required' },
+        { error: 'Widget name or title is required' },
         { status: 400 }
       )
     }
 
+    console.log('🔧 Creating widget from session...')
     // Create widget from session
     const result = await createWidgetFromSession(config.sessionId, {
-      name: config.name,
+      name: config.name || config.title || 'Support Widget',
       title: config.title || 'AI Support Assistant',
       welcome_message: config.welcome_message || 'Hi! How can I help you today?',
       primary_color: config.primary_color || '#3B82F6',
@@ -33,6 +38,8 @@ export async function POST(request: NextRequest) {
       role_context: config.role_context,
       knowledge_base_id: '' // Will be created by the function
     })
+    
+    console.log('✅ Widget created successfully:', result.widgetKey)
 
     // Generate the embeddable script
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 
