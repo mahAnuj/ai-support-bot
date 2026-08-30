@@ -175,24 +175,23 @@ ai-support-bot/
 - **WidgetGenerator**: Embeddable code generation
 
 ### **Testing**
-```bash
-# Run tests
-npm test
 
-# Watch mode
-npm run test:watch
-```
+Jest, jsdom and Testing Library are configured, but **no test files exist yet**,
+so `npm test` currently exits 1 with "No tests found". Adding the first test is
+a good first contribution — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## 🤝 Contributing
 
 1. **Fork** the repository
 2. **Create** feature branch: `git checkout -b feature/widget-customization`
 3. **Add** your changes and tests
-4. **Test**: `npm test` and `npm run lint`
+4. **Check**: `npm run lint` and `npm run build`
 5. **Submit** pull request with detailed description
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide.
+
 ### **Development Guidelines**
-- Follow TDD (Test-Driven Development) practices
+- Tests are welcome — none exist yet, so the first one sets the pattern
 - Use TypeScript for type safety
 - Follow the existing code style and conventions
 - Add tests for new features
