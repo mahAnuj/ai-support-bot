@@ -1,9 +1,21 @@
 import OpenAI from 'openai'
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
+// Created on first use, not at import time. Next.js evaluates route modules
+// while collecting page data during `next build`, and the OpenAI constructor
+// throws when the key is absent - which broke the production build on any host
+// that does not expose runtime secrets to the build step.
+let openaiClient: OpenAI | null = null
+
+function getOpenAI(): OpenAI {
+  if (!openaiClient) {
+    const apiKey = process.env.OPENAI_API_KEY
+    if (!apiKey) {
+      throw new Error('OPENAI_API_KEY is not set')
+    }
+    openaiClient = new OpenAI({ apiKey })
+  }
+  return openaiClient
+}
 
 export interface ChatResponse {
   message: string
@@ -99,7 +111,7 @@ FORMAT: Direct answer first, then brief suggestion if applicable.`
       }
     }
 
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAI().chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
         {
@@ -166,7 +178,7 @@ FORMAT: Direct answer first, then brief suggestion if applicable.`
 // Generate embeddings for document chunks
 export async function generateEmbeddings(text: string): Promise<number[]> {
   try {
-    const response = await openai.embeddings.create({
+    const response = await getOpenAI().embeddings.create({
       model: 'text-embedding-3-small',
       input: text.trim(),
     })
@@ -183,7 +195,7 @@ export async function generateEmbeddings(text: string): Promise<number[]> {
 // Batch generate embeddings for better performance
 export async function generateEmbeddingsBatch(texts: string[]): Promise<number[][]> {
   try {
-    const response = await openai.embeddings.create({
+    const response = await getOpenAI().embeddings.create({
       model: 'text-embedding-3-small',
       input: texts.map(text => text.trim()),
     })
@@ -200,7 +212,7 @@ export async function generateEmbeddingsBatch(texts: string[]): Promise<number[]
 // Test OpenAI connection
 export async function testOpenAIConnection(): Promise<boolean> {
   try {
-    await openai.models.list()
+    await getOpenAI().models.list()
     return true
   } catch (error) {
     console.error('OpenAI connection test failed:', error)
@@ -253,7 +265,7 @@ CORRECT Examples:
       query = `${query}\n\nPlease respond in JSON format as specified.`
     }
 
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAI().chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
         {
@@ -357,4 +369,5 @@ export function ensureConciseResponse(message: string, maxWords: number = 100): 
   return result.trim()
 }
 
-export default openai 
+// (No default export: the client is created on demand via getOpenAI().)
+ 
