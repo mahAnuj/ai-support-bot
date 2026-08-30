@@ -33,15 +33,8 @@ git clone https://github.com/mahAnuj/ai-support-bot.git
 cd ai-support-bot
 npm install
 
-# Setup environment variables
-cp .env.example .env.local
-# Add your API keys to .env.local:
-# OPENAI_API_KEY=your_openai_key
-# SUPABASE_URL=your_supabase_url
-# SUPABASE_ANON_KEY=your_supabase_key
-
-# Setup database (optional - uses file storage by default)
-npm run setup-db
+# Set your API key
+echo "OPENAI_API_KEY=your_openai_key" > .env.local
 
 # Start the builder
 npm run dev
@@ -86,11 +79,11 @@ Visit [http://localhost:3000](http://localhost:3000) and start building your AI 
 
 ## 🛠 Technology Stack
 
-- **Frontend**: Next.js 14 + TypeScript + Tailwind CSS + Shadcn/ui
+- **Frontend**: Next.js 15 + React 19 + TypeScript + Tailwind CSS v4
 - **Backend**: Next.js API routes (serverless)
-- **Database**: Supabase PostgreSQL + pgvector
+- **Storage**: In-memory (`src/lib/database.ts`) — no external database required
 - **AI**: OpenAI GPT-4o-mini (cost-optimized)
-- **Vector Search**: Supabase vector similarity functions
+- **Vector Search**: In-process cosine similarity over `text-embedding-3-small`
 - **File Processing**: Built-in PDF, TXT, MD, DOCX support
 - **Enhancement**: RAG (Retrieval-Augmented Generation)
 - **Deployment**: Vercel-ready with one-click deploy
@@ -104,17 +97,13 @@ npm run build
 vercel --prod
 
 # Set environment variables in Vercel dashboard:
-# OPENAI_API_KEY, SUPABASE_URL, SUPABASE_ANON_KEY
+# OPENAI_API_KEY
 ```
 
 ### **Environment Variables**
 ```bash
 # Required
 OPENAI_API_KEY=your_openai_api_key
-
-# Database (optional - falls back to file storage)
-SUPABASE_URL=your_supabase_project_url
-SUPABASE_ANON_KEY=your_supabase_anon_key
 
 # Optional
 NEXT_PUBLIC_APP_URL=https://yourdomain.com
@@ -139,7 +128,7 @@ const widgetConfig = {
 
 ### **Advanced Customization**
 - **System Prompts**: Modify `UNIVERSAL_ASSISTANT.systemPrompt` in `src/app/page.tsx`
-- **Styling**: Built with Tailwind CSS + Shadcn/ui components
+- **Styling**: Built with Tailwind CSS v4
 - **Branding**: Professional blue/gray color scheme, fully customizable
 - **Responsive**: Mobile-first design that works on all devices
 
@@ -190,9 +179,6 @@ ai-support-bot/
 # Run tests
 npm test
 
-# Run with coverage
-npm run test:coverage
-
 # Watch mode
 npm run test:watch
 ```
@@ -222,7 +208,7 @@ npm run test:watch
 
 ## 📝 License
 
-MIT License - see [LICENSE](LICENSE) file for details.
+Intended to be MIT-licensed. A `LICENSE` file has not been added to the repo yet.
 
 ---
 
