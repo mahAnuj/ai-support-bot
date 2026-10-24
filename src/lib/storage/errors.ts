@@ -57,9 +57,9 @@ export const STORAGE_ERROR_MESSAGES: Record<StorageErrorCode, string> = {
   pooler_unsupported: "The connection pooler rejected this app's connection settings. Use the direct or session-mode connection string (usually port 5432).",
   rate_limited: 'Too many connection attempts from this network. Wait a minute and try again.',
   storage_unavailable: "Connecting a database isn't available on this deployment.",
-  invalid_token: "This browser's link to your database is no longer valid. Disconnect and connect again.",
+  invalid_token: "This browser's link to your database is no longer valid. Connecting again starts a new, empty workspace. Your earlier documents stay in your database, but this builder can't reopen them.",
   token_wrong_purpose: "This key can't be used here.",
-  workspace_not_found: 'Your documents for this link are no longer in the database. Disconnect and connect again.',
+  workspace_not_found: "The workspace for this link is no longer in your database. Connecting again starts a new, empty workspace.",
   storage_error: 'Something went wrong talking to your database. Try again.',
 }
 

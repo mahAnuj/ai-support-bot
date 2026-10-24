@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState, type JSX } from 'react'
 import InstallGuide from './InstallGuide'
 import { readableTextOn } from './contrast'
+import { STORAGE_ERROR_CODES, storageErrorMessage } from '../../lib/storage/errors'
 
 export const DEFAULT_PRIMARY_COLOR = '#1E6B58'
 
@@ -153,7 +154,7 @@ export default function EmbedStep({ sessionId, documentCount, config, onGenerate
       } else if (status === 400) {
         setError(`Couldn't generate embed code: ${body?.error ?? 'invalid request'}.`)
       } else if (!response.ok || typeof body?.embedCode !== 'string' || typeof body?.scriptUrl !== 'string') {
-        setError(`Couldn't generate embed code (status ${status}). Sessions are lost when the server restarts, so upload your documents again and retry.`)
+        setError((STORAGE_ERROR_CODES as readonly string[]).includes(body?.code) ? storageErrorMessage(body.code) : `Couldn't generate embed code (status ${status}). Sessions are lost when the server restarts, so upload your documents again and retry.`)
       } else {
         setEmbedCode(body.embedCode)
         setScriptUrl(body.scriptUrl)
