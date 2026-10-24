@@ -20,13 +20,13 @@ const UNIVERSAL_ASSISTANT = {
 const LABEL = 'text-sm font-medium text-ink'
 const HELPER = 'mt-1.5 text-xs text-ink-subtle'
 const INPUT = 'h-11 w-full rounded-md border border-line-strong bg-surface px-3 text-base text-ink placeholder:text-ink-subtle focus:border-accent'
-const TEXTAREA = 'w-full rounded-md border border-line-strong bg-surface px-3 py-2.5 min-h-24 text-base text-ink placeholder:text-ink-subtle focus:border-accent'
+const TEXTAREA = 'block w-full rounded-md border border-line-strong bg-surface px-3 py-2.5 max-sm:min-h-24 text-base text-ink placeholder:text-ink-subtle focus:border-accent'
 const PANEL = 'rounded-lg border border-line bg-surface p-4 sm:p-6'
 
 const SIZE_OPTIONS: { value: WidgetConfig['size']; label: string; dimensions: string }[] = [
-  { value: 'small', label: 'Small', dimensions: '300 × 400 px' },
-  { value: 'medium', label: 'Medium', dimensions: '350 × 500 px' },
-  { value: 'large', label: 'Large', dimensions: '400 × 600 px' },
+  { value: 'small', label: 'Small', dimensions: '300×400' },
+  { value: 'medium', label: 'Medium', dimensions: '350×500' },
+  { value: 'large', label: 'Large', dimensions: '400×600' },
 ]
 
 type UploadedDocument = { filename: string; chunks: number }
@@ -182,22 +182,22 @@ export default function HomePage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-page px-4 pb-28 pt-8 sm:px-8 lg:pt-10">
+      <main className="mx-auto max-w-page px-4 pb-28 pt-8 sm:px-8">
         <h1 className="text-2xl font-[650] text-ink sm:text-3xl">Build a support assistant from your own documents</h1>
-        <p className="mt-3 max-w-[60ch] text-base text-ink-muted">
+        <p className="mt-3 max-w-[60ch] text-base text-ink-muted lg:max-w-none">
           Set how it looks, upload the documents it should answer from, try it here, then copy the embed code onto your site.
         </p>
 
-        <div className="mt-8 grid gap-x-10 gap-y-10 lg:mt-10 lg:grid-cols-[minmax(0,1fr)_420px] lg:grid-rows-[auto_auto_1fr] lg:gap-y-12">
-          <section aria-labelledby={step1Id} className="lg:col-start-1 lg:row-start-1">
+        <div className="mt-8 grid grid-cols-[minmax(0,1fr)] gap-x-10 gap-y-10 lg:grid-cols-[minmax(0,1fr)_420px] lg:grid-rows-[auto_auto_1fr]">
+          <section aria-labelledby={step1Id} className="min-w-0 lg:col-start-1 lg:row-start-1">
             <StepHeader
               id={step1Id}
               n={1}
               title="Set up the assistant"
               description="Name it and choose how the chat window looks on your site."
             />
-            <div className={`${PANEL} grid gap-4 sm:grid-cols-2`}>
-              <div>
+            <div className={`${PANEL} grid grid-cols-1 gap-4 sm:grid-cols-6`}>
+              <div className="min-w-0 sm:col-span-2">
                 <label htmlFor={titleId} className={LABEL}>Display title</label>
                 <input
                   id={titleId}
@@ -210,7 +210,7 @@ export default function HomePage() {
                 <p id={`${titleId}-help`} className={HELPER}>Shown in the chat header.</p>
               </div>
 
-              <div>
+              <div className="min-w-0 sm:col-span-2">
                 <label htmlFor={nameId} className={LABEL}>Assistant name</label>
                 <input
                   id={nameId}
@@ -223,11 +223,24 @@ export default function HomePage() {
                 <p id={`${nameId}-help`} className={HELPER}>Internal name for this widget.</p>
               </div>
 
-              <div className="sm:col-span-2">
+              <div className="min-w-0 sm:col-span-2">
+                <label htmlFor={positionId} className={LABEL}>Position</label>
+                <select
+                  id={positionId}
+                  value={widgetConfig.position}
+                  onChange={e => updateConfig('position', e.target.value as WidgetConfig['position'])}
+                  className={`mt-1.5 ${INPUT}`}
+                >
+                  <option value="bottom-right">Bottom right</option>
+                  <option value="bottom-left">Bottom left</option>
+                </select>
+              </div>
+
+              <div className="min-w-0 sm:col-span-6">
                 <label htmlFor={welcomeId} className={LABEL}>Welcome message</label>
                 <textarea
                   id={welcomeId}
-                  rows={3}
+                  rows={2}
                   value={widgetConfig.welcome_message}
                   onChange={e => updateConfig('welcome_message', e.target.value)}
                   aria-describedby={`${welcomeId}-help`}
@@ -236,7 +249,7 @@ export default function HomePage() {
                 <p id={`${welcomeId}-help`} className={HELPER}>The first message visitors see.</p>
               </div>
 
-              <div>
+              <div className="min-w-0 sm:col-span-3">
                 <label htmlFor={colorId} className={LABEL}>Brand colour</label>
                 <div className="mt-1.5 flex items-center gap-2">
                   <input
@@ -259,24 +272,11 @@ export default function HomePage() {
                   />
                 </div>
                 <p id={`${colorId}-help`} className={HELPER}>
-                  Used for the launcher, header and visitor messages. Choose a colour dark enough for white text.
+                  Pick a colour dark enough for white text.
                 </p>
               </div>
 
-              <div>
-                <label htmlFor={positionId} className={LABEL}>Position</label>
-                <select
-                  id={positionId}
-                  value={widgetConfig.position}
-                  onChange={e => updateConfig('position', e.target.value as WidgetConfig['position'])}
-                  className={`mt-1.5 ${INPUT}`}
-                >
-                  <option value="bottom-right">Bottom right</option>
-                  <option value="bottom-left">Bottom left</option>
-                </select>
-              </div>
-
-              <fieldset className="sm:col-span-2">
+              <fieldset className="min-w-0 sm:col-span-3">
                 <legend className={LABEL}>Widget size</legend>
                 <div className="mt-1.5 grid grid-cols-3 gap-2">
                   {SIZE_OPTIONS.map(option => {
@@ -292,7 +292,7 @@ export default function HomePage() {
                         }`}
                       >
                         <span className="block text-sm font-semibold text-ink">{option.label}</span>
-                        <span className="block text-xs text-ink-muted">{option.dimensions}</span>
+                        <span className="block whitespace-nowrap text-xs text-ink-muted tabular-nums">{option.dimensions}</span>
                       </button>
                     )
                   })}
@@ -301,7 +301,7 @@ export default function HomePage() {
             </div>
           </section>
 
-          <section aria-labelledby={step2Id} className="lg:col-start-1 lg:row-start-2">
+          <section aria-labelledby={step2Id} className="min-w-0 lg:col-start-1 lg:row-start-2">
             <StepHeader
               id={step2Id}
               n={2}
@@ -340,7 +340,7 @@ export default function HomePage() {
                   </h3>
                   <ul aria-labelledby={docsHeadingId} className="mt-3 flex flex-col gap-2">
                     {uploadedDocuments.map((doc, index) => (
-                      <li key={`${doc.filename}-${index}`} className="flex items-center justify-between gap-3 rounded-md border border-line px-3 py-2">
+                      <li key={`${doc.filename}-${index}`} className="flex min-w-0 items-center justify-between gap-3 rounded-md border border-line px-3 py-2">
                         <span className="flex min-w-0 items-center gap-2">
                           <FileIcon className="shrink-0 text-accent" />
                           <span className="min-w-0 truncate text-sm text-ink">{doc.filename}</span>
@@ -358,7 +358,7 @@ export default function HomePage() {
 
           <section
             aria-labelledby={step3Id}
-            className="lg:sticky lg:top-6 lg:col-start-2 lg:row-span-3 lg:row-start-1 lg:self-start"
+            className="min-w-0 lg:sticky lg:top-6 lg:col-start-2 lg:row-span-3 lg:row-start-1 lg:self-start"
           >
             <StepHeader
               id={step3Id}
@@ -383,7 +383,7 @@ export default function HomePage() {
             </div>
           </section>
 
-          <section aria-labelledby={step4Id} className="lg:col-start-1 lg:row-start-3">
+          <section aria-labelledby={step4Id} className="min-w-0 lg:col-start-1 lg:row-start-3">
             <StepHeader
               id={step4Id}
               n={4}

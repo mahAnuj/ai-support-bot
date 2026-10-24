@@ -81,6 +81,7 @@ export default function EmbedStep({ sessionId, documentCount, config }: EmbedSte
 
   const generateRef = useRef<HTMLButtonElement>(null)
   const dialogRef = useRef<HTMLDialogElement>(null)
+  const copyRef = useRef<HTMLButtonElement>(null)
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const titleId = useId()
@@ -88,7 +89,10 @@ export default function EmbedStep({ sessionId, documentCount, config }: EmbedSte
 
   useEffect(() => {
     const dialog = dialogRef.current
-    if (isOpen && dialog && !dialog.open) dialog.showModal()
+    if (isOpen && dialog && !dialog.open) {
+      dialog.showModal()
+      copyRef.current?.focus()
+    }
   }, [isOpen])
 
   useEffect(() => {
@@ -256,7 +260,7 @@ export default function EmbedStep({ sessionId, documentCount, config }: EmbedSte
             {embedCode}
           </pre>
           <div className="flex flex-wrap items-center gap-3">
-            <button type="button" onClick={copyCode} className={primaryButton}>
+            <button ref={copyRef} type="button" onClick={copyCode} className={primaryButton}>
               Copy code
             </button>
             <span role="status" aria-live="polite" className="text-sm text-ink-muted">
