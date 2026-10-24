@@ -35,7 +35,7 @@ const components: Components = {
     </code>
   ),
   pre: ({ children }) => (
-    <pre className="mb-3 overflow-x-auto rounded-md bg-code-bg p-3 font-mono text-sm text-code-ink">
+    <pre tabIndex={0} className="mb-3 max-w-full overflow-x-auto rounded-md bg-code-bg p-3 font-mono text-sm text-code-ink">
       {children}
     </pre>
   ),
@@ -60,7 +60,7 @@ const components: Components = {
   hr: () => <hr className="my-4 border-line" />,
 
   table: ({ children }) => (
-    <div className="mb-3 overflow-x-auto">
+    <div className="mb-3 max-w-full overflow-x-auto">
       <table className="min-w-full border border-line text-sm">{children}</table>
     </div>
   ),

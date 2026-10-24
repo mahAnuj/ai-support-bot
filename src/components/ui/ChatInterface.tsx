@@ -102,7 +102,7 @@ function documentSources(sources?: string[]): string[] {
   return Array.from(new Set(sources.filter(source => source && source !== 'general_knowledge')))
 }
 
-const aiBubble = 'self-start max-w-[85%] rounded-xl rounded-bl-sm border px-4 py-3 text-ink'
+const aiBubble = 'self-start min-w-0 max-w-[85%] [overflow-wrap:anywhere] rounded-xl rounded-bl-sm border px-4 py-3 text-ink'
 
 const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, ChatInterfaceProps>(({
   systemPrompt,
@@ -114,6 +114,8 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, C
   title = 'Your Business AI Assistant',
   welcomeMessage = 'Ask a question to see how the assistant answers.',
 }, ref) => {
+  const displayTitle = title.trim() || 'Your Business AI Assistant'
+  const displayWelcome = welcomeMessage.trim()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [inputValue, setInputValue] = useState('')
   const [isTyping, setIsTyping] = useState(false)
@@ -243,16 +245,16 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, C
           </details>
         )}
         {sources.length > 0 && (
-          <div className="flex w-full flex-wrap items-center gap-2">
+          <div className="flex w-full min-w-0 flex-wrap items-center gap-2">
             <span>Sources</span>
-            <ul className="flex flex-wrap gap-2">
+            <ul className="flex min-w-0 max-w-full flex-wrap gap-2">
               {sources.map(source => (
                 <li
                   key={source}
-                  className="inline-flex max-w-[16rem] items-center gap-1 rounded-sm border border-line bg-sunken px-2 py-1 text-ink"
+                  className="inline-flex min-w-0 max-w-[min(16rem,100%)] items-center gap-1 rounded-sm border border-line bg-sunken px-2 py-1 text-ink"
                 >
                   <FileIcon className="size-4 shrink-0" />
-                  <span className="truncate">{source}</span>
+                  <span className="min-w-0 truncate">{source}</span>
                 </li>
               ))}
             </ul>
@@ -265,7 +267,7 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, C
   const renderMessage = (message: ChatMessage) => {
     if (message.sender === 'user') {
       return (
-        <div key={message.id} className={`self-end max-w-[85%] rounded-xl rounded-br-sm px-4 py-2.5 text-white ${primaryBg}`}>
+        <div key={message.id} className={`self-end min-w-0 max-w-[85%] [overflow-wrap:anywhere] rounded-xl rounded-br-sm px-4 py-2.5 text-white ${primaryBg}`}>
           <p className="whitespace-pre-wrap">{message.text}</p>
         </div>
       )
@@ -300,7 +302,7 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, C
           <ChatIcon />
         </div>
         <div className="min-w-0">
-          <h3 className="truncate text-base font-semibold">{title}</h3>
+          <h3 className="truncate text-base font-semibold">{displayTitle}</h3>
           <p className="text-xs text-white">
             {hasUploadedFiles ? 'Preview using your indexed documents' : 'Preview with no documents yet'}
           </p>
@@ -311,11 +313,15 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, C
         ref={logRef}
         role="log"
         aria-live="polite"
-        className="flex flex-1 flex-col gap-4 overflow-y-auto bg-sunken p-4 sm:p-5"
+        aria-label="Conversation"
+        tabIndex={0}
+        className="flex min-w-0 flex-1 flex-col gap-4 overflow-y-auto bg-sunken p-4 [contain:inline-size] focus-visible:outline-offset-[-2px] sm:p-5"
       >
-        <div className={`${aiBubble} border-line bg-surface`}>
-          <p className="whitespace-pre-wrap">{welcomeMessage}</p>
-        </div>
+        {displayWelcome && (
+          <div className={`${aiBubble} border-line bg-surface`}>
+            <p className="whitespace-pre-wrap">{displayWelcome}</p>
+          </div>
+        )}
 
         {messages.length === 0 && suggestedQuestions && suggestedQuestions.length > 0 && (
           <div className="flex flex-col gap-2">
