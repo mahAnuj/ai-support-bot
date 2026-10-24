@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { validateFiles, extractTextFromFilePath } from '../../../lib/documents'
-import { createSession, storeDocument } from '../../../lib/database'
 import { getCachedEmbedding } from '../../../lib/rag'
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
 import { clientIp, isRateLimited } from '../../../lib/guard'
+import { resolveBuilderStore, storageErrorResponse } from '../../../lib/storage/resolve'
+import { StorageError, isStorageError, safeErrorSummary } from '../../../lib/storage/errors'
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,6 +15,11 @@ export async function POST(request: NextRequest) {
     if (isRateLimited(`upload:${clientIp(request)}`, 10)) {
       return NextResponse.json({ error: 'Too many uploads' }, { status: 429 })
     }
+    // Resolved before the body is read, so a bad or wrong-purpose token reads and writes nothing
+    const resolved = resolveBuilderStore(request)
+    if (!resolved.ok) return storageErrorResponse(resolved.error)
+    const ctx = resolved.ctx
+    const store = ctx.store
     const formData = await request.formData()
     const files = formData.getAll('files') as File[]
     
@@ -128,29 +134,30 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Store the extracted content in the RAG system
-      const { createSession, storeDocument, getSession } = await import('../../../lib/database')
-      const { getCachedEmbedding } = await import('../../../lib/rag')
-      
       // Check if sessionId was provided and exists, otherwise create new session
       const providedSessionId = formData.get('sessionId') as string
       let session
       
-      if (providedSessionId) {
+      if (ctx.kind === 'postgres') {
+        // The token decides the workspace; a sessionId in the form is ignored
+        session = await store.getWorkspace(ctx.workspaceId)
+        if (!session) throw new StorageError('workspace_not_found')
+        console.log(`🔗 Using workspace ${ctx.label}`)
+      } else if (providedSessionId) {
         console.log(`🔍 Checking for existing session: ${providedSessionId}`)
-        const existingSession = await getSession(providedSessionId)
+        const existingSession = await store.getWorkspace(providedSessionId)
         
         if (existingSession) {
           console.log(`🔗 Using existing session: ${providedSessionId}`)
           session = existingSession
         } else {
           console.log(`❌ Session ${providedSessionId} not found, creating new one`)
-          session = await createSession()
+          session = await store.createWorkspace()
           console.log(`📝 Created new RAG session: ${session.id}`)
         }
       } else {
         // Create new session for RAG
-        session = await createSession()
+        session = await store.createWorkspace()
         console.log(`📝 Created RAG session: ${session.id}`)
       }
       
@@ -179,11 +186,11 @@ export async function POST(request: NextRequest) {
           }
           
           // Store document with embeddings in RAG database
-          await storeDocument(session.id, doc.filename, chunksWithEmbeddings)
+          await store.storeDocument(session.id, doc.filename, chunksWithEmbeddings)
           console.log(`✅ Stored ${doc.filename} with ${chunksWithEmbeddings.length} chunks in RAG`)
           
         } catch (error) {
-          console.error(`❌ Error storing ${doc.filename} in RAG:`, error)
+          console.error(`❌ Error storing ${doc.filename} in RAG:`, isStorageError(error) ? safeErrorSummary(error) : error)
           throw error
         }
       }
@@ -218,6 +225,10 @@ export async function POST(request: NextRequest) {
       }
     }
   } catch (error) {
+    if (isStorageError(error)) {
+      console.error(`Upload API storage error ${safeErrorSummary(error)}`)
+      return storageErrorResponse(error)
+    }
     console.error('Upload API error:', error)
     return NextResponse.json(
       { 
