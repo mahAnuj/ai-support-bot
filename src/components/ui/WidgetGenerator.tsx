@@ -403,7 +403,7 @@ const WidgetGenerator: React.FC<WidgetGeneratorProps> = ({
                 </li>
                 <li className="flex items-start space-x-3">
                   <span className="text-green-600">🔒</span>
-                  <span><strong>Secure & private</strong> - your data stays isolated</span>
+                  <span><strong>Where your data goes</strong> - visitor questions and your documents are sent to OpenAI</span>
                 </li>
                 <li className="flex items-start space-x-3">
                   <span className="text-green-600">⚡</span>

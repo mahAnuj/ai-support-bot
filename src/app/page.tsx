@@ -4,7 +4,6 @@ import React, { useState, useEffect, useRef } from 'react'
 import ChatInterface from '@/components/ui/ChatInterface'
 import FileUpload from '@/components/ui/FileUpload'
 import WidgetGenerator from '@/components/ui/WidgetGenerator'
-import EnterprisePanel from '@/components/ui/EnterprisePanel'
 
 // Assistant configurations
 const UNIVERSAL_ASSISTANT = {
@@ -33,12 +32,6 @@ export default function HomePage() {
     primary_color: '#3B82F6',
     position: 'bottom-right' as 'bottom-right' | 'bottom-left',
     size: 'medium' as 'small' | 'medium' | 'large'
-  })
-  const [analytics, setAnalytics] = useState({
-    totalChats: 0,
-    avgResponseTime: '1.2s',
-    satisfactionScore: 94,
-    topQuestions: ['What are your business hours?', 'How can I contact support?', 'What services do you offer?']
   })
   const chatRef = useRef<any>(null)
 
@@ -201,10 +194,6 @@ export default function HomePage() {
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 bg-green-400 rounded-full"></span>
                 <span>Instant deployment</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 bg-green-400 rounded-full"></span>
-                <span>Enterprise ready</span>
               </div>
             </div>
           </div>
@@ -558,7 +547,7 @@ export default function HomePage() {
                       </li>
                       <li className="flex items-start gap-3">
                         <span className="text-blue-600">🔒</span>
-                        <span><strong>Secure and private</strong> - your data stays isolated</span>
+                        <span><strong>Where your data goes</strong> - documents and questions are sent to OpenAI to answer</span>
                       </li>
                     </ul>
                   </div>
@@ -567,123 +556,6 @@ export default function HomePage() {
             </div>
           </div>
         )}
-      </div>
-
-      {/* Enterprise Features Section */}
-      <div className="py-20 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Enterprise Features</h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Ready to scale? Explore enterprise-grade features and integrations
-            </p>
-          </div>
-
-          <EnterprisePanel businessId="demo-business" planType="enterprise" />
-        </div>
-      </div>
-
-      {/* Success Metrics */}
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-700 py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-white mb-4">Trusted by Growing Businesses</h2>
-            <p className="text-xl text-indigo-200">Join thousands of companies using AI to enhance customer support</p>
-          </div>
-          <div className="grid md:grid-cols-4 gap-8">
-            <div className="text-center">
-              <div className="flex justify-center mb-3">
-                <div className="bg-white/20 backdrop-blur-sm w-12 h-12 rounded-xl flex items-center justify-center">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-              </div>
-              <div className="text-4xl font-bold text-white mb-2">5min</div>
-              <div className="text-indigo-200">Average Setup Time</div>
-            </div>
-            <div className="text-center">
-              <div className="flex justify-center mb-3">
-                <div className="bg-white/20 backdrop-blur-sm w-12 h-12 rounded-xl flex items-center justify-center">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                  </svg>
-                </div>
-              </div>
-              <div className="text-4xl font-bold text-white mb-2">24/7</div>
-              <div className="text-indigo-200">Always Available</div>
-            </div>
-            <div className="text-center">
-              <div className="flex justify-center mb-3">
-                <div className="bg-white/20 backdrop-blur-sm w-12 h-12 rounded-xl flex items-center justify-center">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 013.138-3.138z" />
-                  </svg>
-                </div>
-              </div>
-              <div className="text-4xl font-bold text-white mb-2">90%</div>
-              <div className="text-indigo-200">Query Accuracy</div>
-            </div>
-            <div className="text-center">
-              <div className="flex justify-center mb-3">
-                <div className="bg-white/20 backdrop-blur-sm w-12 h-12 rounded-xl flex items-center justify-center">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-              </div>
-              <div className="text-4xl font-bold text-white mb-2">50%</div>
-              <div className="text-indigo-200">Support Cost Reduction</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Contact Section */}
-      <div className="bg-white py-16">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Ready to Transform Your Customer Support?</h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
-              Get in touch with our team for enterprise solutions, custom implementations, or product demos.
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-8 text-center shadow-lg border border-blue-100 hover:shadow-xl transition-all duration-300">
-              <div className="bg-blue-500 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-              </div>
-              <h3 className="font-bold text-gray-900 mb-3 text-xl">Email Support</h3>
-              <p className="text-gray-600 mb-4">Get detailed responses to your questions</p>
-              <p className="text-sm text-blue-600 font-medium">support@aiassistant.com</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-8 text-center shadow-lg border border-green-100 hover:shadow-xl transition-all duration-300">
-              <div className="bg-green-500 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a2 2 0 01-2-2v-6a2 2 0 012-2h2m-4 9h3l4 4v-4h2a2 2 0 002-2V8a2 2 0 00-2-2h-6a2 2 0 00-2 2v4a2 2 0 002 2z" />
-                </svg>
-              </div>
-              <h3 className="font-bold text-gray-900 mb-3 text-xl">Live Chat</h3>
-              <p className="text-gray-600 mb-4">Instant responses from our team</p>
-              <p className="text-xs text-gray-500">Mon-Fri 9AM-6PM EST</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl p-8 text-center shadow-lg border border-purple-100 hover:shadow-xl transition-all duration-300">
-              <div className="bg-purple-500 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2-2v2m8 0V6a2 2 0 012 2v6a2 2 0 01-2 2H6a2 2 0 01-2-2V8a2 2 0 012-2V6" />
-                </svg>
-              </div>
-              <h3 className="font-bold text-gray-900 mb-3 text-xl">Enterprise</h3>
-              <p className="text-gray-600 mb-4">Custom solutions and dedicated support</p>
-              <p className="text-xs text-gray-500">Schedule a demo call</p>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Widget Generation Dialog */}

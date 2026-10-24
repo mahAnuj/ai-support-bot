@@ -206,7 +206,7 @@
 - No time limits on testing
 
 ### Q: What happens to my uploaded documents?
-**A:** Documents are processed for AI training purposes only and are not stored permanently. For production use, we follow strict data privacy and security protocols.
+**A:** Documents are split into chunks and sent to OpenAI to create embeddings. The chunks are kept in the server's memory, not a database, so they are lost when the server restarts. Visitor questions and the matching chunks are sent to OpenAI to generate each answer. OpenAI's API data policy applies to what it receives.
 
 ---
 
@@ -221,7 +221,7 @@
 5. **Generate your embed code** and go live
 
 ### Q: Who should I contact for enterprise solutions?
-**A:** For business inquiries, custom implementations, or enterprise features, reach out to our team with your requirements and we'll design a solution that fits your needs.
+**A:** This is an open-source project, not a company with an enterprise tier. Open an issue on the GitHub repository with what you need.
 
 ---
 

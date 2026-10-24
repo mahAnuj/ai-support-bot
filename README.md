@@ -17,13 +17,13 @@ A powerful platform that lets any business build, test, and deploy intelligent A
 - **Smart Chunking**: Automatically processes and segments your documents
 - **Vector Search**: Uses advanced embeddings for accurate information retrieval
 - **Source Attribution**: Shows which documents were used in each response
-- **Confidence Scoring**: Real-time indicators show response quality and reliability
+- **Retrieval Match Score**: Shows how closely the retrieved passages match the question (a similarity score, not a probability that the answer is correct)
 
 ### 🌐 **Production-Ready Deployment**
 - **Embeddable Widget**: Copy-paste JavaScript code to add to any website
 - **Customizable Appearance**: Match your brand colors and positioning preferences
 - **Mobile Optimized**: Works seamlessly on desktop, tablet, and mobile devices
-- **Secure & Private**: Session-based isolation with automatic data cleanup
+- **Bounded by default**: Per-IP rate limits, input size caps, and optional per-widget domain allowlists. See [GOVERNANCE.md](GOVERNANCE.md) for what is and is not protected
 
 ## 🚀 Quick Start
 
@@ -73,7 +73,7 @@ Visit [http://localhost:3000](http://localhost:3000) and start building your AI 
 |------------------|----------------|
 | Generic responses | Business-specific answers |
 | "I don't know" | Cites your actual policies |
-| 30% confidence | 95% confidence |
+| Low retrieval match | High retrieval match |
 | Basic information | Detailed, accurate guidance |
 | No source attribution | Clear document references |
 
@@ -199,7 +199,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide.
 ## 🚀 Roadmap
 
 - [ ] **Multi-language Support**: Support for non-English documents
-- [ ] **Advanced Analytics**: Track widget performance and user engagement
+- [ ] **Analytics**: Track widget performance and user engagement (not built yet)
 - [ ] **Custom Domains**: White-label deployment options
 - [ ] **Team Collaboration**: Multi-user workspace management
 - [ ] **API Access**: RESTful API for programmatic assistant management
@@ -207,7 +207,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide.
 
 ## 📝 License
 
-Intended to be MIT-licensed. A `LICENSE` file has not been added to the repo yet.
+MIT. See [LICENSE](LICENSE).
 
 ---
 
@@ -215,9 +215,8 @@ Intended to be MIT-licensed. A `LICENSE` file has not been added to the repo yet
 
 ✅ **5-Minute Setup** - From documents to deployed assistant in minutes  
 ✅ **No Technical Skills Required** - Visual interface, no coding needed  
-✅ **Production Ready** - Scalable, secure, mobile-optimized  
-✅ **Cost Effective** - Reduce support tickets by 60%+  
+✅ **Mobile Optimized** - Works on desktop, tablet and phone  
 ✅ **Brand Consistent** - Match your company's look and feel  
-✅ **Privacy First** - Your data stays isolated and secure  
+✅ **Honest About Data** - [GOVERNANCE.md](GOVERNANCE.md) says exactly where your documents go  
 
 **Transform your customer support** with intelligent AI assistants powered by your business knowledge! 🚀
