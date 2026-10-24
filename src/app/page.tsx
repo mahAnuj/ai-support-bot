@@ -5,6 +5,7 @@ import ChatInterface from '@/components/ui/ChatInterface'
 import FileUpload from '@/components/ui/FileUpload'
 import DataDisclosure from '@/components/ui/DataDisclosure'
 import EmbedStep, { DEFAULT_PRIMARY_COLOR, toSafeHex, type WidgetConfig } from '@/components/ui/EmbedStep'
+import { readableTextOn } from '@/components/ui/contrast'
 
 // Assistant configurations
 const UNIVERSAL_ASSISTANT = {
@@ -21,7 +22,7 @@ const LABEL = 'text-sm font-medium text-ink'
 const HELPER = 'mt-1.5 text-xs text-ink-subtle'
 const INPUT = 'h-11 w-full rounded-md border border-line-strong bg-surface px-3 text-base text-ink placeholder:text-ink-subtle focus:border-accent'
 const TEXTAREA = 'block w-full rounded-md border border-line-strong bg-surface px-3 py-2.5 max-sm:min-h-24 text-base text-ink placeholder:text-ink-subtle focus:border-accent'
-const PANEL = 'rounded-lg border border-line bg-surface p-4 sm:p-6'
+const PANEL = 'rounded-lg border border-line bg-surface p-4 shadow-sm sm:p-6'
 
 const SIZE_OPTIONS: { value: WidgetConfig['size']; label: string; dimensions: string }[] = [
   { value: 'small', label: 'Small', dimensions: '300×400' },
@@ -31,30 +32,101 @@ const SIZE_OPTIONS: { value: WidgetConfig['size']; label: string; dimensions: st
 
 type UploadedDocument = { filename: string; chunks: number }
 
+type StepStatus = 'done' | 'current' | 'upcoming'
+
+const RAIL_STEPS = [
+  { href: '#setup', label: 'Set up' },
+  { href: '#documents', label: 'Add documents' },
+  { href: '#try', label: 'Try it' },
+  { href: '#embed', label: 'Embed' },
+] as const
+
+const STATUS_SUFFIX: Record<StepStatus, string> = {
+  done: ', completed',
+  current: ', current step',
+  upcoming: ', not started',
+}
+
+function CheckIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg aria-hidden="true" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 12.5l4.5 4.5L19 7.5" />
+    </svg>
+  )
+}
+
+function ProgressRail({ statuses }: { statuses: StepStatus[] }) {
+  return (
+    <nav aria-label="Progress" className="mt-8 motion-safe:animate-enter [animation-delay:120ms]">
+      <ol className="grid grid-cols-4 gap-2 sm:flex sm:gap-0">
+        {RAIL_STEPS.map((step, i) => {
+          const status = statuses[i]
+          const isLast = i === RAIL_STEPS.length - 1
+          return (
+            <li key={step.href} className={`flex min-w-0 justify-center sm:items-center sm:justify-start ${isLast ? 'sm:flex-none' : 'sm:flex-1'}`}>
+              <a
+                href={step.href}
+                aria-current={status === 'current' ? 'step' : undefined}
+                className="flex min-h-10 min-w-0 flex-col items-center gap-1.5 rounded-md px-1 py-1 text-center focus-visible:outline-white sm:flex-row sm:gap-3 sm:text-left"
+              >
+                {status === 'done' ? (
+                  <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-hero-accent text-hero">
+                    <CheckIcon />
+                  </span>
+                ) : status === 'current' ? (
+                  <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-white text-sm font-bold text-hero tabular-nums ring-2 ring-hero-accent ring-offset-2 ring-offset-hero">
+                    {i + 1}
+                  </span>
+                ) : (
+                  <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-full border-[1.5px] border-dashed border-hero-muted text-sm text-hero-muted tabular-nums">
+                    {i + 1}
+                  </span>
+                )}
+                <span
+                  className={`text-xs sm:whitespace-nowrap sm:text-sm ${
+                    status === 'current' ? 'font-semibold text-hero-ink' : status === 'done' ? 'text-hero-ink' : 'text-hero-muted'
+                  }`}
+                >
+                  {step.label}
+                  <span className="sr-only">{STATUS_SUFFIX[status]}</span>
+                </span>
+              </a>
+              {!isLast && <span aria-hidden="true" className="mx-2 hidden h-px min-w-4 flex-1 bg-hero-line sm:block lg:mx-3" />}
+            </li>
+          )
+        })}
+      </ol>
+    </nav>
+  )
+}
+
 function StepHeader({
   id,
   n,
   title,
   description,
-  done = false,
+  status,
 }: {
   id: string
   n: number
   title: string
   description: string
-  done?: boolean
+  status: StepStatus
 }) {
   return (
     <div className="mb-4 flex items-start gap-3">
-      {done ? (
-        <span className="mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-full border-[1.5px] border-accent bg-accent text-white">
-          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
-            <path d="M5 12.5l4.5 4.5L19 7.5" />
-          </svg>
+      {status === 'done' ? (
+        <span className="mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-accent text-white">
+          <CheckIcon />
           <span className="sr-only">Step {n}, completed</span>
         </span>
+      ) : status === 'current' ? (
+        <span className="mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-semibold text-white tabular-nums ring-4 ring-accent-tint">
+          <span className="sr-only">Step </span>
+          {n}
+        </span>
       ) : (
-        <span className="mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-full border-[1.5px] border-accent text-sm font-semibold text-accent tabular-nums">
+        <span className="mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-full border-[1.5px] border-line-strong text-sm font-semibold text-ink-muted tabular-nums">
           <span className="sr-only">Step </span>
           {n}
         </span>
@@ -82,6 +154,8 @@ export default function HomePage() {
   const [isUploading, setIsUploading] = useState(false)
   const [uploadComplete, setUploadComplete] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
+  const [hasTried, setHasTried] = useState(false)
+  const [hasEmbed, setHasEmbed] = useState(false)
   const [widgetConfig, setWidgetConfig] = useState<WidgetConfig>({
     name: 'Business Support Assistant',
     title: 'AI Support Assistant',
@@ -105,6 +179,10 @@ export default function HomePage() {
 
   const hasUploadedFiles = uploadedDocuments.length > 0
   const safeColor = toSafeHex(widgetConfig.primary_color)
+
+  const done = [hasUploadedFiles || hasTried || hasEmbed, hasUploadedFiles, hasTried, hasEmbed]
+  const current = done.indexOf(false)
+  const statuses: StepStatus[] = done.map((isDone, i) => (isDone ? 'done' : i === current ? 'current' : 'upcoming'))
 
   const updateConfig = <K extends keyof WidgetConfig>(key: K, value: WidgetConfig[K]) => {
     setWidgetConfig(prev => ({ ...prev, [key]: value }))
@@ -140,7 +218,7 @@ export default function HomePage() {
           const reason = typeof body?.details === 'string' ? body.details.slice(0, 300) : ''
           setUploadError(
             reason
-              ? `Upload failed. ${reason}`
+              ? reason
               : `These files couldn't be indexed (status ${response.status}). Check that each file has readable text, then try again.`
           )
         }
@@ -175,32 +253,42 @@ export default function HomePage() {
     }
   }, [])
 
+  const handleMessageSent = useCallback(() => setHasTried(true), [])
+  const handleGenerated = useCallback(() => setHasEmbed(true), [])
+
   return (
     <>
-      <header className="h-14 border-b border-line bg-white">
-        <div className="mx-auto flex h-full max-w-page items-center gap-2 px-4 sm:px-8">
-          <svg aria-hidden="true" className="text-accent" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
-            <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
-            <path d="M14 3v5h5" />
-            <path d="M9 13h6M9 17h4" />
-          </svg>
-          <p className="text-base font-semibold text-ink">Support assistant builder</p>
+      <header className="bg-hero text-hero-ink">
+        <div className="h-14 border-b border-hero-line">
+          <div className="mx-auto flex h-full max-w-page items-center gap-2 px-4 sm:px-8">
+            <svg aria-hidden="true" className="text-hero-ink" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+              <path d="M14 3v5h5" />
+              <path d="M9 13h6M9 17h4" />
+            </svg>
+            <p className="text-base font-semibold text-hero-ink">Support assistant builder</p>
+          </div>
+        </div>
+        <div className="mx-auto max-w-page px-4 pb-8 pt-10 sm:px-8 sm:pb-10 sm:pt-14">
+          <h1 className="max-w-[22ch] text-3xl font-bold motion-safe:animate-enter sm:text-display">
+            Build a support assistant from your own documents
+          </h1>
+          <p className="mt-4 max-w-[60ch] text-lg text-hero-muted motion-safe:animate-enter [animation-delay:60ms]">
+            Upload your FAQs, policies or manuals, check its answers in a live preview, then add it to your website with one line of code.
+          </p>
+          <ProgressRail statuses={statuses} />
         </div>
       </header>
 
-      <main className="mx-auto max-w-page px-4 pb-28 pt-8 sm:px-8">
-        <h1 className="text-2xl font-[650] text-ink sm:text-3xl">Build a support assistant from your own documents</h1>
-        <p className="mt-3 max-w-[60ch] text-base text-ink-muted lg:max-w-none">
-          Set how it looks, upload the documents it should answer from, try it here, then copy the embed code onto your site.
-        </p>
-
-        <div className="mt-8 grid grid-cols-[minmax(0,1fr)] gap-x-10 gap-y-10 lg:grid-cols-[minmax(0,1fr)_420px] lg:grid-rows-[auto_auto_1fr]">
-          <section aria-labelledby={step1Id} className="min-w-0 lg:col-start-1 lg:row-start-1">
+      <main className="mx-auto max-w-page px-4 pb-28 pt-10 sm:px-8">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-x-10 gap-y-10 lg:grid-cols-[minmax(0,1fr)_420px] lg:grid-rows-[auto_auto_1fr]">
+          <section id="setup" aria-labelledby={step1Id} className="min-w-0 scroll-mt-6 lg:col-start-1 lg:row-start-1">
             <StepHeader
               id={step1Id}
               n={1}
               title="Set up the assistant"
               description="Name it and choose how the chat window looks on your site."
+              status={statuses[0]}
             />
             <div className={`${PANEL} grid grid-cols-1 gap-4 sm:grid-cols-6`}>
               <div className="min-w-0 sm:col-span-2">
@@ -278,7 +366,7 @@ export default function HomePage() {
                   />
                 </div>
                 <p id={`${colorId}-help`} className={HELPER}>
-                  Pick a colour dark enough for white text.
+                  Text on this colour switches between white and dark to stay readable.
                 </p>
               </div>
 
@@ -294,10 +382,10 @@ export default function HomePage() {
                         aria-pressed={selected}
                         onClick={() => updateConfig('size', option.value)}
                         className={`min-h-11 rounded-md border px-2 py-2 text-left ${
-                          selected ? 'border-accent bg-accent-tint' : 'border-line-strong bg-surface hover:bg-sunken'
+                          selected ? 'border-accent bg-accent-tint ring-1 ring-accent' : 'border-line-strong bg-surface hover:bg-sunken'
                         }`}
                       >
-                        <span className="block text-sm font-semibold text-ink">{option.label}</span>
+                        <span className={`block text-sm text-ink ${selected ? 'font-semibold' : 'font-medium'}`}>{option.label}</span>
                         <span className="block whitespace-nowrap text-xs text-ink-muted tabular-nums">{option.dimensions}</span>
                       </button>
                     )
@@ -307,13 +395,13 @@ export default function HomePage() {
             </div>
           </section>
 
-          <section aria-labelledby={step2Id} className="min-w-0 lg:col-start-1 lg:row-start-2">
+          <section id="documents" aria-labelledby={step2Id} className="min-w-0 scroll-mt-6 lg:col-start-1 lg:row-start-2">
             <StepHeader
               id={step2Id}
               n={2}
               title="Add your documents"
               description="The assistant answers from these: FAQs, policies, price lists or manuals."
-              done={hasUploadedFiles}
+              status={statuses[1]}
             />
             <div className={PANEL}>
               <DataDisclosure />
@@ -324,20 +412,9 @@ export default function HomePage() {
                   isComplete={uploadComplete}
                   maxFiles={5}
                   maxSize={10 * 1024 * 1024}
+                  serverError={uploadError}
                 />
               </div>
-
-              {uploadError && (
-                <div role="alert" className="mt-3 flex items-start gap-2 rounded-md border border-danger/40 bg-danger-tint px-3 py-2.5 text-sm text-ink">
-                  <svg aria-hidden="true" className="mt-0.5 shrink-0 text-danger" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="9" />
-                    <path d="M12 7.5v5.5M12 16.5h.01" />
-                  </svg>
-                  <p>
-                    <span className="font-semibold text-danger">Upload failed.</span> {uploadError}
-                  </p>
-                </div>
-              )}
 
               {hasUploadedFiles && (
                 <div className="mt-6">
@@ -363,19 +440,18 @@ export default function HomePage() {
           </section>
 
           <section
+            id="try"
             aria-labelledby={step3Id}
-            className="min-w-0 lg:sticky lg:top-6 lg:col-start-2 lg:row-span-3 lg:row-start-1 lg:self-start"
+            className="min-w-0 scroll-mt-6 lg:sticky lg:top-6 lg:col-start-2 lg:row-span-3 lg:row-start-1 lg:self-start"
           >
             <StepHeader
               id={step3Id}
               n={3}
               title="Try it"
               description="Ask questions the way a visitor would and check the answers."
+              status={statuses[2]}
             />
-            <div
-              style={{ ['--preview-primary' as string]: safeColor } as React.CSSProperties}
-              className="h-[520px] overflow-hidden rounded-lg border border-line shadow-md lg:h-[640px]"
-            >
+            <div className="h-[560px] overflow-hidden rounded-xl border border-line bg-surface shadow-md lg:h-[min(680px,calc(100dvh-3rem))]">
               <ChatInterface
                 systemPrompt={UNIVERSAL_ASSISTANT.systemPrompt}
                 roleContext="universal"
@@ -385,18 +461,27 @@ export default function HomePage() {
                 sessionId={sessionId}
                 title={widgetConfig.title}
                 welcomeMessage={widgetConfig.welcome_message}
+                primaryColor={safeColor}
+                onPrimaryColor={readableTextOn(safeColor)}
+                onMessageSent={handleMessageSent}
               />
             </div>
           </section>
 
-          <section aria-labelledby={step4Id} className="min-w-0 lg:col-start-1 lg:row-start-3">
+          <section id="embed" aria-labelledby={step4Id} className="min-w-0 scroll-mt-6 lg:col-start-1 lg:row-start-3">
             <StepHeader
               id={step4Id}
               n={4}
               title="Get the embed code"
               description="Generate a script to paste into your site's HTML."
+              status={statuses[3]}
             />
-            <EmbedStep sessionId={sessionId} documentCount={uploadedDocuments.length} config={widgetConfig} />
+            <EmbedStep
+              sessionId={sessionId}
+              documentCount={uploadedDocuments.length}
+              config={widgetConfig}
+              onGenerated={handleGenerated}
+            />
           </section>
         </div>
       </main>
