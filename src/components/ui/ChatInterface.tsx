@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useRef, useEffect, useId, forwardRef, useImperativeHandle } from 'react'
+import { createPortal } from 'react-dom'
 import MarkdownRenderer from './MarkdownRenderer'
 import { ChatMessage, ChatInterfaceProps } from '@/types'
 
@@ -82,6 +83,24 @@ function ArrowIcon({ className = 'size-4' }: { className?: string }) {
   )
 }
 
+function ExpandIcon({ className = 'size-5' }: { className?: string }) {
+  return (
+    <svg {...iconProps} className={className}>
+      <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
+    </svg>
+  )
+}
+
+function RestoreIcon({ className = 'size-5' }: { className?: string }) {
+  return (
+    <svg {...iconProps} className={className}>
+      <path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" />
+    </svg>
+  )
+}
+
+const focusableSelector = 'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), summary, [tabindex]:not([tabindex="-1"])'
+
 function extractAnswer(value: unknown): string {
   if (typeof value === 'string') return value
   if (value && typeof value === 'object') {
@@ -130,7 +149,11 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, P
   const [inputValue, setInputValue] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
+  const [expanded, setExpanded] = useState(false)
   const logRef = useRef<HTMLDivElement>(null)
+  const toggleRef = useRef<HTMLButtonElement>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const pendingFocus = useRef(false)
 
   useEffect(() => {
     const container = logRef.current
@@ -138,6 +161,62 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, P
       container.scrollTop = container.scrollHeight
     }
   }, [messages, isTyping])
+
+  useEffect(() => {
+    const container = logRef.current
+    if (container) {
+      container.scrollTop = container.scrollHeight
+    }
+    if (expanded || pendingFocus.current) {
+      pendingFocus.current = false
+      toggleRef.current?.focus()
+    }
+  }, [expanded])
+
+  useEffect(() => {
+    if (!expanded) return
+    const root = document.documentElement
+    const previousOverflow = root.style.overflow
+    root.style.overflow = 'hidden'
+    return () => {
+      root.style.overflow = previousOverflow
+    }
+  }, [expanded])
+
+  const restore = () => {
+    pendingFocus.current = true
+    setExpanded(false)
+  }
+
+  const toggleExpanded = () => {
+    if (expanded) {
+      restore()
+    } else {
+      setExpanded(true)
+    }
+  }
+
+  const handleOverlayKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      e.stopPropagation()
+      restore()
+      return
+    }
+    if (e.key !== 'Tab' || !dialogRef.current) return
+    const focusable = Array.from(dialogRef.current.querySelectorAll<HTMLElement>(focusableSelector))
+    if (focusable.length === 0) return
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    const active = document.activeElement
+    if (e.shiftKey && (active === first || !dialogRef.current.contains(active))) {
+      e.preventDefault()
+      last.focus()
+    } else if (!e.shiftKey && (active === last || !dialogRef.current.contains(active))) {
+      e.preventDefault()
+      first.focus()
+    }
+  }
 
   useEffect(() => {
     if (propSessionId) {
@@ -311,8 +390,8 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, P
     ...(onPrimaryColor ? { '--preview-on-primary': onPrimaryColor } : {}),
   } as React.CSSProperties
 
-  return (
-    <div className="flex h-full min-h-0 flex-col bg-surface" style={rootStyle}>
+  const panel = (
+    <div className="flex h-full min-h-0 w-full flex-col bg-surface" style={rootStyle}>
       <div className={`flex items-center gap-3 px-4 py-3 ${onPrimarySurface}`}>
         <div className="flex size-9 shrink-0 items-center justify-center rounded-full border border-[color:var(--preview-on-primary,var(--color-white))]/30 bg-[color:var(--preview-on-primary,var(--color-white))]/15">
           <ChatIcon />
@@ -323,6 +402,17 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, P
             {hasUploadedFiles ? 'Preview using your indexed documents' : 'Preview with no documents yet'}
           </p>
         </div>
+        <button
+          ref={toggleRef}
+          type="button"
+          onClick={toggleExpanded}
+          aria-label="Expand chat"
+          aria-pressed={expanded}
+          title="Expand chat"
+          className="inline-flex size-10 shrink-0 items-center justify-center rounded-md hover:bg-[color:var(--preview-on-primary,var(--color-white))]/15 focus-visible:outline-[color:var(--preview-on-primary,var(--color-white))]"
+        >
+          {expanded ? <RestoreIcon /> : <ExpandIcon />}
+        </button>
       </div>
 
       <div
@@ -409,6 +499,33 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, P
         </button>
       </div>
     </div>
+  )
+
+  if (!expanded) return panel
+
+  return (
+    <>
+      <div className="h-full min-h-0 bg-sunken" />
+      {createPortal(
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center sm:p-6"
+          style={rootStyle}
+          onKeyDown={handleOverlayKeyDown}
+        >
+          <div aria-hidden="true" className="absolute inset-0 bg-ink/60 motion-safe:animate-fade" onClick={restore} />
+          <div
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
+            className="relative flex h-dvh w-full flex-col overflow-hidden bg-surface shadow-lg motion-safe:animate-pop sm:h-[min(56rem,100%)] sm:max-w-4xl sm:rounded-xl"
+          >
+            {panel}
+          </div>
+        </div>,
+        document.body,
+      )}
+    </>
   )
 })
 
