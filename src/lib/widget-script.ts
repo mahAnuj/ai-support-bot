@@ -81,7 +81,7 @@ export function widgetScript(widget: Widget, baseUrl: string): string {
       cursor: pointer;
     }
     .ai-widget-root.is-left .ai-widget-button { left: 20px; right: auto; }
-    .ai-widget-root .ai-widget-button:hover { filter: brightness(.95); }
+    .ai-widget-root .ai-widget-button:hover { box-shadow: inset 0 0 0 2px var(--aiw-on-accent), 0 1px 2px 0 rgb(19 32 28 / .05), 0 12px 32px -12px rgb(19 32 28 / .18); }
     .ai-widget-root .ai-widget-button:focus-visible { outline-color: var(--aiw-on-accent); box-shadow: 0 0 0 4px var(--aiw-accent); }
     .ai-widget-root .ai-widget-icon { display: block; flex: none; width: 24px; height: 24px; }
     .ai-widget-root .ai-widget-icon-sm { width: 20px; height: 20px; }
@@ -196,8 +196,8 @@ export function widgetScript(widget: Widget, baseUrl: string): string {
       font-weight: 600; background: var(--aiw-accent); color: var(--aiw-on-accent);
       cursor: pointer;
     }
-    .ai-widget-root .ai-widget-send-btn:hover { filter: brightness(.95); }
-    .ai-widget-root .ai-widget-send-btn:disabled { opacity: .6; cursor: default; filter: none; }
+    .ai-widget-root .ai-widget-send-btn:hover { box-shadow: inset 0 0 0 2px var(--aiw-on-accent); }
+    .ai-widget-root .ai-widget-send-btn:disabled { opacity: .6; cursor: default; box-shadow: none; }
 
     @keyframes aiw-enter { from { opacity: 0; transform: translateY(8px) scale(.98); } }
     @keyframes aiw-typing {
@@ -304,7 +304,17 @@ export function widgetScript(widget: Widget, baseUrl: string): string {
   // A small Markdown subset for AI answers, built only with createElement,
   // textContent and appendChild. Model output never goes through innerHTML.
   function renderRich(el, text) {
-    const lines = String(text).replace(/<br\\s*\\/?>/gi, '\\n').split(/\\r?\\n/);
+    // A <br> inside a table row is a break within a cell, so it must not
+    // split the row; elsewhere it is an ordinary line break.
+    const BR = /<br\\s*\\/?>/i;
+    function isTableRow(line) {
+      return line.length > 1 && line.charAt(0) === '|' && line.charAt(line.length - 1) === '|';
+    }
+    const lines = [];
+    String(text).split(/\\r?\\n/).forEach(function (raw) {
+      if (isTableRow(raw.trim())) lines.push(raw);
+      else raw.split(/<br\\s*\\/?>/gi).forEach(function (part) { lines.push(part); });
+    });
     let para = null;
     let list = null;
     let listType = '';
@@ -346,9 +356,14 @@ export function widgetScript(widget: Widget, baseUrl: string): string {
       } else if ((m = /^#{1,6}\\s+(.*)$/.exec(line))) {
         appendInline(addBlock('p', 'ai-widget-heading'), m[1]);
         closeBlock();
-      } else if (line.length > 1 && line.charAt(0) === '|' && line.charAt(line.length - 1) === '|') {
-        const cells = line.slice(1, -1).split('|').map(function (c) { return c.trim(); }).filter(Boolean);
-        appendInline(addBlock('p'), cells.join(' / '));
+      } else if (isTableRow(line)) {
+        const cells = line.slice(1, -1).split('|').map(function (c) { return c.trim(); })
+          .filter(function (c) { return c.split(BR).join('').trim(); });
+        const row = addBlock('p');
+        cells.join(' / ').split(BR).forEach(function (piece, i) {
+          if (i > 0) row.appendChild(document.createElement('br'));
+          appendInline(row, piece.trim());
+        });
         closeBlock();
       } else {
         if (para) {
