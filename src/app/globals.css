@@ -1,235 +1,75 @@
-
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  /* Colour: Tailwind's default palette is removed. Only these exist. */
+  --color-*: initial;
+  --color-white: #FFFFFF;
+  --color-canvas: #F2F4F3;
+  --color-surface: #FFFFFF;
+  --color-sunken: #F7F8F7;
+  --color-ink: #1B2421;
+  --color-ink-muted: #4D5A56;
+  --color-ink-subtle: #5F6B67;
+  --color-line: #DCE1DF;
+  --color-line-strong: #7B8783;
+  --color-accent: #1E6B58;
+  --color-accent-strong: #17574A;
+  --color-accent-tint: #E4EFEA;
+  --color-focus: #1E6B58;
+  --color-danger: #B3261E;
+  --color-danger-tint: #FDF0EF;
+  --color-code-bg: #1B2421;
+  --color-code-ink: #E3E8E6;
+
+  /* Type scale */
+  --text-xs: 0.8125rem;   --text-xs--line-height: 1.125rem;
+  --text-sm: 0.875rem;    --text-sm--line-height: 1.375rem;
+  --text-base: 1rem;      --text-base--line-height: 1.5rem;
+  --text-lg: 1.125rem;    --text-lg--line-height: 1.625rem;
+  --text-xl: 1.375rem;    --text-xl--line-height: 1.875rem;  --text-xl--letter-spacing: -0.005em;
+  --text-2xl: 1.75rem;    --text-2xl--line-height: 2.25rem;  --text-2xl--letter-spacing: -0.01em;
+  --text-3xl: 2.25rem;    --text-3xl--line-height: 2.75rem;  --text-3xl--letter-spacing: -0.02em;
+
+  /* Spacing: 4px base. Use multiples 1,1.5,2,3,4,5,6,8,10,12,16,20,28 only. */
+  --spacing: 0.25rem;
+  --container-page: 75rem;
+
+  /* Radius */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+
+  /* Shadow */
+  --shadow-sm: 0 1px 2px 0 rgb(27 36 33 / 0.06);
+  --shadow-md: 0 1px 2px 0 rgb(27 36 33 / 0.06), 0 8px 24px -6px rgb(27 36 33 / 0.14);
+  --shadow-lg: 0 24px 48px -12px rgb(27 36 33 / 0.30);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-public-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  :root { color-scheme: light; }
+  body { background-color: var(--color-canvas); color: var(--color-ink); }
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+  ::selection { background-color: var(--color-accent-tint); color: var(--color-ink); }
+  @media (prefers-reduced-motion: reduce) {
+    *, ::before, ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-}
-
-/* Smooth scrolling */
-html {
-  scroll-behavior: smooth;
-}
-
-/* Custom animations */
-@keyframes float {
-  0%, 100% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
-}
-
-@keyframes glow {
-  0%, 100% {
-    box-shadow: 0 0 20px rgba(59, 130, 246, 0.15);
-  }
-  50% {
-    box-shadow: 0 0 30px rgba(59, 130, 246, 0.25);
-  }
-}
-
-.animate-float {
-  animation: float 3s ease-in-out infinite;
-}
-
-.animate-glow {
-  animation: glow 2s ease-in-out infinite;
-}
-
-/* Enhanced gradients */
-.gradient-bg {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-}
-
-.glass-effect {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-/* Markdown content styling */
-.markdown-content {
-  line-height: 1.6;
-}
-
-.markdown-content > *:first-child {
-  margin-top: 0 !important;
-}
-
-.markdown-content > *:last-child {
-  margin-bottom: 0 !important;
-}
-
-/* Ensure lists have proper spacing */
-.markdown-content ol,
-.markdown-content ul {
-  padding-left: 1rem;
-}
-
-.markdown-content li {
-  margin-bottom: 0.25rem;
-}
-
-/* Code block styling */
-.markdown-content pre {
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  background: #1a1a1a;
-  border-radius: 8px;
-  padding: 1rem;
-  overflow-x: auto;
-}
-
-.markdown-content code {
-  background: #f3f4f6;
-  padding: 0.125rem 0.25rem;
-  border-radius: 0.25rem;
-  font-size: 0.875em;
-}
-
-.markdown-content pre code {
-  background: transparent;
-  padding: 0;
-  color: #e5e7eb;
-}
-
-/* Enhanced button styles */
-.btn-primary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border: none;
-  color: white;
-  padding: 0.75rem 1.5rem;
-  border-radius: 0.5rem;
-  font-weight: 600;
-  transition: all 0.3s ease;
-  cursor: pointer;
-}
-
-.btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
-}
-
-/* Enhanced card hover effects */
-.card-hover {
-  transition: all 0.3s ease;
-}
-
-.card-hover:hover {
-  transform: translateY(-8px);
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-}
-
-/* Loading states */
-.loading-dots {
-  display: inline-block;
-}
-
-.loading-dots::after {
-  content: '';
-  animation: dots 1.5s infinite;
-}
-
-@keyframes dots {
-  0%, 20% {
-    content: '';
-  }
-  40% {
-    content: '.';
-  }
-  60% {
-    content: '..';
-  }
-  80%, 100% {
-    content: '...';
-  }
-}
-
-/* Form input styling for better contrast */
-input[type="text"], 
-input[type="email"], 
-input[type="password"], 
-input[type="url"],
-input[type="tel"],
-input[type="number"],
-input[type="color"],
-textarea,
-select {
-  color: #111827 !important;
-  background-color: #ffffff !important;
-  border: 1px solid #d1d5db !important;
-}
-
-/* Ensure all input elements have proper text color */
-input:not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="checkbox"]):not([type="radio"]) {
-  color: #111827 !important;
-  background-color: #ffffff !important;
-}
-
-input::placeholder,
-textarea::placeholder {
-  color: #6b7280 !important;
-  opacity: 1;
-}
-
-/* Focus states for better visibility */
-input:focus,
-textarea:focus,
-select:focus {
-  outline: 2px solid #3b82f6 !important;
-  outline-offset: 2px !important;
-  border-color: #3b82f6 !important;
-}
-
-/* Enhanced scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
-}
-
-/* Mobile responsiveness */
-@media (max-width: 768px) {
-  .hero-title {
-    font-size: 2.5rem;
-    line-height: 1.1;
-  }
-  
-  .hero-subtitle {
-    font-size: 1.125rem;
-  }
-}
+/* Markdown answers (MarkdownRenderer) */
+.markdown-content > :first-child { margin-top: 0; }
+.markdown-content > :last-child { margin-bottom: 0; }
+.markdown-content pre code { background: transparent; border: 0; padding: 0; color: inherit; font-size: inherit; }
