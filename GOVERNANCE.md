@@ -37,7 +37,7 @@ certification.
   model's weights are downloaded once from Hugging Face; that download sends
   no user data.
 - **To Groq:** every visitor question with the matching passages, to generate
-  the answer (`llama-3.1-8b-instant` unless `GROQ_MODEL` says otherwise). In
+  the answer (`openai/gpt-oss-20b` unless `GROQ_MODEL` says otherwise). In
   the builder's preview chat the question is also sent once more first, so the
   model can reword it for search; the widget does not do this. By default Groq
   may store the inputs and outputs of each request for up to 30 days, for

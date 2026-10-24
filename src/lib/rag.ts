@@ -1,5 +1,5 @@
 import { generateEmbeddings, matchScore, MIN_SIMILARITY } from './embeddings'
-import { CHAT_MODEL, getChatClient } from './llm'
+import { CHAT_MODEL, getChatClient, REASONING_OPTIONS } from './llm'
 import { chunkText, extractTextFromFile } from './documents'
 import { 
   createSession, 
@@ -77,8 +77,9 @@ Return ONLY a JSON object of the form {"variations": ["...", "...", "..."]}.`
       ],
       // JSON object mode works on every Groq model; json_schema only on some
       response_format: { type: 'json_object' },
-      max_tokens: 150,
-      temperature: 0.7
+      max_completion_tokens: 512,
+      temperature: 0.7,
+      ...REASONING_OPTIONS
     })
 
     const content = response.choices[0]?.message?.content

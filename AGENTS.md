@@ -25,7 +25,7 @@ npm test        # jest - see the warning below
 | Variable | Needed for | Notes |
 | --- | --- | --- |
 | `GROQ_API_KEY` | Chat answers and query rewording | Runtime only — the build does not need it |
-| `GROQ_MODEL` | Optional chat model override | Defaults to `llama-3.1-8b-instant` |
+| `GROQ_MODEL` | Optional chat model override | Defaults to `openai/gpt-oss-20b` |
 | `NEXT_PUBLIC_BASE_URL` | Widget embed URLs | Falls back to `VERCEL_URL` |
 
 Embeddings need no key: they run on the server (see `src/lib/embeddings.ts`).

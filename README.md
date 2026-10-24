@@ -82,7 +82,7 @@ Visit [http://localhost:3000](http://localhost:3000) and start building your AI 
 - **Frontend**: Next.js 15 + React 19 + TypeScript + Tailwind CSS v4
 - **Backend**: Next.js API routes (serverless)
 - **Storage**: In-memory (`src/lib/database.ts`) — no external database required
-- **Chat model**: `llama-3.1-8b-instant` on Groq (free tier; override with `GROQ_MODEL`)
+- **Chat model**: `openai/gpt-oss-20b` on Groq (free tier; override with `GROQ_MODEL`)
 - **Embeddings**: `Xenova/all-MiniLM-L6-v2` via transformers.js, run on the server
 - **Vector Search**: In-process cosine similarity
 - **File Processing**: Built-in PDF, TXT, MD, DOCX support
@@ -107,7 +107,7 @@ vercel --prod
 GROQ_API_KEY=your_groq_api_key
 
 # Optional
-GROQ_MODEL=llama-3.1-8b-instant
+GROQ_MODEL=openai/gpt-oss-20b
 NEXT_PUBLIC_BASE_URL=https://yourdomain.com
 ```
 

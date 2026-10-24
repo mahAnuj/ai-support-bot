@@ -7,7 +7,15 @@ import OpenAI from 'openai'
 // limits are per organisation and per model, so the model is configurable:
 // pick one no other project in the same Groq organisation uses.
 const GROQ_BASE_URL = 'https://api.groq.com/openai/v1'
-export const CHAT_MODEL = process.env.GROQ_MODEL || 'llama-3.1-8b-instant'
+// Groq shut down llama-3.1-8b-instant on 2026-08-16 and names gpt-oss-20b as
+// its replacement (console.groq.com/docs/deprecations).
+export const CHAT_MODEL = process.env.GROQ_MODEL || 'openai/gpt-oss-20b'
+
+// gpt-oss reasons before answering, and those tokens count against the output
+// limit. Keep the reasoning short and leave room for it in the limit.
+export const REASONING_OPTIONS = CHAT_MODEL.startsWith('openai/gpt-oss')
+  ? ({ reasoning_effort: 'low' } as const)
+  : {}
 
 // Created on first use, not at import time. Next.js evaluates route modules
 // while collecting page data during `next build`, and the client constructor
@@ -136,10 +144,11 @@ FORMAT: Direct answer first, then brief suggestion if applicable.`
           content: userPrompt
         }
       ],
-      max_tokens: isEnhanced ? 250 : 150, // Reduced for conciseness
+      // Length is enforced by ensureConciseResponse below; this limit only
+      // has to fit the reasoning plus a short answer
+      max_completion_tokens: 1024,
       temperature: 0.3, // Lower temperature for more focused responses
-      presence_penalty: 0.1, // Slight penalty to avoid repetition
-      frequency_penalty: 0.1, // Encourage conciseness
+      ...REASONING_OPTIONS,
     })
 
     let message = response.choices[0]?.message?.content || 'I apologize, but I was unable to generate a response.'
