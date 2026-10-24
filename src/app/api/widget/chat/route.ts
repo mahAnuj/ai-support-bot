@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateResponse } from '../../../../lib/llm'
-import { getWidgetByKey, findRelevantChunksForKnowledgeBase, knowledgeBaseHasDocuments, getInMemoryDatabase } from '../../../../lib/database'
 import { getCachedEmbedding } from '../../../../lib/rag'
 import { matchScore, MIN_SIMILARITY } from '../../../../lib/embeddings'
 import { clientIp, isRateLimited, LIMITS, originAllowed } from '../../../../lib/guard'
+import { resolveWidget } from '../../../../lib/storage/resolve'
+import { retrievalLog } from '../../../../lib/storage/log'
+import { safeErrorSummary } from '../../../../lib/storage/errors'
+import type { VectorSearchResult } from '../../../../types/database'
 
 const CORS_HEADERS = {
   'Content-Type': 'application/json',
@@ -14,6 +17,16 @@ const CORS_HEADERS = {
 
 function corsJson(body: unknown, status: number) {
   return new NextResponse(JSON.stringify(body), { status, headers: CORS_HEADERS })
+}
+
+// A persistent widget whose database cannot be read must not answer without its documents.
+const UNAVAILABLE_BODY = {
+  error: 'Widget unavailable',
+  message: 'Sorry, I encountered an error. Please try again.',
+  confidence: 0,
+  sources: [],
+  isEnhanced: false,
+  sessionId: 'error-session',
 }
 
 export async function POST(request: NextRequest) {
@@ -53,9 +66,15 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Look up widget
-    const widget = await getWidgetByKey(widgetKey)
-    if (!widget) {
+    const resolved = await resolveWidget(widgetKey)
+    if (!resolved.ok && resolved.status === 403) {
+      return corsJson({ error: 'This widget key cannot be used here' }, 403)
+    }
+    if (!resolved.ok && resolved.status === 503) {
+      console.error('Widget chat storage unavailable:', resolved.code)
+      return corsJson(UNAVAILABLE_BODY, 503)
+    }
+    if (!resolved.ok) {
       return new NextResponse(JSON.stringify({ error: 'Widget not found' }), {
         status: 404,
         headers: {
@@ -67,35 +86,42 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    const { store, widget, kind, label } = resolved.ctx
+
     if (!originAllowed(request.headers.get('origin'), widget.allowed_domains)) {
       return corsJson({ error: 'This widget is not enabled for this site' }, 403)
     }
 
-    console.log('Widget Chat API - Widget found:', widget.widget_key)
+    console.log('Widget Chat API - Widget found:', label)
     
     let ragResult = null
     let isEnhanced = false
     let confidence = 0 // Match score; stays 0 when no passage is used
     
-    // Check if widget's knowledge base has documents for RAG
-    console.log('Widget Chat API - Knowledge Base ID:', widget.knowledge_base_id)
-    
-    if (await knowledgeBaseHasDocuments(widget.knowledge_base_id)) {
+    let hasDocuments: boolean
+    try {
+      hasDocuments = await store.widgetHasDocuments(widget)
+    } catch (error) {
+      if (kind === 'memory') throw error
+      console.error('Widget chat storage error:', safeErrorSummary(error))
+      return corsJson(UNAVAILABLE_BODY, 503)
+    }
+
+    if (hasDocuments) {
       try {
         // Generate embedding for the query
         const queryEmbedding = await getCachedEmbedding(message)
         
         // Query the RAG system for relevant context
-        const relevantChunks = await findRelevantChunksForKnowledgeBase({
-          knowledge_base_id: widget.knowledge_base_id,
-          query_embedding: queryEmbedding,
-          similarity_threshold: MIN_SIMILARITY,
-          max_results: 5
+        const relevantChunks: VectorSearchResult[] = await store.searchWidgetChunks(widget, {
+          queryEmbedding,
+          threshold: MIN_SIMILARITY,
+          maxResults: 5
         })
         
+        retrievalLog(kind, 'widget', relevantChunks, label)
         console.log('Widget Chat API - RAG result:', {
-          relevantChunks: relevantChunks.length,
-          widgetKey
+          relevantChunks: relevantChunks.length
         })
         
         // Create context from relevant chunks
@@ -134,6 +160,10 @@ export async function POST(request: NextRequest) {
         }
         
       } catch (error) {
+        if (kind === 'postgres') {
+          console.error('Widget chat storage error:', safeErrorSummary(error))
+          return corsJson(UNAVAILABLE_BODY, 503)
+        }
         console.error('Widget RAG query error:', error)
         // Continue with generic response if RAG fails
       }
@@ -144,12 +174,8 @@ export async function POST(request: NextRequest) {
     // Pass retrieved passages to the chat model only when some were found
     const context = ragResult && isEnhanced ? ragResult.context : undefined
     
-    // Get knowledge base for system prompt and role context
-    const db = getInMemoryDatabase()
-    const knowledgeBase = db.knowledgeBases.get(widget.knowledge_base_id)
-    
     // Generate the answer with the widget's own prompts
-    const systemPrompt = knowledgeBase?.system_prompt || 
+    const systemPrompt = widget.system_prompt || 
       'You are a helpful AI assistant embedded in a website widget. Provide helpful and accurate information formatted with proper markdown for easy reading.'
     
     const response = await generateResponse({
@@ -158,7 +184,7 @@ export async function POST(request: NextRequest) {
       sessionId: sessionId || 'widget-session',
       isEnhanced,
       systemPrompt,
-      roleContext: knowledgeBase?.role_context
+      roleContext: widget.role_context
     })
     
     const responseData: any = {

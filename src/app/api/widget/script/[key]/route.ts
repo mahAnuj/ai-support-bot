@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getWidgetByKey } from '../../../../../lib/database'
 import { clientIp, isRateLimited } from '../../../../../lib/guard'
 import { widgetScript } from '../../../../../lib/widget-script'
+import { resolveWidget } from '../../../../../lib/storage/resolve'
 
 // Loaded by the one-line embed code on the site owner's pages, once per page
 // view, so the limit is higher than for chat.
@@ -11,7 +11,20 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
 
   const { key } = await params
-  const widget = await getWidgetByKey(key)
+  const resolved = await resolveWidget(key)
+  if (!resolved.ok && resolved.status === 503) {
+    return new NextResponse('// Widget unavailable', {
+      status: 503,
+      headers: { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'no-store' },
+    })
+  }
+  if (!resolved.ok && resolved.status === 403) {
+    return new NextResponse('// This widget key cannot be used here', {
+      status: 403,
+      headers: { 'Content-Type': 'application/javascript; charset=utf-8' },
+    })
+  }
+  const widget = resolved.ok ? resolved.ctx.widget : null
   if (!widget || !widget.is_active) {
     return new NextResponse('// Widget not found', {
       status: 404,
