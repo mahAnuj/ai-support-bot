@@ -196,27 +196,38 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, P
     }
   }
 
-  const handleOverlayKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key === 'Escape') {
-      e.preventDefault()
-      e.stopPropagation()
-      restore()
-      return
+  useEffect(() => {
+    if (!expanded) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const dialog = dialogRef.current
+      if (!dialog) return
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        e.stopPropagation()
+        pendingFocus.current = true
+        setExpanded(false)
+        return
+      }
+      if (e.key !== 'Tab') return
+      const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(focusableSelector))
+      if (focusable.length === 0) return
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      const active = document.activeElement
+      const outside = active === dialog || !dialog.contains(active)
+      if (e.shiftKey && (active === first || outside)) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && (active === last || outside)) {
+        e.preventDefault()
+        first.focus()
+      }
     }
-    if (e.key !== 'Tab' || !dialogRef.current) return
-    const focusable = Array.from(dialogRef.current.querySelectorAll<HTMLElement>(focusableSelector))
-    if (focusable.length === 0) return
-    const first = focusable[0]
-    const last = focusable[focusable.length - 1]
-    const active = document.activeElement
-    if (e.shiftKey && (active === first || !dialogRef.current.contains(active))) {
-      e.preventDefault()
-      last.focus()
-    } else if (!e.shiftKey && (active === last || !dialogRef.current.contains(active))) {
-      e.preventDefault()
-      first.focus()
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
     }
-  }
+  }, [expanded])
 
   useEffect(() => {
     if (propSessionId) {
@@ -408,7 +419,7 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, P
           onClick={toggleExpanded}
           aria-label="Expand chat"
           aria-pressed={expanded}
-          title="Expand chat"
+          title={expanded ? 'Restore chat size' : 'Expand chat'}
           className="inline-flex size-10 shrink-0 items-center justify-center rounded-md hover:bg-[color:var(--preview-on-primary,var(--color-white))]/15 focus-visible:outline-[color:var(--preview-on-primary,var(--color-white))]"
         >
           {expanded ? <RestoreIcon /> : <ExpandIcon />}
@@ -510,7 +521,6 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, P
         <div
           className="fixed inset-0 z-50 flex items-center justify-center sm:p-6"
           style={rootStyle}
-          onKeyDown={handleOverlayKeyDown}
         >
           <div aria-hidden="true" className="absolute inset-0 bg-ink/60 motion-safe:animate-fade" onClick={restore} />
           <div
@@ -518,7 +528,8 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, P
             role="dialog"
             aria-modal="true"
             aria-labelledby={titleId}
-            className="relative flex h-dvh w-full flex-col overflow-hidden bg-surface shadow-lg motion-safe:animate-pop sm:h-[min(56rem,100%)] sm:max-w-4xl sm:rounded-xl"
+            tabIndex={-1}
+            className="relative flex h-dvh w-full flex-col overflow-hidden bg-surface shadow-lg motion-safe:animate-pop outline-none sm:h-[min(56rem,100%)] sm:max-w-4xl sm:rounded-xl"
           >
             {panel}
           </div>
