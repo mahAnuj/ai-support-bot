@@ -76,9 +76,9 @@ export default function DataDisclosure({ className }: { className?: string }) {
   const headingId = useId()
 
   return (
-    <div
+    <section
       aria-labelledby={headingId}
-      className={`rounded-lg bg-accent-tint p-4 sm:p-5${className ? ` ${className}` : ''}`}
+      className={`rounded-lg border border-accent/20 bg-accent-tint p-4 sm:p-5${className ? ` ${className}` : ''}`}
     >
       <h3 id={headingId} className="text-base font-semibold text-ink">
         Where your data goes
@@ -87,9 +87,9 @@ export default function DataDisclosure({ className }: { className?: string }) {
         {steps.map((step, index) => (
           <li key={step.lead} className="relative flex items-start gap-3">
             {index < steps.length - 1 && (
-              <span aria-hidden="true" className="absolute top-7 -bottom-4 left-[13px] w-0.5 bg-accent" />
+              <span aria-hidden="true" className="absolute top-7 -bottom-4 left-[13px] w-0.5 bg-accent/30" />
             )}
-            <span className="relative flex size-7 shrink-0 items-center justify-center rounded-full border-[1.5px] border-accent bg-white text-accent">
+            <span className="relative flex size-7 shrink-0 items-center justify-center rounded-full border border-accent/40 bg-surface text-accent">
               {step.icon}
             </span>
             <p className="pt-0.5 text-sm text-ink-muted">
@@ -100,6 +100,6 @@ export default function DataDisclosure({ className }: { className?: string }) {
         ))}
       </ol>
       <p className="mt-4 text-xs text-ink-muted">Groq may store the inputs and outputs of each request for up to 30 days, for reliability and compliance, unless Zero Data Retention is turned on for the deployment's Groq organisation.</p>
-    </div>
+    </section>
   )
 }
