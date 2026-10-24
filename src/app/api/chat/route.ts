@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { generateResponse } from '../../../lib/openai'
+import { generateResponse } from '../../../lib/llm'
 import { queryRAG, createRAGContext, sessionHasDocuments } from '../../../lib/rag'
 import { createSession, getSession } from '../../../lib/database'
 import { clientIp, isRateLimited, isWithinLimit, LIMITS } from '../../../lib/guard'
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
 
     let ragResult = null
     let isEnhanced = false
-    let confidence = 30 // Default low confidence for generic responses
+    let confidence = 0 // Match score; stays 0 when no passage is used
     
     // Check if we have a session with documents for RAG
     console.log('Chat API - SessionId:', currentSessionId)
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
           relevantChunks: ragResult.relevantChunks.length
         })
         
-        isEnhanced = ragResult.context.length > 0 && ragResult.confidence > 30
+        isEnhanced = ragResult.context.length > 0
         
         if (isEnhanced) {
           confidence = ragResult.confidence
@@ -80,11 +80,11 @@ export async function POST(request: NextRequest) {
       console.log('Chat API - No session or no documents found')
     }
 
-    // Create context for OpenAI if we have RAG results
+    // Pass retrieved passages to the chat model only when some were found
     const context = ragResult && isEnhanced ? createRAGContext(ragResult) : undefined
     console.log('Chat API - isEnhanced:', isEnhanced, 'context length:', context?.length || 0)
     
-    // Generate response using OpenAI
+    // Generate the answer
     const response = await generateResponse({
       query: message,
       context,
@@ -94,19 +94,10 @@ export async function POST(request: NextRequest) {
       roleContext
     })
 
-    // Use RAG confidence if available and enhanced
-    if (ragResult && isEnhanced) {
-      response.confidence = confidence
-      response.sources = ragResult.sources
-    } else {
-      // Ensure generic responses have appropriately low confidence
-      response.confidence = Math.min(response.confidence || 30, 40)
-    }
-
     const responseData: any = {
       message: response.message,
-      confidence: response.confidence,
-      sources: response.sources,
+      confidence,
+      sources: ragResult && isEnhanced ? ragResult.sources : undefined,
       isEnhanced,
       sessionId: currentSessionId
     }

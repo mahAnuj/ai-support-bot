@@ -53,12 +53,12 @@ const steps = [
   {
     icon: <DocumentIcon />,
     lead: 'Documents you upload',
-    rest: ' are sent to OpenAI to create embeddings, the index used to find relevant passages.',
+    rest: ' are indexed on this server by an open-source embedding model. Their text is not sent anywhere to be indexed.',
   },
   {
     icon: <QuestionIcon />,
     lead: 'Each question',
-    rest: ', including questions visitors ask through the widget on your site, is sent to OpenAI to find matching passages and then, together with those passages, to write the answer.',
+    rest: ', including questions visitors ask through the widget on your site, is matched to passages on this server, then sent to Groq with those passages to write the answer. In this preview, Groq also rewords the question to widen the search.',
   },
   {
     icon: <MemoryIcon />,
@@ -99,7 +99,7 @@ export default function DataDisclosure({ className }: { className?: string }) {
           </li>
         ))}
       </ol>
-      <p className="mt-4 text-xs text-ink-muted">OpenAI's API data policy applies to what it receives.</p>
+      <p className="mt-4 text-xs text-ink-muted">Groq does not keep inference data by default, but may keep logs for up to 30 days for troubleshooting or abuse checks unless its Zero Data Retention setting is on.</p>
     </div>
   )
 }

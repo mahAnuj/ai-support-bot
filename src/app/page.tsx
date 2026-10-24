@@ -136,7 +136,7 @@ export default function HomePage() {
         } else if (response.status === 429) {
           setUploadError('Too many uploads from this network in the last minute. Wait a minute and try again.')
         } else {
-          setUploadError(`These files couldn't be indexed (status ${response.status}). If you run this app, check that OPENAI_API_KEY is set and valid, then try again.`)
+          setUploadError(`These files couldn't be indexed (status ${response.status}). Check that each file has readable text, then try again.`)
         }
         return
       }

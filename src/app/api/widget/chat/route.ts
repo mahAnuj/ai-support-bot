@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { generateResponse } from '../../../../lib/openai'
+import { generateResponse } from '../../../../lib/llm'
 import { getWidgetByKey, findRelevantChunksForKnowledgeBase, knowledgeBaseHasDocuments, getInMemoryDatabase } from '../../../../lib/database'
 import { getCachedEmbedding } from '../../../../lib/rag'
+import { matchScore, MIN_SIMILARITY } from '../../../../lib/embeddings'
 import { clientIp, isRateLimited, LIMITS, originAllowed } from '../../../../lib/guard'
 
 const CORS_HEADERS = {
@@ -74,7 +75,7 @@ export async function POST(request: NextRequest) {
     
     let ragResult = null
     let isEnhanced = false
-    let confidence = 30 // Default low confidence for generic responses
+    let confidence = 0 // Match score; stays 0 when no passage is used
     
     // Check if widget's knowledge base has documents for RAG
     console.log('Widget Chat API - Knowledge Base ID:', widget.knowledge_base_id)
@@ -88,7 +89,7 @@ export async function POST(request: NextRequest) {
         const relevantChunks = await findRelevantChunksForKnowledgeBase({
           knowledge_base_id: widget.knowledge_base_id,
           query_embedding: queryEmbedding,
-          similarity_threshold: 0.5,
+          similarity_threshold: MIN_SIMILARITY,
           max_results: 5
         })
         
@@ -117,24 +118,7 @@ export async function POST(request: NextRequest) {
           usedSources.add(chunk.filename)
         }
         
-        // Calculate confidence based on similarity scores
-        const avgSimilarity = relevantChunks.length > 0 
-          ? relevantChunks.reduce((sum, chunk) => sum + chunk.similarity, 0) / relevantChunks.length
-          : 0
-        
-        let calculatedConfidence = Math.round(avgSimilarity * 100)
-        
-        // Boost confidence if we have multiple relevant chunks
-        if (relevantChunks.length >= 3) {
-          calculatedConfidence = Math.min(95, calculatedConfidence + 10)
-        } else if (relevantChunks.length >= 2) {
-          calculatedConfidence = Math.min(90, calculatedConfidence + 5)
-        }
-        
-        // Ensure minimum confidence for any results
-        if (relevantChunks.length > 0) {
-          calculatedConfidence = Math.max(calculatedConfidence, 40)
-        }
+        const calculatedConfidence = matchScore(relevantChunks.map((chunk) => chunk.similarity))
         
         ragResult = {
           context: context.trim(),
@@ -143,7 +127,7 @@ export async function POST(request: NextRequest) {
           confidence: calculatedConfidence
         }
         
-        isEnhanced = context.length > 0 && calculatedConfidence > 50
+        isEnhanced = context.length > 0
         
         if (isEnhanced) {
           confidence = calculatedConfidence
@@ -157,14 +141,14 @@ export async function POST(request: NextRequest) {
       console.log('Widget Chat API - No documents found in knowledge base')
     }
 
-    // Create context for OpenAI if we have RAG results
+    // Pass retrieved passages to the chat model only when some were found
     const context = ragResult && isEnhanced ? ragResult.context : undefined
     
     // Get knowledge base for system prompt and role context
     const db = getInMemoryDatabase()
     const knowledgeBase = db.knowledgeBases.get(widget.knowledge_base_id)
     
-    // Generate response using OpenAI with widget-specific prompts
+    // Generate the answer with the widget's own prompts
     const systemPrompt = knowledgeBase?.system_prompt || 
       'You are a helpful AI assistant embedded in a website widget. Provide helpful and accurate information formatted with proper markdown for easy reading.'
     
@@ -179,7 +163,7 @@ export async function POST(request: NextRequest) {
     
     const responseData: any = {
       message: response.message,
-      confidence: response.confidence || confidence,
+      confidence,
       sources: ragResult?.sources || [],
       isEnhanced,
       sessionId: sessionId || 'widget-session',

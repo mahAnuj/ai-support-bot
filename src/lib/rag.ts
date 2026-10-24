@@ -1,4 +1,5 @@
-import { generateEmbeddings } from './openai'
+import { generateEmbeddings, matchScore, MIN_SIMILARITY } from './embeddings'
+import { CHAT_MODEL, getChatClient } from './llm'
 import { chunkText, extractTextFromFile } from './documents'
 import { 
   createSession, 
@@ -26,7 +27,7 @@ export interface RAGQueryResult {
 // Cache for embeddings to avoid regenerating for same content
 const embeddingCache = new Map<string, number[]>()
 
-// Cache for query variations to avoid duplicate OpenAI calls
+// Cache for query variations to avoid duplicate chat-model calls
 const variationCache = new Map<string, string[]>()
 
 // Preprocess queries to improve semantic matching
@@ -35,7 +36,7 @@ function preprocessQuery(query: string): string {
   return query.trim()
 }
 
-// Generate multiple query variations using OpenAI for better semantic matching
+// Ask the chat model to reword the question, for better semantic matching
 async function generateQueryVariations(query: string): Promise<string[]> {
   const cacheKey = query.trim().toLowerCase()
   
@@ -50,14 +51,8 @@ async function generateQueryVariations(query: string): Promise<string[]> {
   try {
     console.log(`🤖 Generating query variations (${query.length} chars)`)
     
-    // Use OpenAI directly with structured JSON response for reliability
-    const openai = (await import('openai')).default
-    const client = new openai({
-      apiKey: process.env.OPENAI_API_KEY,
-    })
-
-    const response = await client.chat.completions.create({
-      model: 'gpt-4o-mini',
+    const response = await getChatClient().chat.completions.create({
+      model: CHAT_MODEL,
       messages: [
         {
           role: 'system',
@@ -77,36 +72,18 @@ Examples:
 - "What file formats are supported?" → "What types of files can I upload?", "Which document formats are accepted?", "What file extensions are allowed?"
 - "How do I get started?" → "What should I do first?", "How do I begin using this?", "Where do I start?"
 
-Return ONLY the 3 alternative questions in valid JSON format.`
+Return ONLY a JSON object of the form {"variations": ["...", "...", "..."]}.`
         }
       ],
-      response_format: { 
-        type: "json_schema",
-        json_schema: {
-          name: "query_variations",
-          schema: {
-            type: "object",
-            properties: {
-              variations: {
-                type: "array",
-                items: { type: "string" },
-                minItems: 3,
-                maxItems: 3,
-                description: "Three alternative ways to ask the same question"
-              }
-            },
-            required: ["variations"],
-            additionalProperties: false
-          }
-        }
-      },
+      // JSON object mode works on every Groq model; json_schema only on some
+      response_format: { type: 'json_object' },
       max_tokens: 150,
       temperature: 0.7
     })
 
     const content = response.choices[0]?.message?.content
     if (!content) {
-      throw new Error('No response from OpenAI')
+      throw new Error('No response from the chat model')
     }
 
     // Parse the structured JSON response
@@ -245,8 +222,7 @@ export async function processDocumentsForRAG(files: File[]): Promise<RAGProcessR
 export async function queryRAG(
   sessionId: string, 
   query: string,
-  maxResults: number = 5,
-  similarityThreshold: number = 0.4 // Balanced threshold - will be adjusted dynamically
+  maxResults: number = 5
 ): Promise<RAGQueryResult> {
   // Check if session exists and update access time
   const session = await getSession(sessionId)
@@ -273,7 +249,7 @@ export async function queryRAG(
     const queryEmbedding = await getCachedEmbedding(variation)
     
     // Try multiple thresholds: start high, go lower if needed
-    const thresholds = [0.5, 0.4, 0.3, 0.25]
+    const thresholds = [0.4, 0.3, 0.2, MIN_SIMILARITY]
     let variationResults: VectorSearchResult[] = []
     
     for (const threshold of thresholds) {
@@ -295,7 +271,7 @@ export async function queryRAG(
     // Apply quality filtering: remove chunks that are much worse than the best
     if (variationResults.length > 0) {
       const topSimilarity = variationResults[0].similarity
-      const qualityThreshold = Math.max(0.25, topSimilarity - 0.15) // Max 15% gap from best
+      const qualityThreshold = Math.max(MIN_SIMILARITY, topSimilarity - 0.15) // Max 15% gap from best
       
       const filteredResults = variationResults.filter(chunk => 
         chunk.similarity >= qualityThreshold
@@ -346,46 +322,7 @@ export async function queryRAG(
   // Extract unique source filenames
   const sources = Array.from(usedSources)
   
-  // Smart confidence calculation based on quality and consistency
-  let confidence = 30 // Default for no results
-  
-  if (relevantChunks.length > 0) {
-    const avgSimilarity = relevantChunks.reduce((sum, chunk) => sum + chunk.similarity, 0) / relevantChunks.length
-    const topSimilarity = relevantChunks[0].similarity
-    const minSimilarity = relevantChunks[relevantChunks.length - 1].similarity
-    
-    // Base confidence from average similarity
-    confidence = Math.round(avgSimilarity * 100)
-    
-    // Boost for high-quality top result
-    if (topSimilarity >= 0.6) {
-      confidence += 15
-    } else if (topSimilarity >= 0.5) {
-      confidence += 10
-    } else if (topSimilarity >= 0.4) {
-      confidence += 5
-    }
-    
-    // Boost for multiple consistent results (low variance)
-    if (relevantChunks.length >= 2) {
-      const variance = topSimilarity - minSimilarity
-      if (variance <= 0.1) { // Very consistent results
-        confidence += 10
-      } else if (variance <= 0.15) { // Moderately consistent
-        confidence += 5
-      }
-    }
-    
-    // Boost for multiple sources
-    if (relevantChunks.length >= 3) {
-      confidence += 5
-    }
-    
-    // Cap at reasonable limits
-    confidence = Math.min(95, Math.max(40, confidence))
-    
-    console.log(`RAG Query - Confidence calculation: avg=${avgSimilarity.toFixed(3)}, top=${topSimilarity.toFixed(3)}, variance=${relevantChunks.length > 1 ? (topSimilarity - minSimilarity).toFixed(3) : 'N/A'} → ${confidence}%`)
-  }
+  const confidence = matchScore(relevantChunks.map((chunk) => chunk.similarity))
   
   return {
     context: context.trim(),
@@ -395,7 +332,7 @@ export async function queryRAG(
   }
 }
 
-// Create context string for OpenAI prompt
+// Create context string for the chat prompt
 export function createRAGContext(ragResult: RAGQueryResult): string {
   if (!ragResult.context.trim()) {
     return ''

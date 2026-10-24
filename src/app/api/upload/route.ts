@@ -10,7 +10,7 @@ import { clientIp, isRateLimited } from '../../../lib/guard'
 export async function POST(request: NextRequest) {
   try {
     console.log('📤 Upload API called')
-    // Uploads are embedded chunk by chunk, so each one spends OpenAI quota
+    // Uploads are embedded on this server, so each one spends its CPU and memory
     if (isRateLimited(`upload:${clientIp(request)}`, 10)) {
       return NextResponse.json({ error: 'Too many uploads' }, { status: 429 })
     }

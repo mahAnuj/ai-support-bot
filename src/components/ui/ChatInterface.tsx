@@ -94,7 +94,7 @@ function errorTextFor(status: number, body: unknown): string {
     const error = body && typeof body === 'object' ? (body as { error?: unknown }).error : undefined
     return `The message couldn't be sent: ${typeof error === 'string' ? error : 'invalid request'}.`
   }
-  return `No answer. The server returned an error (status ${status}). If you run this app, check that OPENAI_API_KEY is set and valid.`
+  return `No answer. The server returned an error (status ${status}). If you run this app, check that GROQ_API_KEY is set and valid.`
 }
 
 function documentSources(sources?: string[]): string[] {

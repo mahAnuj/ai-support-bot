@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server'
 
-// Every chat request spends the deployment's OpenAI key, and the chat routes
+// Every chat request spends the deployment's Groq quota, and the chat routes
 // are reachable from any site. These checks bound what one client can spend.
 //
 // Counts live in memory, like the rest of this app: each server instance keeps
