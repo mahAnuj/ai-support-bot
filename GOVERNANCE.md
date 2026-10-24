@@ -39,10 +39,11 @@ certification.
 - **To Groq:** every visitor question with the matching passages, to generate
   the answer (`llama-3.1-8b-instant` unless `GROQ_MODEL` says otherwise). In
   the builder's preview chat the question is also sent once more first, so the
-  model can reword it for search; the widget does not do this. Groq states that
-  it does not retain inference data by default, but may keep logs for up to 30
-  days for troubleshooting and abuse checks unless Zero Data Retention is
-  enabled for the organisation. Enable it before real visitor traffic.
+  model can reword it for search; the widget does not do this. By default Groq
+  may store the inputs and outputs of each request for up to 30 days, for
+  reliability and compliance. The organisation's *Inference APIs ZDR* setting
+  (Settings, Data Controls) turns that off. Enable it before real visitor
+  traffic.
 - **To server memory:** documents, chunks and embeddings, held in `Map`s in
   `src/lib/database.ts`. They are not written to a database and are lost when
   the server instance restarts. Different instances do not share them.

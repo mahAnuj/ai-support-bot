@@ -99,7 +99,7 @@ export default function DataDisclosure({ className }: { className?: string }) {
           </li>
         ))}
       </ol>
-      <p className="mt-4 text-xs text-ink-muted">Groq does not keep inference data by default, but may keep logs for up to 30 days for troubleshooting or abuse checks unless its Zero Data Retention setting is on.</p>
+      <p className="mt-4 text-xs text-ink-muted">Groq may store the inputs and outputs of each request for up to 30 days, for reliability and compliance, unless Zero Data Retention is turned on for the deployment's Groq organisation.</p>
     </div>
   )
 }

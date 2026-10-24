@@ -1,9 +1,9 @@
 import OpenAI from 'openai'
 
 // Chat runs on Groq. Its API is OpenAI-compatible, so the OpenAI SDK is used
-// with Groq's base URL. Groq does not retain inference data by default, but may
-// keep logs for up to 30 days for troubleshooting or abuse investigation unless
-// Zero Data Retention is enabled (console.groq.com/docs/your-data). Its rate
+// with Groq's base URL. By default Groq may store inputs and outputs for up to
+// 30 days for reliability and compliance; the organisation's "Inference APIs
+// ZDR" setting (console.groq.com/settings/data-controls) turns that off. Its rate
 // limits are per organisation and per model, so the model is configurable:
 // pick one no other project in the same Groq organisation uses.
 const GROQ_BASE_URL = 'https://api.groq.com/openai/v1'
