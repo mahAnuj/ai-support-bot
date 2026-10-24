@@ -24,6 +24,7 @@ export interface EmbedStepProps {
   documentCount: number
   config: WidgetConfig
   onGenerated?: () => void
+  storageToken?: string | null
 }
 
 const SIZES: Record<WidgetConfig['size'], { width: number; height: number }> = {
@@ -82,7 +83,7 @@ function CloseIcon() {
   )
 }
 
-export default function EmbedStep({ sessionId, documentCount, config, onGenerated }: EmbedStepProps): JSX.Element {
+export default function EmbedStep({ sessionId, documentCount, config, onGenerated, storageToken }: EmbedStepProps): JSX.Element {
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [embedCode, setEmbedCode] = useState('')
@@ -133,7 +134,7 @@ export default function EmbedStep({ sessionId, documentCount, config, onGenerate
     try {
       const response = await fetch('/api/widget/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(storageToken ? { 'x-storage-token': storageToken } : {}) },
         body: JSON.stringify({
           sessionId,
           name: config.name || config.title || 'Support Widget',
@@ -307,7 +308,7 @@ export default function EmbedStep({ sessionId, documentCount, config, onGenerate
             </button>
           </div>
           {scriptUrl && (
-            <InstallGuide embedCode={embedCode} scriptUrl={scriptUrl} apiBaseUrl={new URL(scriptUrl).origin} />
+            <InstallGuide embedCode={embedCode} scriptUrl={scriptUrl} apiBaseUrl={new URL(scriptUrl).origin} persistent={!!storageToken} />
           )}
         </div>
       </dialog>
