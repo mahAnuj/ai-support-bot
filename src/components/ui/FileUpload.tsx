@@ -51,8 +51,8 @@ const zoneClasses: Record<ZoneState, string> = {
   idle: 'border-dashed border-line-strong bg-surface hover:bg-sunken',
   dragover: 'border-solid border-accent bg-accent-tint',
   uploading: 'border-solid border-line bg-sunken',
-  success: 'border-solid border-accent/60 bg-surface hover:bg-sunken',
-  error: 'border-solid border-danger/60 bg-surface hover:bg-sunken',
+  success: 'border-solid border-accent bg-surface hover:bg-sunken',
+  error: 'border-solid border-danger bg-surface hover:bg-sunken',
 }
 
 function formatMb(bytes: number): string {

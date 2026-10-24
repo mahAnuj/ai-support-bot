@@ -136,7 +136,7 @@ export default function InstallGuide({ embedCode, scriptUrl, apiBaseUrl }: Insta
         <h3 id={`${baseId}-install`} className="text-base font-semibold text-ink">
           Add it to your site
         </h3>
-        <div role="tablist" aria-label="Platform" className="mt-3 flex gap-1 overflow-x-auto rounded-md bg-sunken p-1">
+        <div role="tablist" aria-label="Platform" className="mt-3 flex flex-wrap gap-1 rounded-md bg-sunken p-1 sm:flex-nowrap sm:overflow-x-auto">
           {list.map((platform, index) => {
             const selected = platform.id === current.id
             return (

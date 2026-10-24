@@ -36,8 +36,6 @@ const NETWORK_ERROR = "Couldn't reach the server. Check your connection and try 
 
 const primaryButton =
   'inline-flex h-11 items-center justify-center gap-2 rounded-md bg-accent px-5 text-sm font-semibold text-white hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-60'
-const secondaryButton =
-  'inline-flex h-11 items-center justify-center gap-2 rounded-md border border-line-strong bg-surface px-5 text-sm font-semibold text-ink hover:bg-sunken'
 const iconButton =
   'inline-flex size-10 items-center justify-center rounded-md text-ink-muted hover:bg-sunken hover:text-ink'
 
@@ -297,14 +295,9 @@ export default function EmbedStep({ sessionId, documentCount, config, onGenerate
             >
               {embedCode}
             </pre>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <span role="status" aria-live="polite" className="min-w-0 flex-1 text-sm text-ink-muted">
+            <p role="status" aria-live="polite" className={copyStatus && !copied ? 'mt-2 text-sm text-ink-muted' : 'sr-only'}>
               {copyStatus}
-            </span>
-            <button type="button" onClick={closeDialog} className={secondaryButton}>
-              Close
-            </button>
+            </p>
           </div>
           {scriptUrl && (
             <InstallGuide embedCode={embedCode} scriptUrl={scriptUrl} apiBaseUrl={new URL(scriptUrl).origin} />
