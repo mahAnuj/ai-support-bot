@@ -5,10 +5,15 @@ import { getCachedEmbedding } from '../../../lib/rag'
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
+import { clientIp, isRateLimited } from '../../../lib/guard'
 
 export async function POST(request: NextRequest) {
   try {
     console.log('📤 Upload API called')
+    // Uploads are embedded chunk by chunk, so each one spends OpenAI quota
+    if (isRateLimited(`upload:${clientIp(request)}`, 10)) {
+      return NextResponse.json({ error: 'Too many uploads' }, { status: 429 })
+    }
     const formData = await request.formData()
     const files = formData.getAll('files') as File[]
     
@@ -55,16 +60,19 @@ export async function POST(request: NextRequest) {
         const arrayBuffer = await file.arrayBuffer()
         const buffer = Buffer.from(arrayBuffer)
         
-        const tempDir = os.tmpdir()
-        const tempFileName = `upload-${Date.now()}-${Math.random().toString(36).substring(7)}-${file.name}`
-        const tempFilePath = path.join(tempDir, tempFileName)
+        // The uploaded name is attacker-controlled: "../../x" would escape the
+        // temp directory, and the cleanup below would then delete that path.
+        // Build the path from a random ID and a checked extension only.
+        const extension = path.extname(path.basename(file.name)).toLowerCase()
+        const safeExtension = ['.txt', '.md', '.pdf', '.docx'].includes(extension) ? extension : ''
+        const tempFilePath = path.join(os.tmpdir(), `upload-${crypto.randomUUID()}${safeExtension}`)
         
         fs.writeFileSync(tempFilePath, buffer)
         tempFiles.push(tempFilePath)
         
         fileInfos.push({
           filePath: tempFilePath,
-          originalName: file.name,
+          originalName: path.basename(file.name),
           size: file.size,
           type: file.type
         })

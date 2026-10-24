@@ -2,9 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { generateResponse } from '../../../lib/openai'
 import { queryRAG, createRAGContext, sessionHasDocuments } from '../../../lib/rag'
 import { createSession, getSession } from '../../../lib/database'
+import { clientIp, isRateLimited, isWithinLimit, LIMITS } from '../../../lib/guard'
 
 export async function POST(request: NextRequest) {
   try {
+    if (isRateLimited(`chat:${clientIp(request)}`, 20)) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+    }
+
     const { message, sessionId, systemPrompt, roleContext } = await request.json()
     
     if (!message || typeof message !== 'string') {
@@ -12,6 +17,14 @@ export async function POST(request: NextRequest) {
         { error: 'Message is required' },
         { status: 400 }
       )
+    }
+
+    if (
+      message.length > LIMITS.message ||
+      !isWithinLimit(systemPrompt, LIMITS.systemPrompt) ||
+      !isWithinLimit(roleContext, LIMITS.roleContext)
+    ) {
+      return NextResponse.json({ error: 'Input too long' }, { status: 400 })
     }
 
     // Ensure we have a valid database session

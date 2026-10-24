@@ -2,11 +2,31 @@ import { NextRequest, NextResponse } from 'next/server'
 import { generateResponse } from '../../../../lib/openai'
 import { getWidgetByKey, findRelevantChunksForKnowledgeBase, knowledgeBaseHasDocuments, getInMemoryDatabase } from '../../../../lib/database'
 import { getCachedEmbedding } from '../../../../lib/rag'
+import { clientIp, isRateLimited, LIMITS, originAllowed } from '../../../../lib/guard'
+
+const CORS_HEADERS = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+}
+
+function corsJson(body: unknown, status: number) {
+  return new NextResponse(JSON.stringify(body), { status, headers: CORS_HEADERS })
+}
 
 export async function POST(request: NextRequest) {
   try {
     console.log('🔥 WIDGET CHAT API CALLED')
+    if (isRateLimited(`widget:${clientIp(request)}`, 20)) {
+      return corsJson({ error: 'Too many requests' }, 429)
+    }
+
     const { message, widgetKey, sessionId } = await request.json()
+
+    if (typeof message === 'string' && message.length > LIMITS.message) {
+      return corsJson({ error: 'Message too long' }, 400)
+    }
     
     if (!message || typeof message !== 'string') {
       return new NextResponse(JSON.stringify({ error: 'Message is required' }), {
@@ -44,6 +64,10 @@ export async function POST(request: NextRequest) {
           'Access-Control-Allow-Headers': 'Content-Type',
         },
       })
+    }
+
+    if (!originAllowed(request.headers.get('origin'), widget.allowed_domains)) {
+      return corsJson({ error: 'This widget is not enabled for this site' }, 403)
     }
 
     console.log('Widget Chat API - Widget found:', widget.widget_key)

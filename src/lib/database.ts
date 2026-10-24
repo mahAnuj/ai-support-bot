@@ -77,13 +77,11 @@ if (process.env.NODE_ENV === 'development' && global.__ragDatabase) {
 
 console.log('🔍 DB - Using database instance created at:', db.createdAt.toISOString())
 
-// Utility function to generate UUIDs
+// Session IDs and API keys work as bearer secrets: whoever holds one can read
+// that session's documents. They must come from a cryptographic RNG, not
+// Math.random, whose output is predictable.
 function generateUUID(): string {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0
-    const v = c === 'x' ? r : (r & 0x3 | 0x8)
-    return v.toString(16)
-  })
+  return crypto.randomUUID()
 }
 
 // Calculate cosine similarity between two vectors
@@ -364,7 +362,7 @@ export async function getDatabaseStats(): Promise<{
 
 // Generate unique IDs for widgets
 function generateWidgetKey(): string {
-  return 'widget-' + generateUUID().split('-')[0]
+  return 'widget-' + generateUUID().replace(/-/g, '')
 }
 
 // Extended config for creating widget from session

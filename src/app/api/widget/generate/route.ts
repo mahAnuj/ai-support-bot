@@ -1,11 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createWidgetFromSession } from '../../../../lib/database'
+import { clientIp, isRateLimited, isWithinLimit, LIMITS } from '../../../../lib/guard'
 
 export async function POST(request: NextRequest) {
   try {
     console.log('🔄 Widget generation started')
+    if (isRateLimited(`generate:${clientIp(request)}`, 10)) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+    }
+
     const config = await request.json()
     console.log('📝 Widget config received:', config)
+
+    if (
+      !isWithinLimit(config.system_prompt, LIMITS.systemPrompt) ||
+      !isWithinLimit(config.role_context, LIMITS.roleContext) ||
+      (config.allowed_domains !== undefined &&
+        !(Array.isArray(config.allowed_domains) && config.allowed_domains.every((d: unknown) => typeof d === 'string')))
+    ) {
+      return NextResponse.json({ error: 'Invalid widget configuration' }, { status: 400 })
+    }
     
     if (!config.sessionId) {
       console.error('❌ Missing session ID')
