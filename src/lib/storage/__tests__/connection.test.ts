@@ -178,24 +178,40 @@ describe('normalised length', () => {
     expect(validateConnectionString(conn.normalized, strict)).toEqual({ ok: false, code: 'connection_string_too_long' })
   })
 
-  it('accepts a normalised form of exactly the cap and rejects one char more', () => {
-    const atCap = build(917, 52)
-    const overCap = build(917, 53)
-    expect(atCap.length).toBeLessThanOrEqual(MAX_CONNECTION_STRING_LENGTH)
-    expect(overCap).toHaveLength(MAX_CONNECTION_STRING_LENGTH)
-    expect(expectOk(atCap).normalized).toHaveLength(MAX_NORMALIZED_CONNECTION_STRING_LENGTH)
-    expect(validateConnectionString(overCap, strict)).toEqual({ ok: false, code: 'connection_string_too_long' })
+  // Worst cases for a 1000-char input: every expandable field is '$' and everything else is minimal.
+  const worstCases: Array<[string, string, { allowPrivate: boolean }]> = [
+    ['user and database only, one-char hostname', `postgres://${'$'.repeat(493)}@h/${'$'.repeat(493)}`, strict],
+    ['user, password and database, public IP', `postgres://${'$'.repeat(326)}:${'$'.repeat(326)}@1.1.1.1/${'$'.repeat(327)}`, strict],
+    ['user, password and database, private IP', `postgres://${'$'.repeat(325)}:${'$'.repeat(325)}@10.0.0.5/${'$'.repeat(328)}`, permissive],
+  ]
+
+  it.each(worstCases)('accepts a worst-case 1000-char string (%s) and its tokens seal and open', (_label, raw, opts) => {
+    expect(raw).toHaveLength(MAX_CONNECTION_STRING_LENGTH)
+    const conn = expectOk(raw, opts)
+    expect(conn.normalized.length).toBeLessThanOrEqual(MAX_NORMALIZED_CONNECTION_STRING_LENGTH)
+    const again = revalidateNormalizedConnection(conn.normalized, opts)
+    if (!again.ok) throw new Error(`revalidation failed: ${again.code}`)
+    expect(again.connection.normalized).toBe(conn.normalized)
+
+    const key = randomBytes(32)
+    const workspaceId = randomUUID()
+    const widgetId = randomUUID()
+    const widget = sealWidgetToken({ conn: conn.normalized, workspaceId, widgetId }, key)
+    const builder = sealBuilderToken({ conn: conn.normalized, workspaceId }, key)
+    expect(widget.length).toBeLessThanOrEqual(MAX_TOKEN_LENGTH)
+    expect(builder.length).toBeLessThanOrEqual(MAX_TOKEN_LENGTH)
+    expect(openWidgetToken(widget, key)).toEqual({ conn: conn.normalized, workspaceId, widgetId })
+    expect(openBuilderToken(builder, key)).toEqual({ conn: conn.normalized, workspaceId })
   })
 
-  it('rejects a pathological 1000-char string that would not fit in a token', () => {
-    const raw = `postgres://${'$'.repeat(300)}:${'$'.repeat(670)}@h/${'$'.repeat(15)}`
-    expect(raw).toHaveLength(MAX_CONNECTION_STRING_LENGTH)
-    expect(validateConnectionString(raw, strict)).toEqual({ ok: false, code: 'connection_string_too_long' })
+  it('reaches exactly the normalised cap with the longest-expanding 1000-char input', () => {
+    expect(expectOk(worstCases[0][1]).normalized).toHaveLength(MAX_NORMALIZED_CONNECTION_STRING_LENGTH)
   })
 
   it('keeps a normalised string at the cap within the token budget', () => {
     const key = randomBytes(32)
-    const conn = expectOk(build(917, 52)).normalized
+    const conn = expectOk(worstCases[0][1]).normalized
+    expect(conn).toHaveLength(MAX_NORMALIZED_CONNECTION_STRING_LENGTH)
     const workspaceId = randomUUID()
     const widgetId = randomUUID()
     const widget = sealWidgetToken({ conn, workspaceId, widgetId }, key)

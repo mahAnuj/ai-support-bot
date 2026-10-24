@@ -41,7 +41,7 @@ export const STORAGE_ERROR_STATUS: Record<StorageErrorCode, number> = {
 export const STORAGE_ERROR_MESSAGES: Record<StorageErrorCode, string> = {
   unsupported_scheme: 'Use a connection string that starts with postgres:// or postgresql://.',
   invalid_connection_string: "That doesn't look like a Postgres connection string. It should look like postgresql://user:password@host:5432/database.",
-  connection_string_too_long: 'That connection string is over 1,000 characters.',
+  connection_string_too_long: 'That connection string is longer than 1,000 characters.',
   tls_required: 'This database must be reached over TLS. Remove sslmode=disable, or use sslmode=require.',
   private_host_not_allowed: "This server can't connect to private, local or link-local addresses. Use your database's public host name.",
   host_not_found: "The database host name couldn't be found. Check the part after the @.",

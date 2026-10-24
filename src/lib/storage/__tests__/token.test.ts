@@ -124,7 +124,7 @@ describe('getTokenKey', () => {
 })
 
 describe('AC 24: widget token fits in a script URL', () => {
-  it('stays URL-safe and under 2,000 characters for a 1,000-character connection string', () => {
+  it('stays URL-safe and under 2,000 characters for a plain 1,000-character connection string (no percent-encoding)', () => {
     const prefix = 'postgresql://u:p@db.example.com:5432/'
     const suffix = '?sslmode=verify-full'
     const conn = prefix + 'd'.repeat(1000 - prefix.length - suffix.length) + suffix

@@ -140,7 +140,10 @@ server has `EMBED_TOKEN_KEY` set (see [below](#embed_token_key)).
    in server memory while a connection to your database is open.
 4. From then on, uploads, the preview chat and **Generate** use your database.
    The embed code carries a widget token (`sbw1_…`) instead of a `widget-…`
-   key, so the script URL is long (roughly 1,600 characters). The widget keeps
+   key, so the script URL is long: roughly 1,600 characters for a
+   1,000-character connection string, and over 4,000 if the user name,
+   password or database name is mostly characters that need percent-encoding
+   (such as `$`). The widget keeps
    answering after server restarts.
 
 **Widget scope differs between modes.** A demo widget searches the documents

@@ -5,9 +5,10 @@ import { fingerprint } from './log'
 export const MAX_CONNECTION_STRING_LENGTH = 1000
 
 // Cap on the normalised form, which is what tokens carry. Re-encoding can triple user, password and
-// database (e.g. '$' -> '%24'), so a 1000-char input can normalise to ~3000 chars. 2860 is the largest
-// normalised string a widget token (the bigger payload) can carry within MAX_TOKEN_LENGTH (4000).
-export const MAX_NORMALIZED_CONNECTION_STRING_LENGTH = 2860
+// database (e.g. '$' -> '%24'), so a 1000-char input normalises to at most 3000 chars
+// ('postgres://' + '$'*n + '@h/' + '$'*m). Every input within MAX_CONNECTION_STRING_LENGTH therefore
+// fits, and a widget token (the bigger payload) for a 3000-char string stays within MAX_TOKEN_LENGTH.
+export const MAX_NORMALIZED_CONNECTION_STRING_LENGTH = 3000
 
 export interface ValidateOptions {
   allowPrivate: boolean

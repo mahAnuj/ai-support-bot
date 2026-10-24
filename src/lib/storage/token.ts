@@ -4,7 +4,8 @@ import { StorageError } from './errors'
 
 export const BUILDER_TOKEN_PREFIX = 'sbb1_'
 export const WIDGET_TOKEN_PREFIX = 'sbw1_'
-export const MAX_TOKEN_LENGTH = 4000
+// Fits a widget token for the longest normalised connection string (3000 chars -> 4187-char token).
+export const MAX_TOKEN_LENGTH = 4200
 
 const KEY_PATTERN = /^[A-Za-z0-9+/]{43}=$/
 const BODY_PATTERN = /^[A-Za-z0-9_-]+$/

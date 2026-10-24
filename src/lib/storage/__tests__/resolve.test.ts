@@ -20,8 +20,9 @@ jest.mock('../pg-store', () => {
 const KEY = randomBytes(32).toString('base64')
 const CONN = 'postgresql://user:pw@db.example.com:5432/app?sslmode=verify-full'
 const PRIVATE_CONN = 'postgresql://user:pw@10.0.0.5:5432/app'
-// Normalised from a 999-char input; '%24' re-encoding pushes it to the 2860-char normalised cap.
-const LONG_CONN = `postgresql://u:${'%24'.repeat(917)}${'p'.repeat(52)}@db.example.com:5432/d?sslmode=verify-full`
+// Normalised from the worst-case 1000-char input (postgres://$...$@h/$...$); '%24' re-encoding
+// pushes it to the 3000-char normalised cap, and its widget token to ~4187 chars.
+const LONG_CONN = `postgresql://${'%24'.repeat(493)}:@h:5432/${'%24'.repeat(493)}?sslmode=verify-full`
 
 const mockedGetPool = getPool as jest.MockedFunction<typeof getPool>
 const mockedCreateStore = createPostgresStore as jest.MockedFunction<typeof createPostgresStore>
@@ -103,12 +104,13 @@ describe('resolveBuilderStore', () => {
   })
 
   it('resolves a builder token carrying a normalised string longer than 1000 chars', () => {
-    expect(LONG_CONN).toHaveLength(2860)
+    expect(LONG_CONN).toHaveLength(3000)
     const token = sealBuilderToken({ conn: LONG_CONN, workspaceId: randomUUID() })
     const r = resolveBuilderStore(req(token))
     if (!r.ok || r.ctx.kind !== 'postgres') throw new Error('expected postgres context')
     expect(r.ctx.connection.normalized).toBe(LONG_CONN)
-    expect(r.ctx.connection.password).toBe('$'.repeat(917) + 'p'.repeat(52))
+    expect(r.ctx.connection.user).toBe('$'.repeat(493))
+    expect(r.ctx.connection.database).toBe('$'.repeat(493))
     expect(mockedGetPool).not.toHaveBeenCalled()
   })
 
@@ -249,6 +251,7 @@ describe('resolveWidget', () => {
   it('resolves a widget token carrying a normalised string longer than 1000 chars', async () => {
     const widgetId = randomUUID()
     const token = sealWidgetToken({ conn: LONG_CONN, workspaceId: randomUUID(), widgetId })
+    expect(token.length).toBeGreaterThan(4000)
     const getWidget = jest.fn().mockResolvedValue(fakeWidget(widgetId))
     mockedCreateStore.mockReturnValueOnce({ kind: 'postgres', getWidget } as unknown as KnowledgeStore)
     const r = await resolveWidget(token)
