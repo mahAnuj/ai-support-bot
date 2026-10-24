@@ -51,10 +51,10 @@ retrieval-backed support assistant, then emits an embeddable widget for it.
   hand-rolled `cosineSimilarity`. Everything is lost on restart, and nothing is
   shared between server instances. There is no Postgres or pgvector despite
   `scripts/setup-db.sql` existing.
-- **`src/lib/analytics.ts`**, **`src/lib/enterprise.ts`** — dashboard and
-  enterprise-panel support.
+- **`src/lib/guard.ts`** — per-IP rate limits, input size caps and the
+  per-widget `allowed_domains` origin check used by every API route.
 - **`src/app/api/`** — route handlers: `chat`, `upload`, `widget/chat`,
-  `widget/generate`, `analytics/realtime`, `enterprise`, `debug`.
+  `widget/generate`.
 - **`public/ai-support-widget.js`** — the standalone script embedded on customer
   sites. It talks to `/api/widget/chat`.
 
@@ -69,6 +69,20 @@ retrieval-backed support assistant, then emits an embeddable widget for it.
   sites; changing its API or the shape of `/api/widget/chat` breaks live embeds.
 - Chat uses `gpt-4o-mini` and embeddings `text-embedding-3-small`. Both are
   referenced in `src/lib/openai.ts`.
+- **Never build a filesystem path from an uploaded filename.** Temp files are
+  named from `crypto.randomUUID()` plus a checked extension.
+- **IDs that grant access come from `crypto.randomUUID()`**, never
+  `Math.random`. A session ID is a bearer secret for that session's documents.
+- **Every API route checks `isRateLimited` first.** Each call spends the
+  deployment's OpenAI key.
+- **Retrieved document text is wrapped in `<documents>` and declared data**
+  (`wrapDocuments` and `DOCUMENTS_RULE` in `src/lib/openai.ts`). Keep new
+  prompt paths going through it.
+- **Fail loudly.** Embedding errors throw; never substitute a placeholder that
+  lets a failed upload report success.
+- **No claim in the UI or README without code behind it.** Fabricated metrics,
+  stub "enterprise" features and an unauthenticated debug route were removed
+  for this reason; `GOVERNANCE.md` lists what is actually enforced.
 - `package.json` sets `"private": true` (it is an app, not a published package)
   while the code is MIT licensed.
 
