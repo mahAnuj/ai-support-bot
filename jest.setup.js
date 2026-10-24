@@ -28,10 +28,12 @@ jest.mock('openai', () => {
 
 
 // Mock scrollIntoView for JSDOM
-Object.defineProperty(Element.prototype, 'scrollIntoView', {
-  value: jest.fn(),
-  writable: true,
-})
+if (typeof Element !== 'undefined') {
+  Object.defineProperty(Element.prototype, 'scrollIntoView', {
+    value: jest.fn(),
+    writable: true,
+  })
+}
 
 // Mock fetch for API calls
 global.fetch = jest.fn()
