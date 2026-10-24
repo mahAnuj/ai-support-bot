@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useId, useRef, useState, type JSX } from 'react'
-import DataDisclosure from './DataDisclosure'
 import InstallGuide from './InstallGuide'
+import { readableTextOn } from './contrast'
 
 export const DEFAULT_PRIMARY_COLOR = '#1E6B58'
 
@@ -23,6 +23,7 @@ export interface EmbedStepProps {
   sessionId: string | null
   documentCount: number
   config: WidgetConfig
+  onGenerated?: () => void
 }
 
 const SIZES: Record<WidgetConfig['size'], { width: number; height: number }> = {
@@ -38,7 +39,7 @@ const primaryButton =
 const secondaryButton =
   'inline-flex h-11 items-center justify-center gap-2 rounded-md border border-line-strong bg-surface px-5 text-sm font-semibold text-ink hover:bg-sunken'
 const iconButton =
-  'inline-flex size-11 items-center justify-center rounded-md text-ink-muted hover:bg-sunken hover:text-ink'
+  'inline-flex size-10 items-center justify-center rounded-md text-ink-muted hover:bg-sunken hover:text-ink'
 
 function ChatIcon({ size }: { size: number }) {
   return (
@@ -65,6 +66,14 @@ function AlertIcon() {
   )
 }
 
+function CheckIcon() {
+  return (
+    <svg aria-hidden="true" width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 12.5l4.5 4.5L19 7.5" />
+    </svg>
+  )
+}
+
 function CloseIcon() {
   return (
     <svg aria-hidden="true" width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round">
@@ -73,7 +82,7 @@ function CloseIcon() {
   )
 }
 
-export default function EmbedStep({ sessionId, documentCount, config }: EmbedStepProps): JSX.Element {
+export default function EmbedStep({ sessionId, documentCount, config, onGenerated }: EmbedStepProps): JSX.Element {
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [embedCode, setEmbedCode] = useState('')
@@ -104,12 +113,18 @@ export default function EmbedStep({ sessionId, documentCount, config }: EmbedSte
   }, [])
 
   if (documentCount === 0) {
-    return <p className="text-sm text-ink-muted">Upload at least one document in step 2 to generate embed code.</p>
+    return (
+      <p className="rounded-md border border-dashed border-line-strong bg-sunken px-4 py-5 text-sm text-ink-muted">
+        Upload at least one document in step 2 to generate embed code.
+      </p>
+    )
   }
 
   const primary = toSafeHex(config.primary_color)
   const dimensions = SIZES[config.size] ?? SIZES.medium
   const isLeft = config.position === 'bottom-left'
+  const onPrimary = readableTextOn(primary)
+  const copied = copyStatus === 'Copied'
 
   const generate = async () => {
     if (isGenerating) return
@@ -143,6 +158,7 @@ export default function EmbedStep({ sessionId, documentCount, config }: EmbedSte
         setScriptUrl(body.scriptUrl)
         setCopyStatus('')
         setIsOpen(true)
+        onGenerated?.()
       }
     } catch {
       setError(NETWORK_ERROR)
@@ -174,35 +190,35 @@ export default function EmbedStep({ sessionId, documentCount, config }: EmbedSte
   const launcher = (
     <span
       aria-hidden="true"
-      className="flex size-14 shrink-0 items-center justify-center rounded-full text-white shadow-sm"
-      style={{ backgroundColor: primary }}
+      className="flex size-14 shrink-0 items-center justify-center rounded-full shadow-md"
+      style={{ backgroundColor: primary, color: onPrimary }}
     >
       <ChatIcon size={24} />
     </span>
   )
 
   return (
-    <div className="rounded-lg border border-line bg-surface p-4 sm:p-6">
+    <div className="rounded-lg border border-line bg-surface p-4 shadow-sm sm:p-6">
       <div>
         <h3 className="text-base font-semibold text-ink">
           Widget preview
         </h3>
-        <div className={`mt-3 flex items-end gap-3 rounded-lg bg-sunken p-4 ${isLeft ? 'justify-start' : 'justify-end'}`}>
+        <div className={`mt-3 flex items-end gap-3 rounded-md border border-line bg-sunken p-4 sm:p-6 ${isLeft ? 'justify-start' : 'justify-end'}`}>
           {isLeft && launcher}
-          <div className="min-w-0 max-w-60 flex-1 overflow-hidden rounded-lg border border-line bg-surface shadow-sm">
-            <div className="flex items-center gap-2 px-3 py-2.5 text-white" style={{ backgroundColor: primary }}>
+          <div className="min-w-0 max-w-64 flex-1 overflow-hidden rounded-xl bg-surface shadow-lg">
+            <div className="flex items-center gap-2 px-4 py-3" style={{ backgroundColor: primary, color: onPrimary }}>
               <ChatIcon size={16} />
               <span className="min-w-0 truncate text-sm font-semibold">{config.title || config.name || 'AI Support Assistant'}</span>
             </div>
-            <div className="p-3">
-              <p className="max-w-[85%] rounded-xl rounded-bl-sm border border-line bg-sunken px-3 py-2 text-xs text-ink break-words">
+            <div className="bg-sunken p-3">
+              <p className="max-w-[88%] rounded-lg rounded-bl-sm border border-line bg-surface px-3 py-2 text-xs text-ink wrap-anywhere">
                 {config.welcome_message || 'Hi! How can I help you today?'}
               </p>
             </div>
           </div>
           {!isLeft && launcher}
         </div>
-        <p className="mt-1.5 text-xs text-ink-subtle">
+        <p className="mt-2 text-xs text-ink-subtle">
           Position: {isLeft ? 'bottom left' : 'bottom right'}. Size: {config.size in SIZES ? config.size : 'medium'}, {dimensions.width} × {dimensions.height} px.
         </p>
       </div>
@@ -234,42 +250,59 @@ export default function EmbedStep({ sessionId, documentCount, config }: EmbedSte
         </div>
       )}
 
-      <DataDisclosure className="mt-6" />
-
       <dialog
         ref={dialogRef}
         aria-labelledby={titleId}
         aria-describedby={descriptionId}
         onClose={handleDialogClose}
-        className="m-auto w-[min(48rem,calc(100vw-2rem))] max-h-[calc(100dvh-2rem)] rounded-lg bg-surface p-0 text-ink shadow-lg backdrop:bg-ink/60"
+        className="m-auto w-[min(48rem,calc(100vw-1rem))] max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-xl bg-surface p-0 text-ink shadow-lg motion-safe:animate-pop backdrop:bg-ink/60"
       >
-        <div className="flex flex-col gap-4 p-4 sm:p-6">
-          <div className="flex items-center justify-between gap-3">
-            <h2 id={titleId} className="text-xl font-semibold text-ink">
-              Embed code
-            </h2>
-            <button type="button" aria-label="Close" onClick={closeDialog} className={iconButton}>
+        <div className="flex flex-col gap-5 p-4 sm:p-6">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h2 id={titleId} className="text-xl font-semibold text-ink">
+                Embed code
+              </h2>
+              <p id={descriptionId} className="mt-1 max-w-[60ch] text-sm text-ink-muted">
+                One line adds the assistant to any website. Paste it before the closing body tag of your pages, or follow the steps for your platform below.
+              </p>
+            </div>
+            <button type="button" aria-label="Close" onClick={closeDialog} className={`${iconButton} -mr-2 -mt-1 shrink-0`}>
               <CloseIcon />
             </button>
           </div>
-          <p id={descriptionId} className="max-w-[60ch] text-sm text-ink-muted">
-            One line adds the assistant to any website. Paste it before the closing body tag of your pages, or follow the steps for your platform below.
-          </p>
-          <pre
-            tabIndex={0}
-            aria-label="Embed code"
-            className="max-h-[50vh] overflow-auto whitespace-pre rounded-md bg-code-bg p-4 font-mono text-sm text-code-ink"
-          >
-            {embedCode}
-          </pre>
+          <div className="min-w-0">
+            <div className="flex items-center justify-between gap-3 rounded-t-md border border-b-0 border-line bg-sunken py-1 pl-4 pr-1">
+              <span className="text-sm font-semibold text-ink">Your embed code</span>
+              <button
+                ref={copyRef}
+                type="button"
+                onClick={copyCode}
+                className="inline-flex h-10 items-center justify-center gap-1.5 rounded-md px-3 text-sm font-semibold text-accent hover:bg-accent-tint hover:text-accent-strong"
+              >
+                {copied ? (
+                  <>
+                    <CheckIcon />
+                    Copied
+                  </>
+                ) : (
+                  'Copy code'
+                )}
+              </button>
+            </div>
+            <pre
+              tabIndex={0}
+              aria-label="Embed code"
+              className="max-h-[50vh] overflow-auto whitespace-pre rounded-b-md bg-code-bg p-4 font-mono text-sm text-code-ink"
+            >
+              {embedCode}
+            </pre>
+          </div>
           <div className="flex flex-wrap items-center gap-3">
-            <button ref={copyRef} type="button" onClick={copyCode} className={primaryButton}>
-              Copy code
-            </button>
-            <span role="status" aria-live="polite" className="text-sm text-ink-muted">
+            <span role="status" aria-live="polite" className="min-w-0 flex-1 text-sm text-ink-muted">
               {copyStatus}
             </span>
-            <button type="button" onClick={closeDialog} className={`${secondaryButton} ml-auto`}>
+            <button type="button" onClick={closeDialog} className={secondaryButton}>
               Close
             </button>
           </div>
