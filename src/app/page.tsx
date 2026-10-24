@@ -249,7 +249,7 @@ export default function HomePage() {
                 <p id={`${welcomeId}-help`} className={HELPER}>The first message visitors see.</p>
               </div>
 
-              <div className="min-w-0 sm:col-span-3">
+              <div className="min-w-0 sm:col-span-3 lg:col-span-6 xl:col-span-3">
                 <label htmlFor={colorId} className={LABEL}>Brand colour</label>
                 <div className="mt-1.5 flex items-center gap-2">
                   <input
@@ -276,7 +276,7 @@ export default function HomePage() {
                 </p>
               </div>
 
-              <fieldset className="min-w-0 sm:col-span-3">
+              <fieldset className="min-w-0 sm:col-span-3 lg:col-span-6 xl:col-span-3">
                 <legend className={LABEL}>Widget size</legend>
                 <div className="mt-1.5 grid grid-cols-3 gap-2">
                   {SIZE_OPTIONS.map(option => {
