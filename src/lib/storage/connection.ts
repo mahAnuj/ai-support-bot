@@ -89,22 +89,41 @@ function canonicalIPv6(ip: string): string {
   }
 }
 
-function unwrapMappedIPv4(ip: string): string | null {
+function ipv6Groups(ip: string): number[] | null {
   const canonical = canonicalIPv6(ip)
-  const dotted = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/.exec(canonical)
-  if (dotted) return dotted[1]
-  const hex = /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(canonical)
-  if (!hex) return null
-  const hi = parseInt(hex[1], 16)
-  const lo = parseInt(hex[2], 16)
+  if (canonical.includes('.')) return null
+  const halves = canonical.split('::')
+  if (halves.length > 2) return null
+  const parse = (part: string) => (part === '' ? [] : part.split(':').map((g) => parseInt(g, 16)))
+  const head = parse(halves[0])
+  const tail = halves.length === 2 ? parse(halves[1]) : []
+  const fill = halves.length === 2 ? 8 - head.length - tail.length : 0
+  const groups = [...head, ...new Array<number>(Math.max(fill, 0)).fill(0), ...tail]
+  if (groups.length !== 8 || groups.some((g) => !Number.isInteger(g) || g < 0 || g > 0xffff)) return null
+  return groups
+}
+
+function groupsToIPv4(hi: number, lo: number): string {
   return [hi >> 8, hi & 0xff, lo >> 8, lo & 0xff].join('.')
+}
+
+// IPv6 forms that carry an IPv4 address traffic can end up at:
+// ::ffff:0:0/96 (mapped), 64:ff9b::/96 (NAT64), 2002::/16 (6to4).
+function unwrapEmbeddedIPv4(ip: string): string | null {
+  const g = ipv6Groups(ip)
+  if (!g) return null
+  const zeroUpTo = (n: number) => g.slice(0, n).every((v) => v === 0)
+  if (zeroUpTo(5) && g[5] === 0xffff) return groupsToIPv4(g[6], g[7])
+  if (g[0] === 0x64 && g[1] === 0xff9b && g.slice(2, 6).every((v) => v === 0)) return groupsToIPv4(g[6], g[7])
+  if (g[0] === 0x2002) return groupsToIPv4(g[1], g[2])
+  return null
 }
 
 export function classifyAddress(ip: string): AddressClass {
   let address = ip
   let family = isIP(address)
   if (family === 6) {
-    const mapped = unwrapMappedIPv4(address)
+    const mapped = unwrapEmbeddedIPv4(address)
     if (mapped && isIP(mapped) === 4) {
       address = mapped
       family = 4
