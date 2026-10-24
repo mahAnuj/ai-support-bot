@@ -41,14 +41,14 @@ async function generateQueryVariations(query: string): Promise<string[]> {
   
   // Check cache first
   if (variationCache.has(cacheKey)) {
-    console.log(`🤖 Using cached variations for: "${query}"`)
+    console.log(`🤖 Using cached variations (${query.length} chars)`)
     return variationCache.get(cacheKey)!
   }
   
   const variations = [query] // Always include the original
   
   try {
-    console.log(`🤖 Generating query variations for: "${query}"`)
+    console.log(`🤖 Generating query variations (${query.length} chars)`)
     
     // Use OpenAI directly with structured JSON response for reliability
     const openai = (await import('openai')).default
@@ -115,7 +115,7 @@ Return ONLY the 3 alternative questions in valid JSON format.`
 
     if (aiVariations.length > 0) {
       variations.push(...aiVariations)
-      console.log(`🤖 Generated ${aiVariations.length} AI variations:`, aiVariations)
+      console.log(`🤖 Generated ${aiVariations.length} AI variations`)
     } else {
       throw new Error('No valid variations generated')
     }
@@ -258,12 +258,12 @@ export async function queryRAG(
   
   // Preprocess query to improve semantic matching
   const preprocessedQuery = preprocessQuery(query)
-  console.log(`RAG Query - Original: "${query}"`)
-  console.log(`RAG Query - Preprocessed: "${preprocessedQuery}"`)
+  // Visitor questions can contain personal details: log their size, never their text
+  console.log(`RAG Query - ${query.length} chars`)
   
   // Generate query variations for better semantic matching
   const queryVariations = await generateQueryVariations(preprocessedQuery)
-  console.log(`RAG Query - Variations: ${JSON.stringify(queryVariations)}`)
+  console.log(`RAG Query - ${queryVariations.length} variations`)
   
   // Smart multi-threshold search with quality filtering
   let bestResults: VectorSearchResult[] = []
@@ -287,7 +287,7 @@ export async function queryRAG(
       // Use this threshold if we get good results or if it's our last attempt
       if (results.length >= 2 || threshold === thresholds[thresholds.length - 1]) {
         variationResults = results
-        console.log(`RAG Query - Using threshold ${threshold} for "${variation}" (found ${results.length} chunks)`)
+        console.log(`RAG Query - Using threshold ${threshold} (found ${results.length} chunks)`)
         break
       }
     }
@@ -313,7 +313,7 @@ export async function queryRAG(
         if (avgSimilarity > currentBestAvg) {
           bestResults = filteredResults
           bestVariation = variation
-          console.log(`RAG Query - New best variation: "${variation}" (avg similarity: ${avgSimilarity.toFixed(3)})`)
+          console.log(`RAG Query - New best variation (avg similarity: ${avgSimilarity.toFixed(3)})`)
         }
       }
     }
