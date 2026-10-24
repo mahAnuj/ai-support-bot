@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { generateResponse } from '../../../lib/llm'
 import { queryRAG, createRAGContext, sessionHasDocuments } from '../../../lib/rag'
 import { createSession, getSession } from '../../../lib/database'
+import { memoryStore } from '../../../lib/storage/memory-store'
 import { clientIp, isRateLimited, isWithinLimit, LIMITS } from '../../../lib/guard'
 
 export async function POST(request: NextRequest) {
@@ -54,12 +55,12 @@ export async function POST(request: NextRequest) {
     
     // Check if we have a session with documents for RAG
     console.log('Chat API - SessionId:', currentSessionId)
-    console.log('Chat API - Has documents:', await sessionHasDocuments(currentSessionId))
+    console.log('Chat API - Has documents:', await sessionHasDocuments(memoryStore, currentSessionId))
     
-    if (await sessionHasDocuments(currentSessionId)) {
+    if (await sessionHasDocuments(memoryStore, currentSessionId)) {
       try {
         // Query the RAG system for relevant context
-        ragResult = await queryRAG(currentSessionId, message)
+        ragResult = await queryRAG(memoryStore, currentSessionId, message)
         console.log('Chat API - RAG result:', {
           contextLength: ragResult.context.length,
           confidence: ragResult.confidence,
