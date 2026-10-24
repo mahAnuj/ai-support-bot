@@ -6,7 +6,7 @@ import { Pool } from 'pg'
 import {
   classifyAddress,
   isPrivateHostAllowed,
-  validateConnectionString,
+  revalidateNormalizedConnection,
   type ParsedConnection,
 } from './connection'
 import { StorageError, mapDriverError, safeErrorSummary } from './errors'
@@ -81,7 +81,7 @@ async function resolveAddresses(host: string): Promise<string[]> {
 
 async function create(connection: ParsedConnection): Promise<Pool> {
   const allowPrivate = isPrivateHostAllowed()
-  const checked = validateConnectionString(connection.normalized, { allowPrivate })
+  const checked = revalidateNormalizedConnection(connection.normalized, { allowPrivate })
   if (!checked.ok) throw new StorageError(checked.code)
   const conn = checked.connection
 

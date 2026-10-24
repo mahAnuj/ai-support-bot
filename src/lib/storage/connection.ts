@@ -4,6 +4,17 @@ import { fingerprint } from './log'
 
 export const MAX_CONNECTION_STRING_LENGTH = 1000
 
+// Cap on the normalised form, which is what tokens carry. Re-encoding can triple user, password and
+// database (e.g. '$' -> '%24'), so a 1000-char input can normalise to ~3000 chars. 2860 is the largest
+// normalised string a widget token (the bigger payload) can carry within MAX_TOKEN_LENGTH (4000).
+export const MAX_NORMALIZED_CONNECTION_STRING_LENGTH = 2860
+
+export interface ValidateOptions {
+  allowPrivate: boolean
+  // Raw-length cap. Re-validating an already-normalised string passes MAX_NORMALIZED_CONNECTION_STRING_LENGTH.
+  maxLength?: number
+}
+
 export type HostClass = 'public' | 'private' | 'loopback' | 'link-local' | 'hostname'
 export type SslMode = 'disable' | 'require' | 'verify-full'
 
@@ -157,13 +168,19 @@ function classifyHost(host: string): HostClass {
   return 'hostname'
 }
 
+// For strings that came out of validateConnectionString (pools, tokens): every policy re-applies
+// except the user-facing raw-length cap, which normalisation can legitimately exceed.
+export function revalidateNormalizedConnection(normalized: unknown, opts: { allowPrivate: boolean }): ValidationResult {
+  return validateConnectionString(normalized, { ...opts, maxLength: MAX_NORMALIZED_CONNECTION_STRING_LENGTH })
+}
+
 function fail(code: StorageErrorCode): ValidationResult {
   return { ok: false, code }
 }
 
-export function validateConnectionString(raw: unknown, opts: { allowPrivate: boolean }): ValidationResult {
+export function validateConnectionString(raw: unknown, opts: ValidateOptions): ValidationResult {
   if (typeof raw !== 'string' || raw.length === 0) return fail('invalid_connection_string')
-  if (raw.length > MAX_CONNECTION_STRING_LENGTH) return fail('connection_string_too_long')
+  if (raw.length > (opts.maxLength ?? MAX_CONNECTION_STRING_LENGTH)) return fail('connection_string_too_long')
 
   const scheme = SCHEME_RE.exec(raw)
   if (scheme && !ALLOWED_SCHEMES.has(scheme[1].toLowerCase())) return fail('unsupported_scheme')
@@ -229,6 +246,7 @@ export function validateConnectionString(raw: unknown, opts: { allowPrivate: boo
   const normalized =
     `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${hostOut}:${port}` +
     `/${encodeURIComponent(database)}?sslmode=${sslmode}`
+  if (normalized.length > MAX_NORMALIZED_CONNECTION_STRING_LENGTH) return fail('connection_string_too_long')
 
   return { ok: true, connection: makeParsedConnection({
     host, port, user, password, database, sslmode, hostClass, normalized, fingerprint: fingerprint(normalized),

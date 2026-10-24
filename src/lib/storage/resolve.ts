@@ -1,7 +1,7 @@
 // Server-only: the single place routes get a KnowledgeStore from.
 import { NextResponse } from 'next/server'
 import type { ParsedConnection } from './connection'
-import { isPrivateHostAllowed, validateConnectionString } from './connection'
+import { isPrivateHostAllowed, revalidateNormalizedConnection } from './connection'
 import {
   STORAGE_ERROR_MESSAGES,
   STORAGE_TOKEN_HEADER,
@@ -50,7 +50,7 @@ export function resolveBuilderStore(request: Request): BuilderResolution {
   const payload = openBuilderToken(header)
   if (!payload) return builderError('invalid_token')
 
-  const validated = validateConnectionString(payload.conn, { allowPrivate: isPrivateHostAllowed() })
+  const validated = revalidateNormalizedConnection(payload.conn, { allowPrivate: isPrivateHostAllowed() })
   if (!validated.ok) return builderError(validated.code)
 
   const connection = validated.connection
@@ -88,7 +88,7 @@ export async function resolveWidget(key: unknown): Promise<WidgetResolution> {
   if (!payload) return WIDGET_NOT_FOUND
 
   // Re-validate so the current private-host policy applies to tokens issued under an older one.
-  const validated = validateConnectionString(payload.conn, { allowPrivate: isPrivateHostAllowed() })
+  const validated = revalidateNormalizedConnection(payload.conn, { allowPrivate: isPrivateHostAllowed() })
   if (!validated.ok) return { ok: false, status: 403, code: validated.code }
 
   const store = createPostgresStore(validated.connection, payload.workspaceId)

@@ -1,12 +1,16 @@
 /** @jest-environment node */
+import { randomBytes, randomUUID } from 'node:crypto'
 import { inspect } from 'node:util'
 import {
   MAX_CONNECTION_STRING_LENGTH,
+  MAX_NORMALIZED_CONNECTION_STRING_LENGTH,
   classifyAddress,
   isPrivateHostAllowed,
+  revalidateNormalizedConnection,
   validateConnectionString,
   type ParsedConnection,
 } from '../connection'
+import { MAX_TOKEN_LENGTH, openBuilderToken, openWidgetToken, sealBuilderToken, sealWidgetToken } from '../token'
 
 const strict = { allowPrivate: false }
 const permissive = { allowPrivate: true }
@@ -150,6 +154,78 @@ describe('validateConnectionString acceptance', () => {
     expect(a.host).toBe('db.example.com')
     expect(a.fingerprint).toBe(b.fingerprint)
     expect(a.fingerprint).toMatch(/^[0-9a-f]{8}$/)
+  })
+})
+
+describe('normalised length', () => {
+  // '$' is legal raw in userinfo but encodeURIComponent turns it into '%24', tripling it.
+  const build = (expanding: number, plain: number) =>
+    `postgres://u:${'$'.repeat(expanding)}${'p'.repeat(plain)}@db.example.com/d`
+
+  it('accepts a 1000-char string whose normalised form exceeds 1000 and re-validates it', () => {
+    const raw = build(300, 670)
+    expect(raw).toHaveLength(MAX_CONNECTION_STRING_LENGTH)
+    const conn = expectOk(raw)
+    expect(conn.normalized.length).toBeGreaterThan(MAX_CONNECTION_STRING_LENGTH)
+    expect(conn.password).toBe('$'.repeat(300) + 'p'.repeat(670))
+
+    const again = revalidateNormalizedConnection(conn.normalized, strict)
+    if (!again.ok) throw new Error(`revalidation failed: ${again.code}`)
+    expect(again.connection.normalized).toBe(conn.normalized)
+    expect(again.connection.password).toBe(conn.password)
+    expect(again.connection.fingerprint).toBe(conn.fingerprint)
+    // The user-facing cap alone would have rejected it.
+    expect(validateConnectionString(conn.normalized, strict)).toEqual({ ok: false, code: 'connection_string_too_long' })
+  })
+
+  it('accepts a normalised form of exactly the cap and rejects one char more', () => {
+    const atCap = build(917, 52)
+    const overCap = build(917, 53)
+    expect(atCap.length).toBeLessThanOrEqual(MAX_CONNECTION_STRING_LENGTH)
+    expect(overCap).toHaveLength(MAX_CONNECTION_STRING_LENGTH)
+    expect(expectOk(atCap).normalized).toHaveLength(MAX_NORMALIZED_CONNECTION_STRING_LENGTH)
+    expect(validateConnectionString(overCap, strict)).toEqual({ ok: false, code: 'connection_string_too_long' })
+  })
+
+  it('rejects a pathological 1000-char string that would not fit in a token', () => {
+    const raw = `postgres://${'$'.repeat(300)}:${'$'.repeat(670)}@h/${'$'.repeat(15)}`
+    expect(raw).toHaveLength(MAX_CONNECTION_STRING_LENGTH)
+    expect(validateConnectionString(raw, strict)).toEqual({ ok: false, code: 'connection_string_too_long' })
+  })
+
+  it('keeps a normalised string at the cap within the token budget', () => {
+    const key = randomBytes(32)
+    const conn = expectOk(build(917, 52)).normalized
+    const workspaceId = randomUUID()
+    const widgetId = randomUUID()
+    const widget = sealWidgetToken({ conn, workspaceId, widgetId }, key)
+    const builder = sealBuilderToken({ conn, workspaceId }, key)
+    expect(widget.length).toBeLessThanOrEqual(MAX_TOKEN_LENGTH)
+    expect(builder.length).toBeLessThanOrEqual(MAX_TOKEN_LENGTH)
+    expect(openWidgetToken(widget, key)).toEqual({ conn, workspaceId, widgetId })
+    expect(openBuilderToken(builder, key)).toEqual({ conn, workspaceId })
+  })
+
+  it('re-applies every other policy on re-validation', () => {
+    expect(revalidateNormalizedConnection('postgresql://u:p@10.0.0.5:5432/d?sslmode=disable', strict))
+      .toEqual({ ok: false, code: 'private_host_not_allowed' })
+    expect(revalidateNormalizedConnection('postgresql://u:p@db.example.com:5432/d?sslmode=disable', strict))
+      .toEqual({ ok: false, code: 'tls_required' })
+    expect(revalidateNormalizedConnection('mysql://u:p@db.example.com/d', strict))
+      .toEqual({ ok: false, code: 'unsupported_scheme' })
+    expect(revalidateNormalizedConnection('postgresql://u:p@db.example.com/d?host=10.0.0.5', strict))
+      .toEqual({ ok: false, code: 'invalid_connection_string' })
+    expect(revalidateNormalizedConnection(42, strict)).toEqual({ ok: false, code: 'invalid_connection_string' })
+    expect(revalidateNormalizedConnection('postgresql://u:p@10.0.0.5:5432/d?sslmode=disable', permissive).ok).toBe(true)
+  })
+
+  it('rejects anything over the normalised cap on re-validation', () => {
+    const base = 'postgresql://u:p@db.example.com:5432/'
+    const suffix = '?sslmode=verify-full'
+    const raw = base + 'd'.repeat(MAX_NORMALIZED_CONNECTION_STRING_LENGTH + 1 - base.length - suffix.length) + suffix
+    expect(raw).toHaveLength(MAX_NORMALIZED_CONNECTION_STRING_LENGTH + 1)
+    expect(revalidateNormalizedConnection(raw, strict)).toEqual({ ok: false, code: 'connection_string_too_long' })
+    expect(revalidateNormalizedConnection(raw.slice(0, -suffix.length - 1) + suffix, strict).ok).toBe(true)
   })
 })
 
