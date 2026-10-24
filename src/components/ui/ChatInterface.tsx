@@ -1,4 +1,3 @@
-
 'use client'
 
 import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
@@ -6,48 +5,130 @@ import MarkdownRenderer from './MarkdownRenderer'
 import { ChatMessage, ChatInterfaceProps } from '@/types'
 
 interface ChatResponse {
-  message: string
-  confidence: number
-  sources: string[]
-  isEnhanced: boolean
-  sessionId: string
+  message: unknown
+  confidence?: number
+  sources?: string[]
+  isEnhanced?: boolean
+  sessionId?: string
 }
 
-const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, ChatInterfaceProps>(({ onShareResult, systemPrompt, roleContext, suggestedQuestions, onSessionUpdate, onGenerateWidget, hasUploadedFiles = false, sessionId: propSessionId = null, title = "Your Business AI Assistant", welcomeMessage = "I'm ready to answer questions about your business. Try asking something, then upload your documents to see how much smarter I become!" }, ref) => {
+const primaryBg = 'bg-[var(--preview-primary,var(--color-accent))]'
+
+const iconProps = {
+  'aria-hidden': true,
+  fill: 'none',
+  stroke: 'currentColor',
+  strokeWidth: 1.75,
+  strokeLinecap: 'round',
+  strokeLinejoin: 'round',
+  viewBox: '0 0 24 24',
+} as const
+
+function ChatIcon({ className = 'size-5' }: { className?: string }) {
+  return (
+    <svg {...iconProps} className={className}>
+      <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z" />
+    </svg>
+  )
+}
+
+function DocumentIcon({ className = 'size-4' }: { className?: string }) {
+  return (
+    <svg {...iconProps} className={className}>
+      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z" />
+      <path d="M14 3v5h5M9 13h6M9 17h6" />
+    </svg>
+  )
+}
+
+function FileIcon({ className = 'size-4' }: { className?: string }) {
+  return (
+    <svg {...iconProps} className={className}>
+      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z" />
+      <path d="M14 3v5h5" />
+    </svg>
+  )
+}
+
+function InfoIcon({ className = 'size-4' }: { className?: string }) {
+  return (
+    <svg {...iconProps} className={className}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 11v5M12 8h.01" />
+    </svg>
+  )
+}
+
+function AlertIcon({ className = 'size-4' }: { className?: string }) {
+  return (
+    <svg {...iconProps} className={className}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7.5v5M12 16h.01" />
+    </svg>
+  )
+}
+
+function ArrowIcon({ className = 'size-4' }: { className?: string }) {
+  return (
+    <svg {...iconProps} className={className}>
+      <path d="M5 12h14M13 6l6 6-6 6" />
+    </svg>
+  )
+}
+
+function extractAnswer(value: unknown): string {
+  if (typeof value === 'string') return value
+  if (value && typeof value === 'object') {
+    const obj = value as Record<string, unknown>
+    const candidate = obj.answer ?? obj.text ?? obj.content
+    return typeof candidate === 'string' ? candidate : JSON.stringify(value)
+  }
+  return value == null ? '' : String(value)
+}
+
+function errorTextFor(status: number, body: unknown): string {
+  if (status === 429) {
+    return 'Too many messages from this network in the last minute. Wait a minute and try again.'
+  }
+  if (status === 400) {
+    const error = body && typeof body === 'object' ? (body as { error?: unknown }).error : undefined
+    return `The message couldn't be sent: ${typeof error === 'string' ? error : 'invalid request'}.`
+  }
+  return `No answer. The server returned an error (status ${status}). If you run this app, check that OPENAI_API_KEY is set and valid.`
+}
+
+function documentSources(sources?: string[]): string[] {
+  if (!sources) return []
+  return Array.from(new Set(sources.filter(source => source && source !== 'general_knowledge')))
+}
+
+const aiBubble = 'self-start max-w-[85%] rounded-xl rounded-bl-sm border px-4 py-3 text-ink'
+
+const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, ChatInterfaceProps>(({
+  systemPrompt,
+  roleContext,
+  suggestedQuestions,
+  onSessionUpdate,
+  hasUploadedFiles = false,
+  sessionId: propSessionId = null,
+  title = 'Your Business AI Assistant',
+  welcomeMessage = 'Ask a question to see how the assistant answers.',
+}, ref) => {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [inputValue, setInputValue] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
-  const [lowConfidenceCount, setLowConfidenceCount] = useState(0)
-  const [showLeadCapture, setShowLeadCapture] = useState(false)
-  const [leadInfo, setLeadInfo] = useState({ name: '', email: '', company: '' })
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-
-  const scrollToBottom = () => {
-    // Only scroll if the messages container exists and we're within the chat area
-    if (messagesEndRef.current) {
-      const chatContainer = messagesEndRef.current.closest('.overflow-y-auto')
-      if (chatContainer) {
-        messagesEndRef.current.scrollIntoView({ 
-          behavior: 'smooth',
-          block: 'end',
-          inline: 'nearest'
-        })
-      }
-    }
-  }
+  const logRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    // Only auto-scroll when new messages are added, not on initial load
-    if (messages.length > 0) {
-      scrollToBottom()
+    const container = logRef.current
+    if (container && (messages.length > 0 || isTyping)) {
+      container.scrollTop = container.scrollHeight
     }
-  }, [messages])
+  }, [messages, isTyping])
 
-  // Sync session ID from parent prop
   useEffect(() => {
     if (propSessionId) {
-      console.log('🔄 ChatInterface received session ID from parent:', propSessionId)
       setSessionId(propSessionId)
     }
   }, [propSessionId])
@@ -56,374 +137,257 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, C
     onSessionUpdate?.(sessionId, hasUploadedFiles)
   }, [sessionId, hasUploadedFiles, onSessionUpdate])
 
-  // Expose the sendQuestion method to parent components
-  useImperativeHandle(ref, () => ({
-    sendQuestion: handleSuggestedQuestionClick
-  }))
+  const addSystemMessage = (text: string) => {
+    setMessages(prev => [...prev, {
+      id: `${Date.now()}-system`,
+      text,
+      sender: 'system',
+      timestamp: new Date(),
+    }])
+  }
 
-  const handleSendMessage = async () => {
-    if (!inputValue.trim()) return
+  const sendMessage = async (raw?: string) => {
+    const text = (raw ?? inputValue).trim()
+    if (!text || isTyping) return
 
-    const userMessage: ChatMessage = {
-      id: Date.now().toString(),
-      text: inputValue,
+    setMessages(prev => [...prev, {
+      id: `${Date.now()}-user`,
+      text,
       sender: 'user',
-      timestamp: new Date()
-    }
-
-    setMessages(prev => [...prev, userMessage])
+      timestamp: new Date(),
+    }])
     setInputValue('')
     setIsTyping(true)
 
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message: inputValue,
+          message: text,
           sessionId: sessionId || undefined,
           systemPrompt: systemPrompt,
-          roleContext: roleContext
+          roleContext: roleContext,
         }),
       })
 
       if (!response.ok) {
-        throw new Error('Failed to get response')
+        const body: unknown = await response.json().catch(() => null)
+        addSystemMessage(errorTextFor(response.status, body))
+        return
       }
 
-      const data: ChatResponse = await response.json()
-      
-      // Update session ID if we got a new one
+      const data = (await response.json()) as ChatResponse
+
       if (data.sessionId && data.sessionId !== sessionId) {
         setSessionId(data.sessionId)
       }
 
-      // Build well-formatted markdown response
-      let messageText = 'Error: No message received'
-      
-      if (typeof data.message === 'string') {
-        messageText = data.message
-      } else if (data.message && typeof data.message === 'object') {
-        const messageObj = data.message as any
-        messageText = messageObj.answer || 
-                     messageObj.text || 
-                     messageObj.content || 
-                     JSON.stringify(data.message)
-      } else if (data.message) {
-        messageText = String(data.message)
+      const answer = extractAnswer(data.message)
+      if (!answer) {
+        addSystemMessage('The server replied without an answer. Try asking again.')
+        return
       }
 
-      let formattedResponse = messageText
-
-      // Add sources section if available and enhanced
-      if (data.isEnhanced && data.sources && data.sources.length > 0) {
-        const sourceList = data.sources
-          .filter(source => source && source !== 'general_knowledge')
-          .map(source => `📄 ${source}`)
-          .join('\n')
-        
-        if (sourceList) {
-          formattedResponse += `\n\n### 📚 Sources\n${sourceList}`
-        }
-      }
-
-      const aiMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        text: formattedResponse,
+      setMessages(prev => [...prev, {
+        id: `${Date.now()}-ai`,
+        text: answer,
         sender: 'ai',
         confidence: data.confidence,
         sources: data.sources,
         isEnhanced: data.isEnhanced,
-        timestamp: new Date()
-      }
-
-      setMessages(prev => [...prev, aiMessage])
-
-      // Track low confidence responses and trigger lead capture
-      if (data.confidence < 50) {
-        setLowConfidenceCount(prev => {
-          const newCount = prev + 1
-          // Show lead capture after 2 low confidence responses
-          if (newCount >= 2 && !showLeadCapture) {
-            setTimeout(() => setShowLeadCapture(true), 2000)
-          }
-          return newCount
-        })
-      }
-
-    } catch (error) {
-      console.error('Error sending message:', error)
-      const errorMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        text: 'Sorry, I encountered an error. Please try again.',
-        sender: 'ai',
-        timestamp: new Date()
-      }
-      setMessages(prev => [...prev, errorMessage])
+        timestamp: new Date(),
+      }])
+    } catch {
+      addSystemMessage("Couldn't reach the server. Check your connection and try again.")
     } finally {
       setIsTyping(false)
     }
   }
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  useImperativeHandle(ref, () => ({
+    sendQuestion: (question: string) => {
+      void sendMessage(question)
+    },
+  }))
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      handleSendMessage()
+      void sendMessage()
     }
   }
 
-  const handleSuggestedQuestionClick = (question: string) => {
-    setInputValue(question)
-    setTimeout(() => handleSendMessage(), 100)
+  const renderAiFooter = (message: ChatMessage) => {
+    const enhanced = message.isEnhanced === true
+    const sources = documentSources(message.sources)
+    if (!enhanced && sources.length === 0) return null
+
+    return (
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-line pt-3 text-xs text-ink-muted">
+        {enhanced && (
+          <span className="inline-flex items-center gap-1">
+            <DocumentIcon />
+            Used your documents
+          </span>
+        )}
+        {enhanced && typeof message.confidence === 'number' && (
+          <details className="group">
+            <summary className="inline-flex min-h-11 cursor-pointer items-center gap-1 rounded-sm">
+              Match score {message.confidence}%
+              <InfoIcon />
+            </summary>
+            <p className="mt-1 max-w-[40ch] text-xs text-ink-muted">
+              How closely the retrieved passages match the question. It does not measure whether the answer is correct.
+            </p>
+          </details>
+        )}
+        {sources.length > 0 && (
+          <div className="flex w-full flex-wrap items-center gap-2">
+            <span>Sources</span>
+            <ul className="flex flex-wrap gap-2">
+              {sources.map(source => (
+                <li
+                  key={source}
+                  className="inline-flex max-w-[16rem] items-center gap-1 rounded-sm border border-line bg-sunken px-2 py-1 text-ink"
+                >
+                  <FileIcon className="size-4 shrink-0" />
+                  <span className="truncate">{source}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    )
   }
 
+  const renderMessage = (message: ChatMessage) => {
+    if (message.sender === 'user') {
+      return (
+        <div key={message.id} className={`self-end max-w-[85%] rounded-xl rounded-br-sm px-4 py-2.5 text-white ${primaryBg}`}>
+          <p className="whitespace-pre-wrap">{message.text}</p>
+        </div>
+      )
+    }
+
+    if (message.sender === 'system') {
+      return (
+        <div key={message.id} className={`${aiBubble} border-danger/40 bg-danger-tint`}>
+          <p className="flex items-center gap-1.5 font-semibold text-danger">
+            <AlertIcon className="size-4 shrink-0" />
+            Couldn&apos;t get an answer.
+          </p>
+          <p className="mt-1 text-sm">{message.text}</p>
+        </div>
+      )
+    }
+
+    return (
+      <div key={message.id} className={`${aiBubble} border-line bg-surface`}>
+        <MarkdownRenderer content={message.text} />
+        {renderAiFooter(message)}
+      </div>
+    )
+  }
+
+  const canSend = inputValue.trim().length > 0 && !isTyping
+
   return (
-    <div className="flex flex-col h-full bg-gradient-to-br from-gray-50 to-blue-50 rounded-xl overflow-hidden shadow-lg">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4 text-white">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-            <span className="text-xl">🤖</span>
-          </div>
-          <div>
-            <h3 className="font-bold text-lg">{title}</h3>
-            <p className="text-blue-100 text-sm">
-              {hasUploadedFiles ? '⚡ Enhanced with your knowledge' : '💭 Ready to help'}
-            </p>
-          </div>
+    <div className="flex h-full flex-col bg-surface">
+      <div className={`flex items-center gap-3 px-4 py-3 text-white ${primaryBg}`}>
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-white/15">
+          <ChatIcon />
+        </div>
+        <div className="min-w-0">
+          <h3 className="truncate text-base font-semibold">{title}</h3>
+          <p className="text-xs text-white">
+            {hasUploadedFiles ? 'Preview using your indexed documents' : 'Preview with no documents yet'}
+          </p>
         </div>
       </div>
 
-      {/* Chat Messages */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-4 scroll-smooth" style={{ scrollBehavior: 'smooth', overscrollBehavior: 'contain' }}>
-        {messages.length === 0 && (
-          <div className="text-center py-8">
-            <div className="mb-8">
-              <div className="text-6xl mb-4 animate-float">🤖</div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">
-                Welcome to {title}
-              </h3>
-              <p className="text-gray-600 max-w-md mx-auto leading-relaxed">
-                {welcomeMessage}
-              </p>
+      <div
+        ref={logRef}
+        role="log"
+        aria-live="polite"
+        className="flex flex-1 flex-col gap-4 overflow-y-auto bg-sunken p-4 sm:p-5"
+      >
+        <div className={`${aiBubble} border-line bg-surface`}>
+          <p className="whitespace-pre-wrap">{welcomeMessage}</p>
+        </div>
+
+        {messages.length === 0 && suggestedQuestions && suggestedQuestions.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <p className="text-sm text-ink-muted">Try asking</p>
+            <div className="flex flex-wrap gap-2">
+              {suggestedQuestions.map(question => (
+                <button
+                  key={question}
+                  type="button"
+                  onClick={() => void sendMessage(question)}
+                  className="min-h-11 rounded-full border border-line-strong bg-surface px-4 text-left text-sm text-ink hover:bg-accent-tint"
+                >
+                  {question}
+                </button>
+              ))}
             </div>
-            
-            {/* Suggested Questions */}
-            {suggestedQuestions && suggestedQuestions.length > 0 && (
-              <div className="space-y-3">
-                <p className="text-sm font-medium text-gray-700 mb-3">Try asking:</p>
-                <div className="flex flex-wrap gap-2 justify-center">
-                  {suggestedQuestions.map((question, index) => (
-                    <button
-                      key={index}
-                      onClick={() => handleSuggestedQuestionClick(question)}
-                      className="bg-white border border-blue-200 text-blue-700 px-4 py-2 rounded-full text-sm hover:bg-blue-50 hover:border-blue-300 transition-all duration-200 hover:shadow-md"
-                    >
-                      {question}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         )}
 
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className={`flex ${
-              message.sender === 'user' ? 'justify-end' : 'justify-start'
-            }`}
-          >
-            <div
-              className={`max-w-[80%] p-4 rounded-2xl shadow-lg ${
-                message.sender === 'user'
-                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white'
-                  : 'bg-white text-gray-900 border border-gray-200'
-              }`}
-            >
-              <MarkdownRenderer content={message.text} />
-              
-              {message.sender === 'ai' && (
-                <div className="mt-4 pt-3 border-t border-gray-100">
-                  <div className="flex items-center justify-between text-xs text-gray-500">
-                    <div className="flex items-center space-x-4">
-                      {message.isEnhanced && (
-                        <div className="flex items-center space-x-1 text-green-600 bg-green-50 px-2 py-1 rounded-full">
-                          <span>⚡</span>
-                          <span className="font-medium">Enhanced</span>
-                        </div>
-                      )}
-                      {message.confidence && (
-                        <div className={`flex items-center space-x-1 px-2 py-1 rounded-full ${
-                          message.confidence > 70 ? 'bg-green-50 text-green-600' :
-                          message.confidence > 50 ? 'bg-yellow-50 text-yellow-600' :
-                          'bg-red-50 text-red-600'
-                        }`}>
-                          <span>{message.confidence > 70 ? '🎯' : message.confidence > 50 ? '⚠️' : '❌'}</span>
-                          <span className="font-medium">{message.confidence}% confident</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  
-                  {message.sources && message.sources.length > 0 && (
-                    <div className="mt-3">
-                      <div className="text-xs text-gray-500 mb-2 font-medium">📚 Sources:</div>
-                      <div className="flex flex-wrap gap-1">
-                        {message.sources.map((source, index) => (
-                          <span
-                            key={index}
-                            className="px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded-full border border-blue-200"
-                          >
-                            {source}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
+        {messages.map(renderMessage)}
 
         {isTyping && (
-          <div className="flex justify-start">
-            <div className="bg-white text-gray-900 p-4 rounded-2xl max-w-[80%] shadow-lg border border-gray-200">
-              <div className="flex items-center space-x-3">
-                <div className="flex space-x-1">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
-                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                </div>
-                <span className="text-sm text-gray-600 font-medium">AI is thinking...</span>
-              </div>
+          <div className={`${aiBubble} border-line bg-surface`}>
+            <div className="flex items-center gap-3">
+              <span className="flex gap-1" aria-hidden="true">
+                <span className="size-1.5 rounded-full bg-ink-muted motion-safe:animate-bounce" />
+                <span className="size-1.5 rounded-full bg-ink-muted motion-safe:animate-bounce [animation-delay:150ms]" />
+                <span className="size-1.5 rounded-full bg-ink-muted motion-safe:animate-bounce [animation-delay:300ms]" />
+              </span>
+              <span className="text-sm text-ink-muted">Writing an answer</span>
             </div>
           </div>
         )}
-
-        <div ref={messagesEndRef} />
       </div>
 
-      {/* Enhanced Status */}
-      {hasUploadedFiles && (
-        <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-green-400 p-4 mx-6 mb-4 rounded-lg">
-          <div className="flex items-center space-x-3 text-sm text-green-700">
-            <span className="text-lg">✅</span>
-            <span><strong>Enhanced Mode Active</strong> - Providing answers from your documents</span>
-          </div>
-        </div>
-      )}
-
-      {/* Input Area */}
-      <div className="border-t border-gray-200 p-4 bg-white">
-        <div className="flex space-x-4">
-          <input
-            type="text"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            onFocus={(e) => {
-              // Prevent page scroll when input is focused
-              e.preventDefault()
-            }}
-            placeholder={hasUploadedFiles 
-              ? "Ask me anything about your business..." 
-              : "Ask me anything (upload docs for better answers)..."
-            }
-            className="flex-1 p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 placeholder-gray-500 text-gray-900 bg-white"
-            disabled={isTyping}
-          />
-          <button
-            onClick={handleSendMessage}
-            disabled={!inputValue.trim() || isTyping}
-            className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium transition-all duration-200 hover:shadow-lg transform hover:-translate-y-0.5 disabled:transform-none"
-          >
-            <span className="flex items-center gap-2">
-              {isTyping ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  Sending...
-                </>
-              ) : (
-                <>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                  </svg>
-                  Send
-                </>
-              )}
-            </span>
-          </button>
-        </div>
+      <div className="flex gap-2 border-t border-line bg-surface p-3">
+        <input
+          type="text"
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          onKeyDown={handleKeyDown}
+          aria-label="Message"
+          maxLength={2000}
+          placeholder="Ask a question"
+          className="h-11 w-full min-w-0 flex-1 scroll-mb-28 rounded-md border border-line-strong bg-surface px-3 text-base text-ink placeholder:text-ink-subtle focus:border-accent"
+        />
+        <button
+          type="button"
+          onClick={() => void sendMessage()}
+          disabled={!canSend}
+          className={`inline-flex h-11 scroll-mb-28 items-center justify-center gap-2 rounded-md px-5 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 ${primaryBg}`}
+        >
+          {isTyping ? (
+            <>
+              <span
+                aria-hidden="true"
+                className="size-4 rounded-full border-2 border-white border-t-transparent motion-safe:animate-spin"
+              />
+              <span className="sr-only">Sending</span>
+            </>
+          ) : (
+            <>
+              <ArrowIcon />
+              Send
+            </>
+          )}
+        </button>
       </div>
-
-      {/* Lead Capture Modal */}
-      {showLeadCapture && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl">
-            <div className="text-center mb-6">
-              <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl">🎯</span>
-              </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">Get Better Support</h3>
-              <p className="text-gray-600">Let us connect you with a human expert for personalized assistance</p>
-            </div>
-            
-            <div className="space-y-4">
-              <input
-                type="text"
-                placeholder="Your Name"
-                value={leadInfo.name}
-                onChange={(e) => setLeadInfo(prev => ({...prev, name: e.target.value}))}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white placeholder-gray-500"
-              />
-              <input
-                type="email"
-                placeholder="Email Address"
-                value={leadInfo.email}
-                onChange={(e) => setLeadInfo(prev => ({...prev, email: e.target.value}))}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white placeholder-gray-500"
-              />
-              <input
-                type="text"
-                placeholder="Company (Optional)"
-                value={leadInfo.company}
-                onChange={(e) => setLeadInfo(prev => ({...prev, company: e.target.value}))}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white placeholder-gray-500"
-              />
-            </div>
-            
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => {
-                  // Here you would normally send the lead info to your CRM
-                  console.log('Lead captured:', leadInfo)
-                  setShowLeadCapture(false)
-                  // Show success message
-                  alert('Thanks! Our team will reach out to you soon.')
-                }}
-                className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 transition-all duration-200"
-              >
-                Connect Me
-              </button>
-              <button
-                onClick={() => setShowLeadCapture(false)}
-                className="px-6 py-3 text-gray-600 hover:text-gray-800 font-medium"
-              >
-                Maybe Later
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 })
 
 ChatInterface.displayName = 'ChatInterface'
 
-export default ChatInterface 
+export default ChatInterface
