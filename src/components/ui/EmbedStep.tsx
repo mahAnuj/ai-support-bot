@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState, type JSX } from 'react'
 import DataDisclosure from './DataDisclosure'
+import InstallGuide from './InstallGuide'
 
 export const DEFAULT_PRIMARY_COLOR = '#1E6B58'
 
@@ -76,6 +77,7 @@ export default function EmbedStep({ sessionId, documentCount, config }: EmbedSte
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [embedCode, setEmbedCode] = useState('')
+  const [scriptUrl, setScriptUrl] = useState('')
   const [isOpen, setIsOpen] = useState(false)
   const [copyStatus, setCopyStatus] = useState('')
 
@@ -134,10 +136,11 @@ export default function EmbedStep({ sessionId, documentCount, config }: EmbedSte
         setError('Too many requests from this network in the last minute. Wait a minute and try again.')
       } else if (status === 400) {
         setError(`Couldn't generate embed code: ${body?.error ?? 'invalid request'}.`)
-      } else if (!response.ok || typeof body?.embedCode !== 'string') {
+      } else if (!response.ok || typeof body?.embedCode !== 'string' || typeof body?.scriptUrl !== 'string') {
         setError(`Couldn't generate embed code (status ${status}). Sessions are lost when the server restarts, so upload your documents again and retry.`)
       } else {
         setEmbedCode(body.embedCode)
+        setScriptUrl(body.scriptUrl)
         setCopyStatus('')
         setIsOpen(true)
       }
@@ -238,7 +241,7 @@ export default function EmbedStep({ sessionId, documentCount, config }: EmbedSte
         aria-labelledby={titleId}
         aria-describedby={descriptionId}
         onClose={handleDialogClose}
-        className="m-auto w-[min(42rem,calc(100vw-2rem))] max-h-[calc(100dvh-2rem)] rounded-lg bg-surface p-0 text-ink shadow-lg backdrop:bg-ink/60"
+        className="m-auto w-[min(48rem,calc(100vw-2rem))] max-h-[calc(100dvh-2rem)] rounded-lg bg-surface p-0 text-ink shadow-lg backdrop:bg-ink/60"
       >
         <div className="flex flex-col gap-4 p-4 sm:p-6">
           <div className="flex items-center justify-between gap-3">
@@ -250,7 +253,7 @@ export default function EmbedStep({ sessionId, documentCount, config }: EmbedSte
             </button>
           </div>
           <p id={descriptionId} className="max-w-[60ch] text-sm text-ink-muted">
-            Paste this into your site's HTML, just before the closing body tag. Widgets are kept in server memory, so this code stops working if the server restarts; generate it again after a restart.
+            One line adds the assistant to any website. Paste it before the closing body tag of your pages, or follow the steps for your platform below.
           </p>
           <pre
             tabIndex={0}
@@ -270,6 +273,9 @@ export default function EmbedStep({ sessionId, documentCount, config }: EmbedSte
               Close
             </button>
           </div>
+          {scriptUrl && (
+            <InstallGuide embedCode={embedCode} scriptUrl={scriptUrl} apiBaseUrl={new URL(scriptUrl).origin} />
+          )}
         </div>
       </dialog>
     </div>

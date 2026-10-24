@@ -62,7 +62,10 @@ retrieval-backed support assistant, then emits an embeddable widget for it.
 - **`src/lib/guard.ts`** — per-IP rate limits, input size caps and the
   per-widget `allowed_domains` origin check used by every API route.
 - **`src/app/api/`** — route handlers: `chat`, `upload`, `widget/chat`,
-  `widget/generate`.
+  `widget/generate`, `widget/script/[key]`.
+- **`src/lib/widget-script.ts`** — the widget JavaScript that customer embeds
+  load. `widget/generate` returns a one-line `<script src=".../api/widget/script/<key>">`
+  and that route serves this script with the widget's settings filled in.
 - **`public/ai-support-widget.js`** — the standalone script embedded on customer
   sites. It talks to `/api/widget/chat`.
 
@@ -73,8 +76,10 @@ retrieval-backed support assistant, then emits an embeddable widget for it.
   describes a pgvector schema that the running code does not use.
 - **Vector search is in-process cosine similarity** in `src/lib/database.ts` —
   not a vector database.
-- **`public/ai-support-widget.js` is a public contract.** It runs on third-party
-  sites; changing its API or the shape of `/api/widget/chat` breaks live embeds.
+- **The embed tag, `/api/widget/script/[key]` and `/api/widget/chat` are a
+  public contract.** They run on third-party sites; changing the script URL,
+  the script's globals or the chat request/response shape breaks live embeds.
+  Owner-entered values go into the script through `jsLiteral`, never raw.
 - **Similarity cut-offs belong to the embedding model.** `MIN_SIMILARITY` and
   `STRONG_SIMILARITY` in `src/lib/embeddings.ts` were measured for
   all-MiniLM-L6-v2. Changing the model means re-measuring them; never hard-code
