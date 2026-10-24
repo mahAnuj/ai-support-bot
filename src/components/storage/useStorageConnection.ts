@@ -78,7 +78,8 @@ async function loadDocuments(token: string): Promise<LoadResult> {
     const body = await response.json().catch(() => null)
     if (response.ok) return { ok: true, documents: parseDocuments(body) }
     const error = errorFromResponse(response.status, body)
-    return { ok: false, error, forget: response.status === 401 || response.status === 403 }
+    const forget = response.status === 401 || response.status === 403 || error.code === 'workspace_not_found'
+    return { ok: false, error, forget }
   } catch {
     return { ok: false, error: { code: 'storage_error', message: NETWORK_ERROR }, forget: false }
   }
