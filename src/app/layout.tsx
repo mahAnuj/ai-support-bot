@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
-import { Public_Sans, IBM_Plex_Mono } from "next/font/google";
+import { Schibsted_Grotesk, IBM_Plex_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import Script from "next/script";
 import "./globals.css";
 
-const publicSans = Public_Sans({
+const schibsted = Schibsted_Grotesk({
   subsets: ["latin"],
-  variable: "--font-public-sans",
+  variable: "--font-schibsted",
   display: "swap",
 });
 
@@ -28,7 +28,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${publicSans.variable} ${plexMono.variable}`}>
+    <html lang="en" className={`${schibsted.variable} ${plexMono.variable}`}>
       <body className="min-h-dvh bg-canvas font-sans text-ink antialiased">
         {children}
         <Analytics />

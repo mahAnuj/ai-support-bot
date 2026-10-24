@@ -4,22 +4,27 @@
   /* Colour: Tailwind's default palette is removed. Only these exist. */
   --color-*: initial;
   --color-white: #FFFFFF;
-  --color-canvas: #F2F4F3;
+  --color-canvas: #F3F5F4;
   --color-surface: #FFFFFF;
-  --color-sunken: #F7F8F7;
-  --color-ink: #1B2421;
-  --color-ink-muted: #4D5A56;
-  --color-ink-subtle: #5F6B67;
-  --color-line: #DCE1DF;
-  --color-line-strong: #7B8783;
-  --color-accent: #1E6B58;
-  --color-accent-strong: #17574A;
-  --color-accent-tint: #E4EFEA;
-  --color-focus: #1E6B58;
-  --color-danger: #B3261E;
-  --color-danger-tint: #FDF0EF;
-  --color-code-bg: #1B2421;
-  --color-code-ink: #E3E8E6;
+  --color-sunken: #F6F8F7;
+  --color-ink: #13201C;
+  --color-ink-muted: #45534E;
+  --color-ink-subtle: #5A6762;
+  --color-line: #DCE2DF;
+  --color-line-strong: #7D8984;
+  --color-accent: #136150;
+  --color-accent-strong: #0D4A3D;
+  --color-accent-tint: #E2EFEA;
+  --color-focus: #136150;
+  --color-danger: #B42318;
+  --color-danger-tint: #FEF2F0;
+  --color-code-bg: #13201C;
+  --color-code-ink: #E3E9E6;
+  --color-hero: #0D2F27;
+  --color-hero-ink: #F3F7F5;
+  --color-hero-muted: #B5CBC3;
+  --color-hero-accent: #7FB8A6;
+  --color-hero-line: #24473D;
 
   /* Type scale */
   --text-xs: 0.8125rem;   --text-xs--line-height: 1.125rem;
@@ -29,25 +34,47 @@
   --text-xl: 1.375rem;    --text-xl--line-height: 1.875rem;  --text-xl--letter-spacing: -0.005em;
   --text-2xl: 1.75rem;    --text-2xl--line-height: 2.25rem;  --text-2xl--letter-spacing: -0.01em;
   --text-3xl: 2.25rem;    --text-3xl--line-height: 2.75rem;  --text-3xl--letter-spacing: -0.02em;
+  --text-display: 3rem;   --text-display--line-height: 3.25rem; --text-display--letter-spacing: -0.03em;
 
   /* Spacing: 4px base. Use multiples 1,1.5,2,3,4,5,6,8,10,12,16,20,28 only. */
   --spacing: 0.25rem;
   --container-page: 75rem;
 
-  /* Radius */
-  --radius-sm: 0.25rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 0.75rem;
-  --radius-xl: 1rem;
+  /* Radius, graded by role: sm tags/inline code/bubble tail, md controls, lg cards/bubbles, xl overlays */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.625rem;
+  --radius-lg: 0.875rem;
+  --radius-xl: 1.25rem;
 
-  /* Shadow */
-  --shadow-sm: 0 1px 2px 0 rgb(27 36 33 / 0.06);
-  --shadow-md: 0 1px 2px 0 rgb(27 36 33 / 0.06), 0 8px 24px -6px rgb(27 36 33 / 0.14);
-  --shadow-lg: 0 24px 48px -12px rgb(27 36 33 / 0.30);
+  /* Elevation: sm = e1 panels, md = e2 preview/selected tab, lg = e3 overlays */
+  --shadow-sm: 0 1px 2px 0 rgb(19 32 28 / 0.06), 0 1px 1px 0 rgb(19 32 28 / 0.03);
+  --shadow-md: 0 1px 2px 0 rgb(19 32 28 / 0.05), 0 12px 32px -12px rgb(19 32 28 / 0.18);
+  --shadow-lg: 0 4px 12px -2px rgb(19 32 28 / 0.08), 0 32px 64px -16px rgb(19 32 28 / 0.32);
+
+  /* Motion. Always `backwards` fill: a transform left in place would trap position:fixed descendants. */
+  --ease-out-soft: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-enter: enter 240ms var(--ease-out-soft) backwards;
+  --animate-pop: pop 200ms var(--ease-out-soft) backwards;
+  --animate-fade: fade 160ms linear backwards;
+  --animate-typing: typing 1s ease-in-out infinite;
+
+  @keyframes enter {
+    from { opacity: 0; transform: translateY(6px); }
+  }
+  @keyframes pop {
+    from { opacity: 0; transform: scale(0.98); }
+  }
+  @keyframes fade {
+    from { opacity: 0; }
+  }
+  @keyframes typing {
+    0%, 80%, 100% { opacity: 0.35; transform: none; }
+    40% { opacity: 1; transform: translateY(-2px); }
+  }
 }
 
 @theme inline {
-  --font-sans: var(--font-public-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-sans: var(--font-schibsted), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
