@@ -26,9 +26,9 @@ export async function extractTextFromFilePath(filePath: string, fileName: string
       console.log('📖 Reading PDF with fs.readFileSync...')
       const dataBuffer = fs.readFileSync(filePath)
       
-      // Use pdf-parse exactly like the documentation
+      // The package entry runs a self-test when bundled; load the parser itself
       console.log('🔍 Parsing PDF with pdf-parse...')
-      const pdfParse = require('pdf-parse')
+      const pdfParse = require('pdf-parse/lib/pdf-parse.js')
       const data = await pdfParse(dataBuffer)
       
       if (!data || !data.text) {
@@ -88,9 +88,9 @@ export async function extractTextFromFile(file: File): Promise<string> {
         console.log('Reading PDF with fs.readFileSync...')
         const dataBuffer = fs.readFileSync(tempFilePath)
         
-        // Use pdf-parse exactly like the documentation
+        // The package entry runs a self-test when bundled; load the parser itself
         console.log('Parsing PDF with pdf-parse...')
-        const pdfParse = require('pdf-parse')
+        const pdfParse = require('pdf-parse/lib/pdf-parse.js')
         const data = await pdfParse(dataBuffer)
         
         if (!data || !data.text) {
