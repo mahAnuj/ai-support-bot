@@ -66,8 +66,7 @@ retrieval-backed support assistant, then emits an embeddable widget for it.
 - **`src/lib/widget-script.ts`** — the widget JavaScript that customer embeds
   load. `widget/generate` returns a one-line `<script src=".../api/widget/script/<key>">`
   and that route serves this script with the widget's settings filled in.
-- **`public/ai-support-widget.js`** — the standalone script embedded on customer
-  sites. It talks to `/api/widget/chat`.
+  It runs on other people's websites.
 
 ### Invariants
 

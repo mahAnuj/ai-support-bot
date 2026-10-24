@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Schibsted_Grotesk, IBM_Plex_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
-import Script from "next/script";
 import "./globals.css";
 
 const schibsted = Schibsted_Grotesk({
@@ -32,12 +31,6 @@ export default function RootLayout({
       <body className="min-h-dvh bg-canvas font-sans text-ink antialiased">
         {children}
         <Analytics />
-
-        {/* AI Support Widget */}
-        <Script
-          src="/ai-support-widget.js"
-          strategy="afterInteractive"
-        />
       </body>
     </html>
   );

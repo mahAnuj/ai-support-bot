@@ -61,9 +61,9 @@ Please don't paper over the failure with `--passWithNoTests`.
   describes a pgvector schema the code does not currently use. Wiring up a real
   datastore is a welcome contribution, but it is a real change, not a config flip.
 - **Vector search is in-process cosine similarity**, not a vector database.
-- **`public/ai-support-widget.js` runs on other people's websites.** Treat it and
-  the `/api/widget/chat` request shape as a public API — a breaking change there
-  breaks live embeds.
+- **`src/lib/widget-script.ts` runs on other people's websites.** It is served by
+  `/api/widget/script/[key]`. Treat it, its globals and the `/api/widget/chat`
+  request shape as a public API — a breaking change there breaks live embeds.
 - **DOCX handling is crude XML tag-stripping**, not a real parser. Swapping in
   something like mammoth would be a good improvement.
 
