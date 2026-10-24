@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
+import React, { useState, useRef, useEffect, useId, forwardRef, useImperativeHandle } from 'react'
 import MarkdownRenderer from './MarkdownRenderer'
 import { ChatMessage, ChatInterfaceProps } from '@/types'
 
@@ -12,7 +12,13 @@ interface ChatResponse {
   sessionId?: string
 }
 
-const primaryBg = 'bg-[var(--preview-primary,var(--color-accent))]'
+type Props = ChatInterfaceProps & {
+  primaryColor?: string
+  onPrimaryColor?: string
+  onMessageSent?: () => void
+}
+
+const onPrimarySurface = 'bg-[var(--preview-primary,var(--color-accent))] text-[color:var(--preview-on-primary,var(--color-white))]'
 
 const iconProps = {
   'aria-hidden': true,
@@ -102,9 +108,9 @@ function documentSources(sources?: string[]): string[] {
   return Array.from(new Set(sources.filter(source => source && source !== 'general_knowledge')))
 }
 
-const aiBubble = 'self-start min-w-0 max-w-[85%] [overflow-wrap:anywhere] rounded-xl rounded-bl-sm border px-4 py-3 text-ink'
+const aiBubble = 'self-start min-w-0 max-w-[92%] [overflow-wrap:anywhere] rounded-lg rounded-bl-sm border px-4 py-3 text-ink shadow-sm'
 
-const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, ChatInterfaceProps>(({
+const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, Props>(({
   systemPrompt,
   roleContext,
   suggestedQuestions,
@@ -113,7 +119,11 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, C
   sessionId: propSessionId = null,
   title = 'Your Business AI Assistant',
   welcomeMessage = 'Ask a question to see how the assistant answers.',
+  primaryColor,
+  onPrimaryColor,
+  onMessageSent,
 }, ref) => {
+  const titleId = useId()
   const displayTitle = title.trim() || 'Your Business AI Assistant'
   const displayWelcome = welcomeMessage.trim()
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -158,6 +168,7 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, C
       sender: 'user',
       timestamp: new Date(),
     }])
+    onMessageSent?.()
     setInputValue('')
     setIsTyping(true)
 
@@ -228,15 +239,15 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, C
     return (
       <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-line pt-3 text-xs text-ink-muted">
         {enhanced && (
-          <span className="inline-flex items-center gap-1">
-            <DocumentIcon />
+          <span className="inline-flex items-center gap-1 rounded-sm border border-line bg-sunken px-2 py-1 text-ink">
+            <DocumentIcon className="size-4 shrink-0 text-accent" />
             Used your documents
           </span>
         )}
         {enhanced && typeof message.confidence === 'number' && (
           <details className="group">
-            <summary className="inline-flex min-h-11 cursor-pointer items-center gap-1 rounded-sm">
-              Match score {message.confidence}%
+            <summary className="inline-flex min-h-10 cursor-pointer items-center gap-1 rounded-sm hover:text-ink">
+              Retrieval match score {message.confidence}%
               <InfoIcon />
             </summary>
             <p className="mt-1 max-w-[40ch] text-xs text-ink-muted">
@@ -246,7 +257,7 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, C
         )}
         {sources.length > 0 && (
           <div className="flex w-full min-w-0 flex-wrap items-center gap-2">
-            <span>Sources</span>
+            <span className="font-semibold text-ink-muted">Sources</span>
             <ul className="flex min-w-0 max-w-full flex-wrap gap-2">
               {sources.map(source => (
                 <li
@@ -267,7 +278,7 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, C
   const renderMessage = (message: ChatMessage) => {
     if (message.sender === 'user') {
       return (
-        <div key={message.id} className={`self-end min-w-0 max-w-[85%] [overflow-wrap:anywhere] rounded-xl rounded-br-sm px-4 py-2.5 text-white ${primaryBg}`}>
+        <div key={message.id} className={`self-end min-w-0 max-w-[80%] [overflow-wrap:anywhere] rounded-lg rounded-br-sm px-4 py-2.5 shadow-sm motion-safe:animate-enter ${onPrimarySurface}`}>
           <p className="whitespace-pre-wrap">{message.text}</p>
         </div>
       )
@@ -275,7 +286,7 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, C
 
     if (message.sender === 'system') {
       return (
-        <div key={message.id} className={`${aiBubble} border-danger/40 bg-danger-tint`}>
+        <div key={message.id} className={`${aiBubble} border-danger/40 bg-danger-tint motion-safe:animate-enter`}>
           <p className="flex items-center gap-1.5 font-semibold text-danger">
             <AlertIcon className="size-4 shrink-0" />
             Couldn&apos;t get an answer.
@@ -286,7 +297,7 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, C
     }
 
     return (
-      <div key={message.id} className={`${aiBubble} border-line bg-surface`}>
+      <div key={message.id} className={`${aiBubble} border-line bg-surface motion-safe:animate-enter`}>
         <MarkdownRenderer content={message.text} />
         {renderAiFooter(message)}
       </div>
@@ -295,15 +306,20 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, C
 
   const canSend = inputValue.trim().length > 0 && !isTyping
 
+  const rootStyle = {
+    ...(primaryColor ? { '--preview-primary': primaryColor } : {}),
+    ...(onPrimaryColor ? { '--preview-on-primary': onPrimaryColor } : {}),
+  } as React.CSSProperties
+
   return (
-    <div className="flex h-full flex-col bg-surface">
-      <div className={`flex items-center gap-3 px-4 py-3 text-white ${primaryBg}`}>
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-white/15">
+    <div className="flex h-full min-h-0 flex-col bg-surface" style={rootStyle}>
+      <div className={`flex items-center gap-3 px-4 py-3 ${onPrimarySurface}`}>
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-full border border-[color:var(--preview-on-primary,var(--color-white))]/30 bg-[color:var(--preview-on-primary,var(--color-white))]/15">
           <ChatIcon />
         </div>
-        <div className="min-w-0">
-          <h3 className="truncate text-base font-semibold">{displayTitle}</h3>
-          <p className="text-xs text-white">
+        <div className="min-w-0 flex-1">
+          <h3 id={titleId} className="truncate text-base font-semibold">{displayTitle}</h3>
+          <p className="text-xs">
             {hasUploadedFiles ? 'Preview using your indexed documents' : 'Preview with no documents yet'}
           </p>
         </div>
@@ -315,46 +331,48 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, C
         aria-live="polite"
         aria-label="Conversation"
         tabIndex={0}
-        className="flex min-w-0 flex-1 flex-col gap-4 overflow-y-auto bg-sunken p-4 [contain:inline-size] focus-visible:outline-offset-[-2px] sm:p-5"
+        className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-sunken p-4 [contain:inline-size] focus-visible:outline-offset-[-2px] sm:p-5"
       >
-        {displayWelcome && (
-          <div className={`${aiBubble} border-line bg-surface`}>
-            <p className="whitespace-pre-wrap">{displayWelcome}</p>
-          </div>
-        )}
-
-        {messages.length === 0 && suggestedQuestions && suggestedQuestions.length > 0 && (
-          <div className="flex flex-col gap-2">
-            <p className="text-sm text-ink-muted">Try asking</p>
-            <div className="flex flex-wrap gap-2">
-              {suggestedQuestions.map(question => (
-                <button
-                  key={question}
-                  type="button"
-                  onClick={() => void sendMessage(question)}
-                  className="min-h-11 rounded-full border border-line-strong bg-surface px-4 text-left text-sm text-ink hover:bg-accent-tint"
-                >
-                  {question}
-                </button>
-              ))}
+        <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
+          {displayWelcome && (
+            <div className={`${aiBubble} border-line bg-surface`}>
+              <p className="whitespace-pre-wrap">{displayWelcome}</p>
             </div>
-          </div>
-        )}
+          )}
 
-        {messages.map(renderMessage)}
-
-        {isTyping && (
-          <div className={`${aiBubble} border-line bg-surface`}>
-            <div className="flex items-center gap-3">
-              <span className="flex gap-1" aria-hidden="true">
-                <span className="size-1.5 rounded-full bg-ink-muted motion-safe:animate-bounce" />
-                <span className="size-1.5 rounded-full bg-ink-muted motion-safe:animate-bounce [animation-delay:150ms]" />
-                <span className="size-1.5 rounded-full bg-ink-muted motion-safe:animate-bounce [animation-delay:300ms]" />
-              </span>
-              <span className="text-sm text-ink-muted">Writing an answer</span>
+          {messages.length === 0 && suggestedQuestions && suggestedQuestions.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <p className="text-sm text-ink-muted">Try asking</p>
+              <div className="flex flex-wrap gap-2">
+                {suggestedQuestions.map(question => (
+                  <button
+                    key={question}
+                    type="button"
+                    onClick={() => void sendMessage(question)}
+                    className="min-h-10 rounded-full border border-line-strong bg-surface px-4 py-2 text-left text-sm text-ink hover:bg-accent-tint"
+                  >
+                    {question}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+
+          {messages.map(renderMessage)}
+
+          {isTyping && (
+            <div className={`${aiBubble} border-line bg-surface motion-safe:animate-enter`}>
+              <div className="flex items-center gap-3">
+                <span className="flex items-center gap-1" aria-hidden="true">
+                  <span className="size-1.5 rounded-full bg-ink-muted motion-safe:animate-typing" />
+                  <span className="size-1.5 rounded-full bg-ink-muted motion-safe:animate-typing [animation-delay:120ms]" />
+                  <span className="size-1.5 rounded-full bg-ink-muted motion-safe:animate-typing [animation-delay:240ms]" />
+                </span>
+                <span className="text-sm text-ink-muted">Writing an answer</span>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="flex gap-2 border-t border-line bg-surface p-3">
@@ -372,13 +390,13 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, C
           type="button"
           onClick={() => void sendMessage()}
           disabled={!canSend}
-          className={`inline-flex h-11 scroll-mb-28 items-center justify-center gap-2 rounded-md px-5 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 ${primaryBg}`}
+          className={`inline-flex h-11 scroll-mb-28 items-center justify-center gap-2 rounded-md px-5 text-sm font-semibold hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 ${onPrimarySurface}`}
         >
           {isTyping ? (
             <>
               <span
                 aria-hidden="true"
-                className="size-4 rounded-full border-2 border-white border-t-transparent motion-safe:animate-spin"
+                className="size-4 rounded-full border-2 border-current border-t-transparent motion-safe:animate-spin"
               />
               <span className="sr-only">Sending</span>
             </>
