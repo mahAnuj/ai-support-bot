@@ -8,14 +8,14 @@ A powerful platform that lets any business build, test, and deploy intelligent A
 
 ### 🎯 **Complete AI Assistant Builder**
 - **Custom Configuration**: Set display name, welcome message, colors, and positioning
-- **Document Training**: Upload business documents (PDF, TXT, MD, DOCX) for AI training
+- **Your Documents**: Upload business documents (PDF, TXT, MD, DOCX) for the assistant to answer from
 - **Live Preview**: See exactly how your assistant will look and behave
 - **One-Click Deployment**: Generate embeddable JavaScript code for your website
 - **Professional UI**: Clean, mobile-responsive design that works on any website
 
 ### 📚 **Intelligent Document Processing**
-- **Smart Chunking**: Automatically processes and segments your documents
-- **Vector Search**: Uses advanced embeddings for accurate information retrieval
+- **Chunking**: Splits each document into fixed-size passages of about 1,000 characters
+- **Local Embeddings**: Passages are embedded on the server with an open-source model (`all-MiniLM-L6-v2`), so indexing needs no API key and sends no document text to a third party
 - **Source Attribution**: Shows which documents were used in each response
 - **Retrieval Match Score**: Shows how closely the retrieved passages match the question (a similarity score, not a probability that the answer is correct)
 
@@ -33,8 +33,8 @@ git clone https://github.com/mahAnuj/ai-support-bot.git
 cd ai-support-bot
 npm install
 
-# Set your API key
-echo "OPENAI_API_KEY=your_openai_key" > .env.local
+# Set your Groq API key (free tier at console.groq.com)
+echo "GROQ_API_KEY=your_groq_key" > .env.local
 
 # Start the builder
 npm run dev
@@ -74,7 +74,7 @@ Visit [http://localhost:3000](http://localhost:3000) and start building your AI 
 | Generic responses | Business-specific answers |
 | "I don't know" | Cites your actual policies |
 | Low retrieval match | High retrieval match |
-| Basic information | Detailed, accurate guidance |
+| Basic information | Answers drawn from your documents |
 | No source attribution | Clear document references |
 
 ## 🛠 Technology Stack
@@ -82,8 +82,9 @@ Visit [http://localhost:3000](http://localhost:3000) and start building your AI 
 - **Frontend**: Next.js 15 + React 19 + TypeScript + Tailwind CSS v4
 - **Backend**: Next.js API routes (serverless)
 - **Storage**: In-memory (`src/lib/database.ts`) — no external database required
-- **AI**: OpenAI GPT-4o-mini (cost-optimized)
-- **Vector Search**: In-process cosine similarity over `text-embedding-3-small`
+- **Chat model**: `llama-3.1-8b-instant` on Groq (free tier; override with `GROQ_MODEL`)
+- **Embeddings**: `Xenova/all-MiniLM-L6-v2` via transformers.js, run on the server
+- **Vector Search**: In-process cosine similarity
 - **File Processing**: Built-in PDF, TXT, MD, DOCX support
 - **Enhancement**: RAG (Retrieval-Augmented Generation)
 - **Deployment**: Vercel-ready with one-click deploy
@@ -97,16 +98,17 @@ npm run build
 vercel --prod
 
 # Set environment variables in Vercel dashboard:
-# OPENAI_API_KEY
+# GROQ_API_KEY
 ```
 
 ### **Environment Variables**
 ```bash
 # Required
-OPENAI_API_KEY=your_openai_api_key
+GROQ_API_KEY=your_groq_api_key
 
 # Optional
-NEXT_PUBLIC_APP_URL=https://yourdomain.com
+GROQ_MODEL=llama-3.1-8b-instant
+NEXT_PUBLIC_BASE_URL=https://yourdomain.com
 ```
 
 ## ⚙️ Configuration
@@ -162,9 +164,8 @@ ai-support-bot/
 ├── src/
 │   ├── app/                 # Next.js App Router pages
 │   ├── components/ui/       # Reusable UI components
-│   ├── lib/                 # Core functionality (RAG, OpenAI, etc.)
-│   ├── types/               # TypeScript definitions
-│   └── __tests__/           # Test files
+│   ├── lib/                 # Core functionality (RAG, chat model, embeddings)
+│   └── types/               # TypeScript definitions
 ├── public/                  # Static assets
 └── scripts/                 # Database setup scripts
 ```

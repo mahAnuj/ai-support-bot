@@ -24,11 +24,14 @@ npm test        # jest - see the warning below
 
 | Variable | Needed for | Notes |
 | --- | --- | --- |
-| `OPENAI_API_KEY` | Chat, embeddings, RAG | Runtime only — the build does not need it |
+| `GROQ_API_KEY` | Chat answers and query rewording | Runtime only — the build does not need it |
+| `GROQ_MODEL` | Optional chat model override | Defaults to `llama-3.1-8b-instant` |
 | `NEXT_PUBLIC_BASE_URL` | Widget embed URLs | Falls back to `VERCEL_URL` |
 
-**The build must never require a runtime secret.** The OpenAI client is created
-lazily in `src/lib/openai.ts` precisely because `next build` evaluates route
+Embeddings need no key: they run on the server (see `src/lib/embeddings.ts`).
+
+**The build must never require a runtime secret.** The chat client is created
+lazily in `src/lib/llm.ts` precisely because `next build` evaluates route
 modules while collecting page data; constructing it at module scope broke
 production deploys. If you add another SDK client, construct it inside a
 function, not at import time.
@@ -40,8 +43,13 @@ retrieval-backed support assistant, then emits an embeddable widget for it.
 
 - **`src/app/page.tsx`** — the builder UI: configure the assistant, upload docs,
   preview the chat, generate embed code. Holds `UNIVERSAL_ASSISTANT.systemPrompt`.
-- **`src/lib/openai.ts`** — the only OpenAI surface. `generateResponse` for chat,
-  `generateEmbeddings` for indexing. Client built on first use via `getOpenAI()`.
+- **`src/lib/llm.ts`** — the only chat-model surface. Groq through the OpenAI
+  SDK (Groq's API is OpenAI-compatible). `generateResponse` for answers;
+  client built on first use via `getChatClient()`.
+- **`src/lib/embeddings.ts`** — `generateEmbeddings` with
+  `Xenova/all-MiniLM-L6-v2` via transformers.js, run in-process. The model
+  (~23 MB) downloads from Hugging Face on first use into the temp directory.
+  Also holds `MIN_SIMILARITY`, `STRONG_SIMILARITY` and `matchScore`.
 - **`src/lib/documents.ts`** — file ingestion and chunking. Handles PDF (via
   `pdf-parse`), TXT and MD properly; **DOCX is crude XML tag-stripping**, not a
   real parser, despite what the file list implies.
@@ -63,20 +71,25 @@ retrieval-backed support assistant, then emits an embeddable widget for it.
 - **Storage is ephemeral and per-process.** Any feature that assumes durability
   or cross-instance sharing needs a real datastore first. `scripts/setup-db.sql`
   describes a pgvector schema that the running code does not use.
-- **Vector search is in-process cosine similarity** over `text-embedding-3-small`
-  in `src/lib/database.ts` — not a vector database.
+- **Vector search is in-process cosine similarity** in `src/lib/database.ts` —
+  not a vector database.
 - **`public/ai-support-widget.js` is a public contract.** It runs on third-party
   sites; changing its API or the shape of `/api/widget/chat` breaks live embeds.
-- Chat uses `gpt-4o-mini` and embeddings `text-embedding-3-small`. Both are
-  referenced in `src/lib/openai.ts`.
+- **Similarity cut-offs belong to the embedding model.** `MIN_SIMILARITY` and
+  `STRONG_SIMILARITY` in `src/lib/embeddings.ts` were measured for
+  all-MiniLM-L6-v2. Changing the model means re-measuring them; never hard-code
+  a threshold in a route.
+- **`confidence` in API responses is the retrieval match score** from
+  `matchScore`, and 0 when no passage was used. Never set it from the length or
+  wording of the model's answer.
 - **Never build a filesystem path from an uploaded filename.** Temp files are
   named from `crypto.randomUUID()` plus a checked extension.
 - **IDs that grant access come from `crypto.randomUUID()`**, never
   `Math.random`. A session ID is a bearer secret for that session's documents.
-- **Every API route checks `isRateLimited` first.** Each call spends the
-  deployment's OpenAI key.
+- **Every API route checks `isRateLimited` first.** Chat calls spend the
+  deployment's Groq quota; uploads spend server CPU.
 - **Retrieved document text is wrapped in `<documents>` and declared data**
-  (`wrapDocuments` and `DOCUMENTS_RULE` in `src/lib/openai.ts`). Keep new
+  (`wrapDocuments` and `DOCUMENTS_RULE` in `src/lib/llm.ts`). Keep new
   prompt paths going through it.
 - **Fail loudly.** Embedding errors throw; never substitute a placeholder that
   lets a failed upload report success.
