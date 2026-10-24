@@ -97,6 +97,11 @@ export function widgetScript(widget: Widget, baseUrl: string): string {
     }
     .ai-widget-root.is-left .ai-widget-modal { left: 20px; right: auto; }
     .ai-widget-root .ai-widget-modal[hidden] { display: none; }
+    .ai-widget-root.is-expanded .ai-widget-modal {
+      width: min(720px, calc(100vw - 48px));
+      height: min(860px, calc(100vh - 120px));
+      height: min(860px, calc(100dvh - 120px));
+    }
 
     .ai-widget-root .ai-widget-header {
       flex: none; display: flex; align-items: center; gap: 8px;
@@ -109,12 +114,17 @@ export function widgetScript(widget: Widget, baseUrl: string): string {
       overflow-wrap: anywhere;
     }
     .ai-widget-root .ai-widget-header-actions { flex: none; display: flex; align-items: center; gap: 4px; }
-    .ai-widget-root .ai-widget-close {
+    .ai-widget-root .ai-widget-close,
+    .ai-widget-root .ai-widget-expand {
       width: 40px; height: 40px; border-radius: 10px;
       display: inline-flex; align-items: center; justify-content: center;
       cursor: pointer;
     }
-    .ai-widget-root .ai-widget-close:hover { box-shadow: inset 0 0 0 1px var(--aiw-on-accent); }
+    .ai-widget-root .ai-widget-close:hover,
+    .ai-widget-root .ai-widget-expand:hover { box-shadow: inset 0 0 0 1px var(--aiw-on-accent); }
+    .ai-widget-root .ai-widget-expand .ai-widget-icon-restore { display: none; }
+    .ai-widget-root.is-expanded .ai-widget-expand .ai-widget-icon-expand { display: none; }
+    .ai-widget-root.is-expanded .ai-widget-expand .ai-widget-icon-restore { display: block; }
 
     .ai-widget-root .ai-widget-messages {
       flex: 1; min-height: 0; overflow-y: auto;
@@ -140,6 +150,20 @@ export function widgetScript(widget: Widget, baseUrl: string): string {
       align-self: flex-start; max-width: 88%;
       background: #FEF2F0; color: #13201C; border: 1px solid rgb(180 35 24 / .35);
       border-radius: 14px 14px 14px 6px;
+    }
+    .ai-widget-root .ai-widget-message > :first-child { margin-top: 0; }
+    .ai-widget-root .ai-widget-message > :last-child { margin-bottom: 0; }
+    .ai-widget-root .ai-widget-message p + p { margin-top: 8px; }
+    .ai-widget-root .ai-widget-message ul,
+    .ai-widget-root .ai-widget-message ol { padding-left: 20px; margin: 6px 0; }
+    .ai-widget-root .ai-widget-message ul { list-style: disc; }
+    .ai-widget-root .ai-widget-message ol { list-style: decimal; }
+    .ai-widget-root .ai-widget-message li + li { margin-top: 4px; }
+    .ai-widget-root .ai-widget-message strong,
+    .ai-widget-root .ai-widget-message .ai-widget-heading { font-weight: 600; }
+    .ai-widget-root .ai-widget-message code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .875em;
+      background: #F6F8F7; border: 1px solid #DCE2DF; border-radius: 6px; padding: 0 4px;
     }
     .ai-widget-root .ai-widget-error-title { display: block; font-weight: 600; color: #B42318; }
     .ai-widget-root .ai-widget-error-reason { display: block; }
@@ -193,6 +217,10 @@ export function widgetScript(widget: Widget, baseUrl: string): string {
         height: min(70dvh, calc(100dvh - 16px));
       }
       .ai-widget-root.is-open .ai-widget-button { display: none; }
+      .ai-widget-root.is-expanded .ai-widget-modal,
+      .ai-widget-root.is-left.is-expanded .ai-widget-modal {
+        inset: 0; width: 100%; height: 100vh; height: 100dvh; border-radius: 0;
+      }
     }
   \`;
 
@@ -217,6 +245,10 @@ export function widgetScript(widget: Widget, baseUrl: string): string {
       <div class="ai-widget-header">
         <h2 class="ai-widget-title" id="ai-widget-title"></h2>
         <div class="ai-widget-header-actions">
+          <button type="button" class="ai-widget-expand" id="ai-widget-expand" aria-label="Expand chat" aria-pressed="false">
+            <svg class="ai-widget-icon ai-widget-icon-sm ai-widget-icon-expand" aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+            <svg class="ai-widget-icon ai-widget-icon-sm ai-widget-icon-restore" aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></svg>
+          </button>
           <button type="button" class="ai-widget-close" id="ai-widget-close" aria-label="Close chat">
             <svg class="ai-widget-icon ai-widget-icon-sm" aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
           </button>
@@ -234,12 +266,14 @@ export function widgetScript(widget: Widget, baseUrl: string): string {
   const button = document.getElementById('ai-widget-btn');
   const modal = document.getElementById('ai-widget-modal');
   const closeBtn = document.getElementById('ai-widget-close');
+  const expandBtn = document.getElementById('ai-widget-expand');
   const input = document.getElementById('ai-widget-input');
   const sendBtn = document.getElementById('ai-widget-send');
   const messagesContainer = document.getElementById('ai-widget-messages');
   const titleEl = document.getElementById('ai-widget-title');
 
   let isOpen = false;
+  let isExpanded = false;
   let isPending = false;
   let sessionId = null;
 
@@ -247,10 +281,91 @@ export function widgetScript(widget: Widget, baseUrl: string): string {
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
   }
 
-  function addMessage(message, sender, isEnhanced = false) {
+  // Inline formatting: **bold** and \`code\`. Every piece is set through
+  // textContent, so HTML in an answer shows as literal text.
+  function appendInline(parent, line) {
+    const parts = line.split(/(\\*\\*[^*]+\\*\\*|\`[^\`]+\`)/);
+    parts.forEach(function (part, i) {
+      if (!part) return;
+      if (i % 2 === 1 && part.charAt(0) === '*') {
+        const strong = document.createElement('strong');
+        strong.textContent = part.slice(2, -2);
+        parent.appendChild(strong);
+      } else if (i % 2 === 1) {
+        const code = document.createElement('code');
+        code.textContent = part.slice(1, -1);
+        parent.appendChild(code);
+      } else {
+        parent.appendChild(document.createTextNode(part));
+      }
+    });
+  }
+
+  // A small Markdown subset for AI answers, built only with createElement,
+  // textContent and appendChild. Model output never goes through innerHTML.
+  function renderRich(el, text) {
+    const lines = String(text).replace(/<br\\s*\\/?>/gi, '\\n').split(/\\r?\\n/);
+    let para = null;
+    let list = null;
+    let listType = '';
+
+    function closeBlock() {
+      para = null;
+      list = null;
+      listType = '';
+    }
+    function addBlock(tag, className) {
+      closeBlock();
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      el.appendChild(node);
+      return node;
+    }
+    function addItem(type, content, start) {
+      if (!list || listType !== type) {
+        list = addBlock(type);
+        listType = type;
+        if (type === 'ol' && start > 1) list.start = start;
+      }
+      const li = document.createElement('li');
+      appendInline(li, content);
+      list.appendChild(li);
+    }
+
+    lines.forEach(function (raw) {
+      const line = raw.trim();
+      let m;
+      if (!line) {
+        closeBlock();
+      } else if (line.indexOf('-') !== -1 && /^\\|?[\\s:|-]+\\|?$/.test(line)) {
+        // Table separator row or horizontal rule: dropped.
+      } else if ((m = /^[-*\\u2022]\\s+(.*)$/.exec(line))) {
+        addItem('ul', m[1]);
+      } else if ((m = /^(\\d+)[.)]\\s+(.*)$/.exec(line))) {
+        addItem('ol', m[2], parseInt(m[1], 10));
+      } else if ((m = /^#{1,6}\\s+(.*)$/.exec(line))) {
+        appendInline(addBlock('p', 'ai-widget-heading'), m[1]);
+        closeBlock();
+      } else if (line.length > 1 && line.charAt(0) === '|' && line.charAt(line.length - 1) === '|') {
+        const cells = line.slice(1, -1).split('|').map(function (c) { return c.trim(); }).filter(Boolean);
+        appendInline(addBlock('p'), cells.join(' / '));
+        closeBlock();
+      } else {
+        if (para) {
+          para.appendChild(document.createElement('br'));
+        } else {
+          para = addBlock('p');
+        }
+        appendInline(para, line);
+      }
+    });
+  }
+
+  function addMessage(message, sender, isEnhanced = false, rich = false) {
     const messageDiv = document.createElement('div');
     messageDiv.className = 'ai-widget-message ' + sender + (isEnhanced ? ' enhanced' : '');
-    messageDiv.textContent = message;
+    if (rich) renderRich(messageDiv, message);
+    else messageDiv.textContent = message;
     messagesContainer.appendChild(messageDiv);
     scrollToEnd();
   }
@@ -306,8 +421,15 @@ export function widgetScript(widget: Widget, baseUrl: string): string {
     input.focus();
   }
 
+  function setExpanded(expanded) {
+    isExpanded = expanded;
+    root.classList.toggle('is-expanded', expanded);
+    expandBtn.setAttribute('aria-pressed', expanded ? 'true' : 'false');
+  }
+
   function closeWidget() {
     isOpen = false;
+    setExpanded(false);
     modal.hidden = true;
     root.classList.remove('is-open');
     button.setAttribute('aria-expanded', 'false');
@@ -320,8 +442,17 @@ export function widgetScript(widget: Widget, baseUrl: string): string {
     else openWidget();
   }
 
+  // Esc steps back one level: an expanded panel is restored to its normal
+  // size (focus returns to the expand button); otherwise the panel closes
+  // (focus returns to the launcher). Closing always resets the expanded state.
   function handleEscape() {
-    if (isOpen) closeWidget();
+    if (!isOpen) return;
+    if (isExpanded) {
+      setExpanded(false);
+      expandBtn.focus();
+    } else {
+      closeWidget();
+    }
   }
 
   async function sendMessage() {
@@ -365,7 +496,7 @@ export function widgetScript(widget: Widget, baseUrl: string): string {
         sessionId = data.sessionId;
       }
 
-      addMessage(data.message, 'ai', data.isEnhanced);
+      addMessage(data.message, 'ai', data.isEnhanced, true);
     } catch (error) {
       hideTyping();
       addError("Couldn't reach the assistant. Check your connection and try again.");
@@ -381,6 +512,7 @@ export function widgetScript(widget: Widget, baseUrl: string): string {
 
   button.addEventListener('click', toggleWidget);
   closeBtn.addEventListener('click', closeWidget);
+  expandBtn.addEventListener('click', function () { setExpanded(!isExpanded); });
   sendBtn.addEventListener('click', sendMessage);
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.isComposing) {
