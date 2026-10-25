@@ -104,7 +104,7 @@ export default function ConnectBackendStep({
   const connectedHeadingRef = useRef<HTMLHeadingElement>(null)
   const docsHeadingRef = useRef<HTMLHeadingElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const pendingFocus = useRef<'pending' | 'connected' | 'form' | null>(null)
+  const pendingFocus = useRef<'pending' | 'connected' | 'idle' | null>(null)
 
   const baseId = useId()
   const headingId = `${baseId}-heading`
@@ -172,9 +172,12 @@ export default function ConnectBackendStep({
     const deleting = connector.busy === 'delete'
     const result = connector.testResult
     const documents = connector.documents
+    const listStatus = connector.documentsStatus
+    // A reload keeps the previous list on screen until the new one arrives.
+    const showList = documents !== null && (listStatus === 'loaded' || listStatus === 'loading')
 
     const disconnect = () => {
-      pendingFocus.current = 'form'
+      pendingFocus.current = 'idle'
       setShowMovedNote(false)
       setConfirmingDelete(null)
       connector.disconnect()
@@ -239,7 +242,7 @@ export default function ConnectBackendStep({
         <div className="mt-6">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h4 id={docsHeadingId} ref={docsHeadingRef} tabIndex={-1} className="text-sm font-semibold text-ink">
-              {documents ? `Documents on your backend (${documents.length})` : 'Documents on your backend'}
+              {showList ? `Documents on your backend (${documents.length})` : 'Documents on your backend'}
             </h4>
             <button
               type="button"
@@ -249,9 +252,23 @@ export default function ConnectBackendStep({
               Refresh list
             </button>
           </div>
-          {documents === null ? (
-            <p className="mt-2 text-sm text-ink-muted">Loading the list…</p>
-          ) : documents.length === 0 ? (
+          <div role="status" aria-live="polite">
+            {listStatus === 'loading' && !showList && <p className="mt-2 text-sm text-ink-muted">Loading the list…</p>}
+            {listStatus === 'unconfigured' && (
+              <p className="mt-2 max-w-[60ch] text-sm text-ink-muted">
+                Your backend doesn&apos;t accept this key yet. Add the setup line to <code className={CODE}>CONNECTOR_KEYS</code>,
+                restart your backend, then use Test connection. The list loads once the test passes.
+              </p>
+            )}
+          </div>
+          {listStatus === 'failed' ? (
+            <div role="alert" className="mt-2 flex items-start gap-2 text-sm text-ink">
+              <AlertIcon />
+              <p className="min-w-0 [overflow-wrap:anywhere]">
+                Couldn&apos;t load the list. {connector.documentsError} Use Refresh list to try again.
+              </p>
+            </div>
+          ) : !showList ? null : documents.length === 0 ? (
             <p className="mt-2 text-sm text-ink-muted">No documents yet. Upload them above; they go to your backend.</p>
           ) : (
             <ul aria-labelledby={docsHeadingId} className="mt-3 flex flex-col gap-2">
@@ -353,7 +370,7 @@ export default function ConnectBackendStep({
     }
 
     const cancel = () => {
-      pendingFocus.current = 'form'
+      pendingFocus.current = 'idle'
       setCopyStatus('')
       connector.cancelPending()
     }

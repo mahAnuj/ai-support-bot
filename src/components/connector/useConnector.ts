@@ -45,6 +45,9 @@ export type ConnectorTestResult =
 
 export type ConnectorBusy = 'connect' | 'test' | 'documents' | 'delete' | null
 
+// 'unconfigured': the backend refused the new key before any test passed, which is expected until CONNECTOR_KEYS is set.
+export type ConnectorDocumentsStatus = 'idle' | 'loading' | 'loaded' | 'failed' | 'unconfigured'
+
 export interface Connector {
   ready: boolean
   available: boolean
@@ -53,6 +56,8 @@ export interface Connector {
   info: ConnectorInfo | null
   pending: ConnectorPending | null
   documents: ConnectorDocumentRow[] | null
+  documentsStatus: ConnectorDocumentsStatus
+  documentsError: string | null
   busy: ConnectorBusy
   error: ConnectorUiError | null
   testResult: ConnectorTestResult | null
@@ -161,11 +166,17 @@ export function useConnector(available: boolean, ready: boolean): Connector {
   // The only place the signing secret lives in the browser; never persisted.
   const [pending, setPending] = useState<ConnectorPending | null>(null)
   const [documents, setDocuments] = useState<ConnectorDocumentRow[] | null>(null)
+  const [documentsStatus, setDocumentsStatus] = useState<ConnectorDocumentsStatus>('idle')
+  const [documentsError, setDocumentsError] = useState<string | null>(null)
   const [busy, setBusy] = useState<ConnectorBusy>(null)
   const [error, setError] = useState<ConnectorUiError | null>(null)
   const [testResult, setTestResult] = useState<ConnectorTestResult | null>(null)
   // Bumped on disconnect and cancel so responses that started before them are dropped.
   const generation = useRef(0)
+  // Only the latest list request may set the list.
+  const listRequest = useRef(0)
+  // False from "I've saved it" until a test or list call is accepted by the backend.
+  const keyAccepted = useRef(true)
 
   const forget = useCallback(() => {
     generation.current += 1
@@ -173,27 +184,48 @@ export function useConnector(available: boolean, ready: boolean): Connector {
     setToken(null)
     setInfo(null)
     setDocuments(null)
+    setDocumentsStatus('idle')
+    setDocumentsError(null)
     setTestResult(null)
     setBusy(null)
   }, [])
 
   const loadDocuments = useCallback(async (forToken: string) => {
     const started = generation.current
+    listRequest.current += 1
+    const request = listRequest.current
+    const current = () => started === generation.current && request === listRequest.current
+    setDocumentsStatus('loading')
+    setDocumentsError(null)
     try {
       const response = await fetch('/api/connector/documents', {
         headers: { [STORAGE_TOKEN_HEADER]: forToken },
         cache: 'no-store',
       })
       const body = await response.json().catch(() => null)
-      if (started !== generation.current) return
+      if (!current()) return
       if (response.ok) {
+        keyAccepted.current = true
         setDocuments(parseDocuments(body))
+        setDocumentsStatus('loaded')
         return
       }
-      setError(errorFromResponse(response.status, body))
-      if (isAuthFailure(response.status)) forget()
+      const failure = errorFromResponse(response.status, body)
+      if (isAuthFailure(response.status)) {
+        forget()
+        setError(failure)
+        return
+      }
+      if (failure.code === 'connector_auth_rejected' && !keyAccepted.current) {
+        setDocumentsStatus('unconfigured')
+        return
+      }
+      setDocumentsStatus('failed')
+      setDocumentsError(failure.message)
     } catch {
-      if (started === generation.current) setError({ code: null, message: NETWORK_ERROR })
+      if (!current()) return
+      setDocumentsStatus('failed')
+      setDocumentsError(NETWORK_ERROR)
     }
   }, [forget])
 
@@ -208,6 +240,7 @@ export function useConnector(available: boolean, ready: boolean): Connector {
     }
     if (!available) return
     const { token: storedToken, ...storedInfo } = stored
+    keyAccepted.current = true
     setToken(storedToken)
     setInfo(storedInfo)
     void loadDocuments(storedToken)
@@ -272,6 +305,7 @@ export function useConnector(available: boolean, ready: boolean): Connector {
     const { token: newToken, secret: _secret, ...newInfo } = pending
     void _secret
     setPending(null)
+    keyAccepted.current = false
     writeStored(newToken, newInfo)
     setToken(newToken)
     setInfo(newInfo)
@@ -317,6 +351,8 @@ export function useConnector(available: boolean, ready: boolean): Connector {
         setToken(newToken)
         setInfo(nextInfo)
         setTestResult({ ok: true, passagesReturned: typeof body.passagesReturned === 'number' ? body.passagesReturned : 0 })
+        keyAccepted.current = true
+        void loadDocuments(newToken)
         return
       }
       const failure = response.ok
@@ -333,7 +369,7 @@ export function useConnector(available: boolean, ready: boolean): Connector {
     } finally {
       if (started === generation.current) setBusy(null)
     }
-  }, [activeToken, info, forget])
+  }, [activeToken, info, forget, loadDocuments])
 
   const deleteDocument = useCallback(async (id: string): Promise<boolean> => {
     if (!activeToken) return false
@@ -388,6 +424,8 @@ export function useConnector(available: boolean, ready: boolean): Connector {
       info: connected ? info : null,
       pending: available ? pending : null,
       documents: connected ? documents : null,
+      documentsStatus: connected ? documentsStatus : 'idle',
+      documentsError: connected ? documentsError : null,
       busy,
       error,
       testResult,
@@ -400,6 +438,6 @@ export function useConnector(available: boolean, ready: boolean): Connector {
       deleteDocument,
       disconnect,
     }),
-    [ready, loaded, available, connected, activeToken, info, pending, documents, busy, error, testResult, requestHeaders, connect, confirmSaved, cancelPending, test, refreshDocuments, deleteDocument, disconnect],
+    [ready, loaded, available, connected, activeToken, info, pending, documents, documentsStatus, documentsError, busy, error, testResult, requestHeaders, connect, confirmSaved, cancelPending, test, refreshDocuments, deleteDocument, disconnect],
   )
 }
