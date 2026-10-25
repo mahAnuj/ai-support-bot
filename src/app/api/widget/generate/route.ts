@@ -4,7 +4,8 @@ import { clientIp, isRateLimited, isWithinLimit, LIMITS } from '../../../../lib/
 import { resolveBuilderStore, storageErrorResponse } from '../../../../lib/storage/resolve'
 import { isStorageError, safeErrorSummary } from '../../../../lib/storage/errors'
 import { keyLabel } from '../../../../lib/storage/log'
-import { sealWidgetToken } from '../../../../lib/storage/token'
+import { isStorageEnabled, sealWidgetToken, sealWidgetTokenV2 } from '../../../../lib/storage/token'
+import { normalizeOriginList, ORIGIN_ERROR_MESSAGES } from '../../../../lib/origins'
 import type { WidgetSettings } from '../../../../lib/storage/types'
 
 export async function POST(request: NextRequest) {
@@ -29,6 +30,15 @@ export async function POST(request: NextRequest) {
         !(Array.isArray(config.allowed_domains) && config.allowed_domains.every((d: unknown) => typeof d === 'string')))
     ) {
       return NextResponse.json({ error: 'Invalid widget configuration' }, { status: 400 })
+    }
+
+    let origins: string[] = []
+    if (config.allowed_origins !== undefined) {
+      const list = normalizeOriginList(config.allowed_origins)
+      if (!list.ok) {
+        return NextResponse.json({ error: ORIGIN_ERROR_MESSAGES[list.code], code: 'invalid_origin' }, { status: 400 })
+      }
+      origins = list.origins
     }
     
     if (ctx.kind === 'memory' && !config.sessionId) {
@@ -72,15 +82,28 @@ export async function POST(request: NextRequest) {
         )
       }
       const widget = await ctx.store.createWidget(workspaceId, settings)
-      const widgetKey = sealWidgetToken({ conn: ctx.connection.normalized, workspaceId, widgetId: widget.id })
+      const conn = ctx.connection.normalized
+      const widgetKey = origins.length > 0
+        ? sealWidgetTokenV2({ source: { kind: 'postgres', conn, workspaceId, widgetId: widget.id }, origins })
+        : sealWidgetToken({ conn, workspaceId, widgetId: widget.id })
       result = { widget: { ...widget, widget_key: widgetKey }, widgetKey, persistent: true }
     } else {
       console.log('🔧 Creating widget from session...')
-      // Create widget from session
-      result = await createWidgetFromSession(config.sessionId, {
+      // With the server key the list rides in an sbw2_ token and the record is
+      // sealed, so the plain widget- key must never leave this route
+      const seal = origins.length > 0 && isStorageEnabled()
+      const created = await createWidgetFromSession(config.sessionId, {
         ...settings,
+        ...(origins.length > 0 ? { allowed_origins: origins } : {}),
+        ...(seal ? { sealed: true } : {}),
         knowledge_base_id: '' // Will be created by the function
       })
+      if (seal) {
+        const widgetKey = sealWidgetTokenV2({ source: { kind: 'memory', widgetKey: created.widgetKey }, origins })
+        result = { widget: { ...created.widget, widget_key: widgetKey }, widgetKey }
+      } else {
+        result = created
+      }
     }
     
     console.log('✅ Widget created successfully:', keyLabel(result.widgetKey))
