@@ -1,4 +1,5 @@
 import type { NextRequest } from 'next/server'
+import { exactOriginAllowed, type OriginPolicy } from './origins'
 
 // Every chat request spends the deployment's Groq quota, and the chat routes
 // are reachable from any site. These checks bound what one client can spend.
@@ -68,4 +69,37 @@ export function originAllowed(origin: string | null, allowedDomains: string[]): 
     const domain = entry.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/[/:].*$/, '')
     return domain.length > 0 && (hostname === domain || hostname.endsWith(`.${domain}`))
   })
+}
+
+/** Whether a widget's access policy lets a page with this Origin use it. */
+export function widgetOriginAllowed(policy: OriginPolicy, origin: string | null): boolean {
+  switch (policy.kind) {
+    case 'any':
+      return true
+    case 'legacy':
+      return originAllowed(origin, policy.domains)
+    case 'exact':
+      return exactOriginAllowed(policy.origins, origin)
+  }
+}
+
+/**
+ * CORS headers for widget chat responses. A widget with an exact list echoes
+ * the request origin only when it is allowed, never `*`; other widgets keep `*`.
+ */
+export function widgetCorsHeaders(policy: OriginPolicy, origin: string | null): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+  }
+  if (policy.kind === 'exact') {
+    headers['Vary'] = 'Origin'
+    if (origin && exactOriginAllowed(policy.origins, origin)) {
+      headers['Access-Control-Allow-Origin'] = origin
+    }
+  } else {
+    headers['Access-Control-Allow-Origin'] = '*'
+  }
+  return headers
 }
