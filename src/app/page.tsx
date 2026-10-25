@@ -61,16 +61,16 @@ function CheckIcon({ size = 16 }: { size?: number }) {
 function ProgressRail({ statuses }: { statuses: StepStatus[] }) {
   return (
     <nav aria-label="Progress" className="mt-8 motion-safe:animate-enter [animation-delay:120ms]">
-      <ol className="grid grid-cols-4 gap-2 sm:flex sm:gap-0">
+      <ol className="grid grid-cols-4 gap-2 md:flex md:gap-0">
         {RAIL_STEPS.map((step, i) => {
           const status = statuses[i]
           const isLast = i === RAIL_STEPS.length - 1
           return (
-            <li key={step.href} className={`flex min-w-0 justify-center sm:items-center sm:justify-start ${isLast ? 'sm:flex-none' : 'sm:flex-1'}`}>
+            <li key={step.href} className={`flex min-w-0 justify-center md:items-center md:justify-start ${isLast ? 'md:flex-none' : 'md:flex-1'}`}>
               <a
                 href={step.href}
                 aria-current={status === 'current' ? 'step' : undefined}
-                className="flex min-h-10 min-w-0 flex-col items-center gap-1.5 rounded-md px-1 py-1 text-center focus-visible:outline-white sm:flex-row sm:gap-3 sm:text-left"
+                className="flex min-h-10 min-w-0 flex-col items-center gap-1.5 rounded-md px-1 py-1 text-center focus-visible:outline-white md:flex-row md:gap-3 md:text-left"
               >
                 {status === 'done' ? (
                   <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-hero-accent text-hero">
@@ -86,7 +86,7 @@ function ProgressRail({ statuses }: { statuses: StepStatus[] }) {
                   </span>
                 )}
                 <span
-                  className={`text-xs sm:whitespace-nowrap sm:text-sm ${
+                  className={`text-xs md:whitespace-nowrap md:text-sm ${
                     status === 'current' ? 'font-semibold text-hero-ink' : status === 'done' ? 'text-hero-ink' : 'text-hero-muted'
                   }`}
                 >
@@ -94,7 +94,7 @@ function ProgressRail({ statuses }: { statuses: StepStatus[] }) {
                   <span className="sr-only">{STATUS_SUFFIX[status]}</span>
                 </span>
               </a>
-              {!isLast && <span aria-hidden="true" className="mx-2 hidden h-px min-w-4 flex-1 bg-hero-line sm:block lg:mx-3" />}
+              {!isLast && <span aria-hidden="true" className="mx-2 hidden h-px min-w-4 flex-1 bg-hero-line md:block lg:mx-3" />}
             </li>
           )
         })}
