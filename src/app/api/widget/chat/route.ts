@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { generateResponse } from '../../../../lib/llm'
-import { demoProvider } from '../../../../lib/model/provider'
+import { chatErrorCode, generateResponse } from '../../../../lib/llm'
+import { demoProvider, ownerProvider } from '../../../../lib/model/provider'
+import { isModelError } from '../../../../lib/model/shared'
 import { getCachedEmbedding } from '../../../../lib/rag'
 import { matchScore, MIN_SIMILARITY } from '../../../../lib/embeddings'
 import { clientIp, isRateLimited, LIMITS, widgetCorsHeaders, widgetOriginAllowed } from '../../../../lib/guard'
@@ -89,7 +90,7 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    const { store, widget, kind, label, access } = resolved.ctx
+    const { store, widget, kind, label, access, model } = resolved.ctx
     const origin = request.headers.get('origin')
     cors = widgetCorsHeaders(access, origin)
 
@@ -183,14 +184,23 @@ export async function POST(request: NextRequest) {
     const systemPrompt = widget.system_prompt || 
       'You are a helpful AI assistant embedded in a website widget. Provide helpful and accurate information formatted with proper markdown for easy reading.'
     
-    const response = await generateResponse({
-      query: message,
-      context,
-      sessionId: sessionId || 'widget-session',
-      isEnhanced,
-      systemPrompt,
-      roleContext: widget.role_context
-    }, demoProvider())
+    // An owner model answers alone: a failure is an error, never a Groq answer (D8)
+    const provider = model ? ownerProvider(model) : demoProvider()
+    let response
+    try {
+      response = await generateResponse({
+        query: message,
+        context,
+        sessionId: sessionId || 'widget-session',
+        isEnhanced,
+        systemPrompt,
+        roleContext: widget.role_context
+      }, provider)
+    } catch (error) {
+      if (!isModelError(error)) throw error
+      console.error(`Widget chat model error code=${error.code}`)
+      return corsJson(UNAVAILABLE_BODY, 503, cors)
+    }
     
     const responseData: any = {
       message: response.message,
@@ -204,7 +214,8 @@ export async function POST(request: NextRequest) {
     return corsJson(responseData, 200, cors)
       
   } catch (error) {
-    console.error('Widget chat error:', error)
+    // Raw errors on the provider path can carry hostnames or provider text: log the code only
+    console.error(`Widget chat error code=${chatErrorCode(error)} type=${error instanceof Error ? error.name : typeof error}`)
     return new NextResponse(JSON.stringify({ 
       message: 'Sorry, I encountered an error. Please try again.',
       confidence: 0,

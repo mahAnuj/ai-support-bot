@@ -45,8 +45,8 @@ function parseVariations(content: string): unknown[] {
 
 // Ask the chat model to reword the question, for better semantic matching
 async function generateQueryVariations(query: string, provider: ChatProvider): Promise<string[]> {
-  // Keyed per provider and model so cached variations are never shared across models
-  const cacheKey = `${provider.kind}\n${provider.model}\n${fingerprint(query.trim().toLowerCase())}`
+  // Keyed per provider endpoint and model so cached variations are never shared between owners
+  const cacheKey = `${provider.kind}\n${provider.cacheKey}\n${fingerprint(query.trim().toLowerCase())}`
   
   // Check cache first
   if (variationCache.has(cacheKey)) {

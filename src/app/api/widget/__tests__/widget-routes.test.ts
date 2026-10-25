@@ -8,6 +8,7 @@ import { memoryStore } from '../../../../lib/storage/memory-store'
 import type { WidgetSettings } from '../../../../lib/storage/types'
 
 jest.mock('../../../../lib/llm', () => ({
+  chatErrorCode: jest.requireActual('../../../../lib/llm').chatErrorCode,
   generateResponse: jest.fn(async () => ({ message: 'Answer from the model' })),
 }))
 

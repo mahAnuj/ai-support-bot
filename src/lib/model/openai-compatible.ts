@@ -171,9 +171,11 @@ function postCompletion(config: OwnerModelConfig, req: ChatCompletionRequest): P
 }
 
 export function createOpenAICompatibleProvider(config: OwnerModelConfig, opts: OpenAICompatibleOptions): ChatProvider {
+  const fp = fingerprint(`${config.baseUrl}\n${config.model}`)
   return {
     kind: opts.kind,
     model: config.model,
+    cacheKey: fp,
     async complete(req) {
       const started = Date.now()
       let outcome: 'ok' | ModelErrorCode = 'ok'
@@ -184,7 +186,6 @@ export function createOpenAICompatibleProvider(config: OwnerModelConfig, opts: O
         outcome = error.code
         throw error
       } finally {
-        const fp = fingerprint(`${config.baseUrl}\n${config.model}`)
         console.log(`model call provider=${opts.kind} model=#${fp} outcome=${outcome} ms=${Date.now() - started}`)
       }
     },

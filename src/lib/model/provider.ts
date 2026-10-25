@@ -30,6 +30,8 @@ export type ChatProviderKind = 'demo' | 'owner'
 export interface ChatProvider {
   readonly kind: ChatProviderKind
   readonly model: string
+  // Distinguishes endpoints that share a model ID. A fingerprint, never the raw URL or key.
+  readonly cacheKey: string
   // Resolves to the message content ('' when the model returned none). Rejects only with ModelError,
   // except the demo provider's missing-key Error.
   complete(req: ChatCompletionRequest): Promise<string>
@@ -53,6 +55,9 @@ export function demoProvider(): ChatProvider {
     kind: 'demo',
     get model() {
       return demoModel()
+    },
+    get cacheKey() {
+      return `demo:${demoModel()}`
     },
     complete(req) {
       const apiKey = process.env.GROQ_API_KEY

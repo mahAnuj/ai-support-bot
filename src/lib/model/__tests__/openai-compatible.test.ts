@@ -206,6 +206,15 @@ describe('success', () => {
     await expect(p.complete(request)).resolves.toBe('Hello there')
     expect(logSpy.mock.calls[0][0]).toMatch(/^model call provider=owner /)
   })
+
+  it('gives owners with the same model ID on different endpoints different cache keys', () => {
+    const a = ownerProvider({ baseUrl: 'https://a.example/v1', model: 'llama-x', apiKey: API_KEY })
+    const b = ownerProvider({ baseUrl: 'https://b.example/v1', model: 'llama-x', apiKey: API_KEY })
+    expect(a.cacheKey).toMatch(/^[0-9a-f]{8}$/)
+    expect(a.cacheKey).not.toBe(b.cacheKey)
+    expect(a.cacheKey).not.toContain('a.example')
+    expect(a.cacheKey).not.toContain(API_KEY)
+  })
 })
 
 describe('error mapping (AC 15)', () => {
@@ -379,8 +388,10 @@ describe('demoProvider', () => {
       const p = demoProvider()
       expect(p.kind).toBe('demo')
       expect(p.model).toBe('openai/gpt-oss-20b')
+      expect(p.cacheKey).toBe('demo:openai/gpt-oss-20b')
       process.env.GROQ_MODEL = 'llama-x'
       expect(p.model).toBe('llama-x')
+      expect(p.cacheKey).toBe('demo:llama-x')
       await expect(p.complete(request)).rejects.toThrow('GROQ_API_KEY is not set')
       expect(lookupMock).not.toHaveBeenCalled()
     } finally {

@@ -1,6 +1,7 @@
 // Enhanced in-memory database implementation for demo with widget support
 // Zero setup required - supports both sessions and embeddable widgets
 
+import { fingerprint } from './storage/log'
 import type { 
   DemoSession, 
   SessionDocument, 
@@ -459,7 +460,8 @@ export async function createWidgetFromSession(
   db.widgetKeys.set(widgetKey, widget.id)
   db.sessionToKnowledgeBase.set(sessionId, knowledgeBase.id)
   
-  console.log(`✅ Widget created: ${widgetKey} from session: ${sessionId}`)
+  // A sealed widget's plain key would bypass its token, so it never reaches the logs
+  console.log(`✅ Widget created: ${config.sealed ? `sealed #${fingerprint(widgetKey)}` : widgetKey} from session: ${sessionId}`)
   return { widget, widgetKey }
 }
 
