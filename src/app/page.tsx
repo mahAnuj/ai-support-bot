@@ -215,6 +215,8 @@ export default function HomePage() {
 
       if (!response.ok) {
         const body = await response.json().catch(() => null)
+        // The workspace was deleted from the owner's database; recheck the link so it is cleared
+        if (body?.code === 'workspace_not_found') void storage.refreshDocuments()
         if (response.status === 400) {
           const details = Array.isArray(body?.details) ? body.details.join(' ') : ''
           setUploadError(details || body?.error || 'These files couldn\'t be uploaded.')
@@ -495,6 +497,7 @@ export default function HomePage() {
               documentCount={uploadedDocuments.length}
               config={widgetConfig}
               onGenerated={handleGenerated}
+              onWorkspaceMissing={storage.refreshDocuments}
               storageToken={storage.token}
             />
             <StorageModeLabel storage={storage} place="embed" />

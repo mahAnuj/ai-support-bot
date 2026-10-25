@@ -25,6 +25,8 @@ export interface EmbedStepProps {
   documentCount: number
   config: WidgetConfig
   onGenerated?: () => void
+  // Called when the connected workspace no longer exists, so the stale link can be cleared
+  onWorkspaceMissing?: () => void
   storageToken?: string | null
 }
 
@@ -82,7 +84,7 @@ function CloseIcon() {
   )
 }
 
-export default function EmbedStep({ sessionId, documentCount, config, onGenerated, storageToken }: EmbedStepProps): JSX.Element {
+export default function EmbedStep({ sessionId, documentCount, config, onGenerated, onWorkspaceMissing, storageToken }: EmbedStepProps): JSX.Element {
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [embedCode, setEmbedCode] = useState('')
@@ -152,6 +154,7 @@ export default function EmbedStep({ sessionId, documentCount, config, onGenerate
       } else if (status === 400) {
         setError(`Couldn't generate embed code: ${body?.error ?? 'invalid request'}.`)
       } else if (!response.ok || typeof body?.embedCode !== 'string' || typeof body?.scriptUrl !== 'string') {
+        if (body?.code === 'workspace_not_found') onWorkspaceMissing?.()
         setError((STORAGE_ERROR_CODES as readonly string[]).includes(body?.code) ? storageErrorMessage(body.code) : `Couldn't generate embed code (status ${status}). Sessions are lost when the server restarts, so upload your documents again and retry.`)
       } else {
         setEmbedCode(body.embedCode)
