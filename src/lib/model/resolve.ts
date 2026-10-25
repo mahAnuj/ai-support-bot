@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server'
 import {
   isBuilderTokenShape,
+  isConnectorTokenShape,
   isStorageEnabled,
   isWidgetTokenShape,
   openModelToken,
@@ -19,7 +20,7 @@ export function resolveBuilderModel(request: Request): BuilderModelResolution {
   const header = request.headers.get(MODEL_TOKEN_HEADER)
   if (header === null) return { ok: true, model: null }
   if (!isStorageEnabled()) return modelError('model_unavailable')
-  if (isBuilderTokenShape(header) || isWidgetTokenShape(header)) return modelError('model_token_wrong_purpose')
+  if (isBuilderTokenShape(header) || isWidgetTokenShape(header) || isConnectorTokenShape(header)) return modelError('model_token_wrong_purpose')
 
   const model = openModelToken(header)
   if (!model) return modelError('model_token_invalid')

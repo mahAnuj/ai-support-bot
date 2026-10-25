@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useId, useState } from 'react'
 import ChatInterface from '@/components/ui/ChatInterface'
 import FileUpload from '@/components/ui/FileUpload'
-import DataDisclosure from '@/components/ui/DataDisclosure'
+import DataDisclosure, { CONNECTOR_ANSWER_COPY } from '@/components/ui/DataDisclosure'
 import EmbedStep, { DEFAULT_PRIMARY_COLOR, toSafeHex, type WidgetConfig } from '@/components/ui/EmbedStep'
 import { readableTextOn } from '@/components/ui/contrast'
 import ConnectDatabaseStep from '@/components/storage/ConnectDatabaseStep'
@@ -11,6 +11,9 @@ import StorageModeLabel from '@/components/storage/StorageModeLabel'
 import { useStorageConnection } from '@/components/storage/useStorageConnection'
 import OwnModelStep from '@/components/model/OwnModelStep'
 import { useOwnModel } from '@/components/model/useOwnModel'
+import ConnectBackendStep from '@/components/connector/ConnectBackendStep'
+import { useConnector } from '@/components/connector/useConnector'
+import { connectorErrorMessage, connectorStatus, isConnectorErrorCode, type AnswerPath } from '@/lib/connector/shared'
 
 // Assistant configurations
 const UNIVERSAL_ASSISTANT = {
@@ -28,6 +31,10 @@ const HELPER = 'mt-1.5 text-xs text-ink-subtle'
 const INPUT = 'h-11 w-full rounded-md border border-line-strong bg-surface px-3 text-base text-ink placeholder:text-ink-subtle focus:border-accent'
 const TEXTAREA = 'block w-full rounded-md border border-line-strong bg-surface px-3 py-2.5 max-sm:min-h-24 text-base text-ink placeholder:text-ink-subtle focus:border-accent'
 const PANEL = 'rounded-lg border border-line bg-surface p-4 shadow-sm sm:p-6'
+
+const ONE_PLACE_FROM_BACKEND = 'Disconnect your backend first: documents live in one place at a time.'
+const ONE_PLACE_FROM_DATABASE = 'Disconnect your database first: documents live in one place at a time.'
+const BACKEND_ANSWERS = 'Your backend writes every answer, so a model saved here is not used.'
 
 const SIZE_OPTIONS: { value: WidgetConfig['size']; label: string; dimensions: string }[] = [
   { value: 'small', label: 'Small', dimensions: '300×400' },
@@ -175,6 +182,19 @@ export default function HomePage() {
   const savedModel = ownModel.model
   const modelInfo = savedModel ? { model: savedModel.model, host: savedModel.host } : null
   const handleDisconnect = useCallback(() => { setUploadedDocuments([]); setSessionId(null) }, [])
+  const connector = useConnector(storage.available, storage.ready)
+  const connectorDocuments = connector.connected ? connector.documents : null
+  useEffect(() => {
+    if (connectorDocuments) setUploadedDocuments(connectorDocuments.map(d => ({ filename: d.filename, chunks: d.passageCount })))
+  }, [connectorDocuments])
+  const answerPath: AnswerPath | null = connector.connected && connector.info
+    ? (connector.info.answer ? 'backend' : savedModel ? 'owner' : 'demo')
+    : null
+  const connectorHost = connector.connected && connector.info ? connector.info.host : null
+  const activeModelToken = answerPath === 'backend' ? null : savedModel?.token ?? null
+  const activeModelInfo = answerPath === 'backend' ? null : modelInfo
+  // Demo documents are not sent to the backend (E5); the step tells the user to upload them again.
+  const handleConnectorConnected = useCallback(() => { setUploadedDocuments([]); setSessionId(null) }, [])
 
   const step1Id = useId()
   const step2Id = useId()
@@ -207,19 +227,26 @@ export default function HomePage() {
     const formData = new FormData()
     files.forEach(file => formData.append('files', file))
 
-    if (sessionId) {
+    const toBackend = connector.connected
+    if (sessionId && !toBackend) {
       formData.append('sessionId', sessionId)
     }
 
     try {
       const response = await fetch('/api/upload', {
         method: 'POST',
-        headers: storage.requestHeaders,
+        headers: toBackend ? connector.requestHeaders : storage.requestHeaders,
         body: formData,
       })
 
       if (!response.ok) {
         const body = await response.json().catch(() => null)
+        if (toBackend && isConnectorErrorCode(body?.code)) {
+          // A failure on a later file can leave earlier ones on the backend, so the list is reloaded either way.
+          void connector.refreshDocuments()
+          setUploadError(connectorErrorMessage(body.code, connectorStatus(body?.details)))
+          return
+        }
         // The workspace was deleted from the owner's database; recheck the link so it is cleared
         if (body?.code === 'workspace_not_found') void storage.refreshDocuments()
         if (response.status === 400) {
@@ -240,6 +267,12 @@ export default function HomePage() {
       }
 
       const result = await response.json()
+
+      if (toBackend) {
+        await connector.refreshDocuments()
+        setUploadComplete(true)
+        return
+      }
 
       if (result.sessionId && result.sessionId !== sessionId) {
         setSessionId(result.sessionId)
@@ -418,8 +451,12 @@ export default function HomePage() {
               status={statuses[1]}
             />
             <div className={PANEL}>
-              <DataDisclosure connected={storage.connected} ownModel={modelInfo} />
-              <StorageModeLabel storage={storage} place="documents" />
+              <DataDisclosure
+                connected={storage.connected}
+                ownModel={activeModelInfo}
+                connector={answerPath && connectorHost ? { host: connectorHost, answerPath } : null}
+              />
+              <StorageModeLabel storage={storage} place="documents" connectorHost={connectorHost} />
               <div className="mt-5">
                 <FileUpload
                   onUpload={handleFileUpload}
@@ -434,7 +471,9 @@ export default function HomePage() {
               {hasUploadedFiles && (
                 <div className="mt-6">
                   <h3 id={docsHeadingId} className="text-base font-semibold text-ink">
-                    {`Documents in this session (${uploadedDocuments.length})`}
+                    {connectorHost
+                      ? `Documents on your backend (${uploadedDocuments.length})`
+                      : `Documents in this session (${uploadedDocuments.length})`}
                   </h3>
                   <ul aria-labelledby={docsHeadingId} className="mt-3 flex flex-col gap-2">
                     {uploadedDocuments.map((doc, index) => (
@@ -444,7 +483,9 @@ export default function HomePage() {
                           <span className="min-w-0 truncate text-sm text-ink">{doc.filename}</span>
                         </span>
                         <span className="shrink-0 text-xs text-ink-muted tabular-nums">
-                          {`${doc.chunks} ${doc.chunks === 1 ? 'chunk' : 'chunks'}`}
+                          {connectorHost
+                            ? `${doc.chunks} ${doc.chunks === 1 ? 'passage' : 'passages'}`
+                            : `${doc.chunks} ${doc.chunks === 1 ? 'chunk' : 'chunks'}`}
                         </span>
                       </li>
                     ))}
@@ -452,8 +493,25 @@ export default function HomePage() {
                 </div>
               )}
             </div>
-            <ConnectDatabaseStep storage={storage} sessionId={sessionId} onDisconnect={handleDisconnect} />
-            <OwnModelStep available={storage.available} ready={storage.ready} ownModel={ownModel} />
+            <ConnectDatabaseStep
+              storage={storage}
+              sessionId={sessionId}
+              onDisconnect={handleDisconnect}
+              disabledReason={!storage.connected && (connector.connected || connector.pending) ? ONE_PLACE_FROM_BACKEND : null}
+            />
+            <ConnectBackendStep
+              connector={connector}
+              ownModelSaved={!!savedModel}
+              disabledReason={storage.connected && !connector.connected && !connector.pending ? ONE_PLACE_FROM_DATABASE : null}
+              onConnected={handleConnectorConnected}
+              onDisconnect={handleDisconnect}
+            />
+            <OwnModelStep
+              available={storage.available}
+              ready={storage.ready}
+              ownModel={ownModel}
+              disabledReason={answerPath === 'backend' ? BACKEND_ANSWERS : null}
+            />
           </section>
 
           <section
@@ -481,11 +539,13 @@ export default function HomePage() {
                 primaryColor={safeColor}
                 onPrimaryColor={readableTextOn(safeColor)}
                 onMessageSent={handleMessageSent}
-                storageToken={storage.token}
-                modelToken={savedModel?.token ?? null}
+                storageToken={connector.token ?? storage.token}
+                modelToken={activeModelToken}
               />
             </div>
-            {savedModel ? (
+            {answerPath ? (
+              <p className="mt-2 text-xs text-ink-muted">{CONNECTOR_ANSWER_COPY[answerPath]}</p>
+            ) : savedModel ? (
               <p className="mt-2 text-xs text-ink-muted">
                 Answers here and in the widget come from{' '}
                 <span className="font-mono break-all text-ink">{savedModel.model}</span> at{' '}
@@ -514,12 +574,13 @@ export default function HomePage() {
               config={widgetConfig}
               onGenerated={handleGenerated}
               onWorkspaceMissing={storage.refreshDocuments}
-              storageToken={storage.token}
-              modelAttached={!!savedModel}
-              modelToken={savedModel?.token ?? null}
-              ownModel={modelInfo}
+              storageToken={connector.token ?? storage.token}
+              modelAttached={!!savedModel && answerPath !== 'backend'}
+              modelToken={activeModelToken}
+              ownModel={activeModelInfo}
+              connectorMode={connector.connected}
             />
-            <StorageModeLabel storage={storage} place="embed" />
+            <StorageModeLabel storage={storage} place="embed" connectorHost={connectorHost} />
           </section>
         </div>
       </main>

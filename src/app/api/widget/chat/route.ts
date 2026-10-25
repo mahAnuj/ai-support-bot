@@ -8,6 +8,8 @@ import { clientIp, isRateLimited, LIMITS, widgetCorsHeaders, widgetOriginAllowed
 import { resolveWidget } from '../../../../lib/storage/resolve'
 import { retrievalLog } from '../../../../lib/storage/log'
 import { safeErrorSummary } from '../../../../lib/storage/errors'
+import { answerWithConnector } from '../../../../lib/connector/answer'
+import { isConnectorError } from '../../../../lib/connector/shared'
 import type { VectorSearchResult } from '../../../../types/database'
 
 const CORS_HEADERS: Record<string, string> = {
@@ -20,6 +22,9 @@ const CORS_HEADERS: Record<string, string> = {
 function corsJson(body: unknown, status: number, headers: Record<string, string> = CORS_HEADERS) {
   return new NextResponse(JSON.stringify(body), { status, headers })
 }
+
+const DEFAULT_WIDGET_SYSTEM_PROMPT =
+  'You are a helpful AI assistant embedded in a website widget. Provide helpful and accurate information formatted with proper markdown for easy reading.'
 
 // A persistent widget whose database cannot be read must not answer without its documents.
 const UNAVAILABLE_BODY = {
@@ -90,15 +95,44 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    const { store, widget, kind, label, access, model } = resolved.ctx
+    const ctx = resolved.ctx
     const origin = request.headers.get('origin')
-    cors = widgetCorsHeaders(access, origin)
+    cors = widgetCorsHeaders(ctx.access, origin)
 
-    if (!widgetOriginAllowed(access, origin)) {
+    if (!widgetOriginAllowed(ctx.access, origin)) {
       return corsJson({ error: 'This widget is not enabled for this site', code: 'origin_not_allowed' }, 403, cors)
     }
 
-    console.log('Widget Chat API - Widget found:', label)
+    console.log('Widget Chat API - Widget found:', ctx.label)
+
+    if (ctx.kind === 'connector') {
+      // A backend widget answers from its backend or not at all: any failure is a 503, never a Groq answer.
+      try {
+        const result = await answerWithConnector({
+          connector: ctx.connector,
+          answer: ctx.answer,
+          model: ctx.answer ? null : ctx.model,
+          question: message,
+          systemPrompt: ctx.settings.systemPrompt,
+          roleContext: ctx.settings.roleContext,
+          defaultSystemPrompt: DEFAULT_WIDGET_SYSTEM_PROMPT,
+        })
+        return corsJson({
+          message: result.message,
+          confidence: result.confidence,
+          sources: result.sources,
+          isEnhanced: result.isEnhanced,
+          sessionId: sessionId || 'widget-session',
+          widgetKey
+        }, 200, cors)
+      } catch (error) {
+        const code = isConnectorError(error) ? error.code : chatErrorCode(error)
+        console.error(`Widget chat connector error code=${code}`)
+        return corsJson(UNAVAILABLE_BODY, 503, cors)
+      }
+    }
+
+    const { store, widget, kind, label, model } = ctx
     
     let ragResult = null
     let isEnhanced = false
@@ -181,8 +215,7 @@ export async function POST(request: NextRequest) {
     const context = ragResult && isEnhanced ? ragResult.context : undefined
     
     // Generate the answer with the widget's own prompts
-    const systemPrompt = widget.system_prompt || 
-      'You are a helpful AI assistant embedded in a website widget. Provide helpful and accurate information formatted with proper markdown for easy reading.'
+    const systemPrompt = widget.system_prompt || DEFAULT_WIDGET_SYSTEM_PROMPT
     
     // An owner model answers alone: a failure is an error, never a Groq answer (D8)
     const provider = model ? ownerProvider(model) : demoProvider()

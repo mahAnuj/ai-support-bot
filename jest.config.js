@@ -12,7 +12,10 @@ const customJestConfig = {
   testPathIgnorePatterns: [
     '<rootDir>/.next/',
     '<rootDir>/node_modules/',
+    '<rootDir>/connector/',
   ],
+  // connector/ is a separate package with its own package.json and tests (node --test).
+  modulePathIgnorePatterns: ['<rootDir>/connector/'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },

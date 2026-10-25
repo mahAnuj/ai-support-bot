@@ -15,10 +15,11 @@ npm run dev
 ```
 
 `GROQ_API_KEY` (free tier at console.groq.com) is the only variable the demo
-needs. `EMBED_TOKEN_KEY` is only needed for "Connect your own database" and
-"Use your own model", and `ALLOW_PRIVATE_MODEL_HOSTS` only for pointing your
-own model at a localhost or private host from a production build; see
-`.env.example` for what each one does.
+needs. `EMBED_TOKEN_KEY` is only needed for "Connect your own database",
+"Use your own model" and "Connect your backend", and
+`ALLOW_PRIVATE_MODEL_HOSTS` / `ALLOW_PRIVATE_CONNECTOR_HOSTS` only for pointing
+your own model or backend at a localhost or private host from a production
+build; see `.env.example` for what each one does.
 
 Open http://localhost:3000. Upload a document, ask a question, and you should
 see answers cite the file you uploaded.
@@ -32,6 +33,15 @@ at all, and it must stay that way (see below).
 npm run lint    # must be clean
 npm test        # must pass; needs no env vars or database
 npm run build   # must succeed with NO env vars set
+```
+
+If you touched `connector/` or `docs/connector-test-vectors.json`, also run
+the reference server's suite:
+
+```bash
+cd connector
+npm ci
+npm test        # tsc, then node --test; needs no network, database or key
 ```
 
 `npm run build` passing **without** `GROQ_API_KEY` or any other runtime secret
@@ -53,7 +63,24 @@ called; build any new client lazily inside a function the same way.
   adapter against a mock HTTP server, and model tokens.
 - `src/app/api/widget/__tests__/`: route tests for the widget chat, script and
   generate routes and the preview chat route, with embedding and model calls
-  mocked.
+  mocked, and the same routes plus upload in connector mode.
+- `src/lib/connector/__tests__/` and `src/app/api/connector/__tests__/`: the
+  connector client, signing, tokens, purpose binding and answer paths, and
+  the connect, test and documents routes, against a mock backend
+  (`test/helpers/connector-mock-backend.ts`) started inside the test.
+- `src/lib/storage/__tests__/connector-resolve.test.ts`: connector tokens in
+  the store and widget resolvers.
+
+The reference server in `connector/` has its own `node --test` suite (see
+above); jest ignores that directory. Its Postgres test runs only with
+`TEST_DATABASE_URL` set.
+
+**The signing test vectors are shared.** `docs/connector-test-vectors.json`
+is loaded by both `src/lib/connector/__tests__/signing.test.ts` and
+`connector/test/signing.test.ts`. Change a vector only together with both
+suites and [`docs/connector-api.md`](docs/connector-api.md), and run both.
+Changing the canonical string or the signature format breaks every deployed
+backend that verifies the current `v1` format.
 
 None of them touch the network or need env vars, a real key or a database.
 `pg.integration.test.ts` runs only when `TEST_DATABASE_URL` points at a
@@ -61,8 +88,8 @@ Postgres with pgvector installed; otherwise it is skipped.
 
 Library and route tests need `/** @jest-environment node */` at the top (the
 default is jsdom). **Tests for the untested parts would be a genuinely useful
-contribution:** chunking, the in-memory store, the upload, storage and
-model-validate routes, and the UI. Put them in `src/**/__tests__/` or name them
+contribution:** chunking, the in-memory store, the upload route outside
+connector mode, the storage and model-validate routes, and the UI. Put them in `src/**/__tests__/` or name them
 `*.test.ts`. Good targets:
 
 - `src/lib/documents.ts` — chunking behaviour on a known input
@@ -82,7 +109,9 @@ Please don't get a green run with `--passWithNoTests` or by skipping a failing s
 ## Things worth knowing before you change something
 
 - **There are two stores behind one interface** (`KnowledgeStore` in
-  `src/lib/storage/`). The demo store is in memory (`src/lib/database.ts`,
+  `src/lib/storage/`), and a third option with no store: an owner's backend,
+  reached only through `src/lib/connector/` (see the README's "Connect your
+  backend" and [`docs/connector-api.md`](docs/connector-api.md)). The demo store is in memory (`src/lib/database.ts`,
   plain `Map`s): data does not survive a restart and is not shared between
   instances. Users can connect their own Postgres with pgvector instead; see
   the README's "Connect your own database" and `scripts/support-bot-*.sql`.

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { clientIp, isRateLimited } from '../../../../lib/guard'
 import { StorageError, mapDriverError, safeErrorSummary } from '../../../../lib/storage/errors'
-import { resolveBuilderStore, storageErrorResponse } from '../../../../lib/storage/resolve'
+import { builderErrorResponse, resolveBuilderStore, storageErrorResponse } from '../../../../lib/storage/resolve'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,8 +11,10 @@ export async function GET(request: NextRequest) {
   }
 
   const resolved = resolveBuilderStore(request)
-  if (!resolved.ok) return storageErrorResponse(resolved.error)
+  if (!resolved.ok) return builderErrorResponse(resolved.error)
   const ctx = resolved.ctx
+  // A backend's documents are listed by /api/connector/documents.
+  if (ctx.kind === 'connector') return storageErrorResponse(new StorageError('token_wrong_purpose'))
   // Without a token there is no database to list from.
   if (ctx.kind !== 'postgres') return storageErrorResponse(new StorageError('invalid_token'))
 

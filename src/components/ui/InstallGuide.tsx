@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useId, useRef, useState, type JSX, type KeyboardEvent } from 'react'
+import type { AnswerPath } from '../../lib/connector/shared'
+import { CONNECTOR_ANSWER_COPY } from './DataDisclosure'
 
 export interface InstallGuideProps {
   embedCode: string
@@ -9,6 +11,7 @@ export interface InstallGuideProps {
   persistent?: boolean
   hasAllowedSites?: boolean
   ownModel?: { model: string; host: string } | null
+  connectorAnswerPath?: AnswerPath | null
 }
 
 type Platform = {
@@ -96,8 +99,12 @@ export default function InstallGuide({
   apiBaseUrl,
   persistent,
   hasAllowedSites,
-  ownModel = null,
+  ownModel: ownModelProp = null,
+  connectorAnswerPath = null,
 }: InstallGuideProps): JSX.Element {
+  const connector = connectorAnswerPath !== null
+  // With a backend, an owner model is only used on the 'owner' answer path
+  const ownModel = connector && connectorAnswerPath !== 'owner' ? null : ownModelProp
   const list = platforms(embedCode, scriptUrl)
   const [active, setActive] = useState(list[0].id)
   const [copied, setCopied] = useState('')
@@ -223,20 +230,40 @@ export default function InstallGuide({
           <div className="sm:grid sm:grid-cols-[12rem_minmax(0,1fr)] sm:gap-x-6">
             <dt className="font-semibold text-ink">Do I need my own server?</dt>
             <dd className="mt-0.5 max-w-[65ch] text-ink-muted sm:mt-0">
-              No. Your site only serves the tag. Each question goes from the visitor&apos;s browser to this app at{' '}
-              <span className="break-all font-mono text-xs text-ink">{apiBaseUrl}</span>, which finds matching passages in
-              your documents and{' '}
-              {ownModel ? (
+              {connectorAnswerPath ? (
                 <>
-                  asks <span className="break-all font-mono text-xs text-ink">{ownModel.model}</span> at{' '}
-                  <span className="break-all font-mono text-xs text-ink">{ownModel.host}</span> with your API key. The
-                  answer goes straight back to the browser. Your API key is inside the tag only in encrypted form, which
-                  only this app can decrypt, and your site&apos;s server is never contacted.
+                  Only the backend you connected. Your site only serves the tag. Each question goes from the
+                  visitor&apos;s browser to this app at{' '}
+                  <span className="break-all font-mono text-xs text-ink">{apiBaseUrl}</span>, which sends it to your
+                  backend to find matching passages. {CONNECTOR_ANSWER_COPY[connectorAnswerPath]}{' '}
+                  {ownModel && (
+                    <>
+                      This app asks <span className="break-all font-mono text-xs text-ink">{ownModel.model}</span> at{' '}
+                      <span className="break-all font-mono text-xs text-ink">{ownModel.host}</span> with your API key.{' '}
+                    </>
+                  )}
+                  This app returns the answer to the browser. Your backend&apos;s address, key id and signing secret
+                  {ownModel ? ', and your API key, are' : ' are'} inside the tag only in encrypted form, which only this
+                  app can decrypt, and your site&apos;s server is never contacted.
                 </>
               ) : (
                 <>
-                  asks the chat model on Groq. The answer goes straight back to the browser. No API key is placed on your
-                  site, and your site&apos;s server is never contacted.
+                  No. Your site only serves the tag. Each question goes from the visitor&apos;s browser to this app at{' '}
+                  <span className="break-all font-mono text-xs text-ink">{apiBaseUrl}</span>, which finds matching passages in
+                  your documents and{' '}
+                  {ownModel ? (
+                    <>
+                      asks <span className="break-all font-mono text-xs text-ink">{ownModel.model}</span> at{' '}
+                      <span className="break-all font-mono text-xs text-ink">{ownModel.host}</span> with your API key. The
+                      answer goes straight back to the browser. Your API key is inside the tag only in encrypted form, which
+                      only this app can decrypt, and your site&apos;s server is never contacted.
+                    </>
+                  ) : (
+                    <>
+                      asks the chat model on Groq. The answer goes straight back to the browser. No API key is placed on your
+                      site, and your site&apos;s server is never contacted.
+                    </>
+                  )}
                 </>
               )}
             </dd>
@@ -244,24 +271,36 @@ export default function InstallGuide({
           <div className="sm:grid sm:grid-cols-[12rem_minmax(0,1fr)] sm:gap-x-6">
             <dt className="font-semibold text-ink">What a visitor sends</dt>
             <dd className="mt-0.5 max-w-[65ch] text-ink-muted sm:mt-0">
-              The question they type and the widget key. The question and matching passages from your documents are
-              sent{' '}
-              {ownModel ? (
+              {connectorAnswerPath ? (
                 <>
-                  from this app to <span className="break-all font-mono text-xs text-ink">{ownModel.host}</span>, instead
-                  of Groq, to write the answer. That provider&apos;s data retention policy applies.
+                  The question they type and the widget key. This app sends the question to your backend to find
+                  matching passages. {CONNECTOR_ANSWER_COPY[connectorAnswerPath]}
+                  {connectorAnswerPath === 'owner' && ownModel && " That provider's data retention policy applies."}
                 </>
               ) : (
-                'to Groq to write the answer.'
+                <>
+                  The question they type and the widget key. The question and matching passages from your documents are
+                  sent{' '}
+                  {ownModel ? (
+                    <>
+                      from this app to <span className="break-all font-mono text-xs text-ink">{ownModel.host}</span>, instead
+                      of Groq, to write the answer. That provider&apos;s data retention policy applies.
+                    </>
+                  ) : (
+                    'to Groq to write the answer.'
+                  )}
+                </>
               )}
             </dd>
           </div>
           <div className="sm:grid sm:grid-cols-[12rem_minmax(0,1fr)] sm:gap-x-6">
             <dt className="font-semibold text-ink">Limits</dt>
             <dd className="mt-0.5 max-w-[65ch] text-ink-muted sm:mt-0">
-              {persistent
-                ? 'Widgets and documents are stored in your database, so the widget keeps answering after server restarts.'
-                : "Widgets and documents are kept in this server's memory, so the widget stops answering after a server restart and you need to generate it again."}{' '}
+              {connector
+                ? 'Documents are kept by your backend and the widget settings are inside the tag, so the widget keeps answering after this server restarts, as long as your backend is reachable and still lists the key id in CONNECTOR_KEYS.'
+                : persistent
+                  ? 'Widgets and documents are stored in your database, so the widget keeps answering after server restarts.'
+                  : "Widgets and documents are kept in this server's memory, so the widget stops answering after a server restart and you need to generate it again."}{' '}
               {hasAllowedSites
                 ? ownModel
                   ? 'A copy of the tag on a site that is not in your allowed list is refused. Visitors on your allowed sites can spend your provider credits, up to 20 questions a minute per visitor network on each server instance.'
