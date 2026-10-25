@@ -2,21 +2,21 @@ import { NextRequest, NextResponse } from 'next/server'
 import { generateResponse } from '../../../../lib/llm'
 import { getCachedEmbedding } from '../../../../lib/rag'
 import { matchScore, MIN_SIMILARITY } from '../../../../lib/embeddings'
-import { clientIp, isRateLimited, LIMITS, originAllowed } from '../../../../lib/guard'
+import { clientIp, isRateLimited, LIMITS, widgetCorsHeaders, widgetOriginAllowed } from '../../../../lib/guard'
 import { resolveWidget } from '../../../../lib/storage/resolve'
 import { retrievalLog } from '../../../../lib/storage/log'
 import { safeErrorSummary } from '../../../../lib/storage/errors'
 import type { VectorSearchResult } from '../../../../types/database'
 
-const CORS_HEADERS = {
+const CORS_HEADERS: Record<string, string> = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
 }
 
-function corsJson(body: unknown, status: number) {
-  return new NextResponse(JSON.stringify(body), { status, headers: CORS_HEADERS })
+function corsJson(body: unknown, status: number, headers: Record<string, string> = CORS_HEADERS) {
+  return new NextResponse(JSON.stringify(body), { status, headers })
 }
 
 // A persistent widget whose database cannot be read must not answer without its documents.
@@ -30,6 +30,8 @@ const UNAVAILABLE_BODY = {
 }
 
 export async function POST(request: NextRequest) {
+  // Before the widget is resolved its policy is unknown, so early errors keep `*`.
+  let cors = CORS_HEADERS
   try {
     console.log('🔥 WIDGET CHAT API CALLED')
     if (isRateLimited(`widget:${clientIp(request)}`, 20)) {
@@ -86,10 +88,12 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    const { store, widget, kind, label } = resolved.ctx
+    const { store, widget, kind, label, access } = resolved.ctx
+    const origin = request.headers.get('origin')
+    cors = widgetCorsHeaders(access, origin)
 
-    if (!originAllowed(request.headers.get('origin'), widget.allowed_domains)) {
-      return corsJson({ error: 'This widget is not enabled for this site' }, 403)
+    if (!widgetOriginAllowed(access, origin)) {
+      return corsJson({ error: 'This widget is not enabled for this site', code: 'origin_not_allowed' }, 403, cors)
     }
 
     console.log('Widget Chat API - Widget found:', label)
@@ -104,7 +108,7 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       if (kind === 'memory') throw error
       console.error('Widget chat storage error:', safeErrorSummary(error))
-      return corsJson(UNAVAILABLE_BODY, 503)
+      return corsJson(UNAVAILABLE_BODY, 503, cors)
     }
 
     if (hasDocuments) {
@@ -162,7 +166,7 @@ export async function POST(request: NextRequest) {
       } catch (error) {
         if (kind === 'postgres') {
           console.error('Widget chat storage error:', safeErrorSummary(error))
-          return corsJson(UNAVAILABLE_BODY, 503)
+          return corsJson(UNAVAILABLE_BODY, 503, cors)
         }
         console.error('Widget RAG query error:', error)
         // Continue with generic response if RAG fails
@@ -196,15 +200,7 @@ export async function POST(request: NextRequest) {
       widgetKey
     }
 
-    return new NextResponse(JSON.stringify(responseData), {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
-      },
-    })
+    return corsJson(responseData, 200, cors)
       
   } catch (error) {
     console.error('Widget chat error:', error)
@@ -216,12 +212,7 @@ export async function POST(request: NextRequest) {
       sessionId: 'error-session'
     }), {
       status: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
-      },
+      headers: cors,
     })
   }
 }

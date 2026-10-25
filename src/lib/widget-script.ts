@@ -503,7 +503,9 @@ export function widgetScript(widget: Widget, baseUrl: string): string {
       if (!response.ok || !data || typeof data.message !== 'string' || !data.message) {
         addError(response.status === 429
           ? 'Too many messages from this network. Wait a minute and try again.'
-          : "The assistant couldn't answer just now. Try again in a moment.");
+          : response.status === 403
+            ? "This assistant isn't available on this site."
+            : "The assistant couldn't answer just now. Try again in a moment.");
         return;
       }
 
