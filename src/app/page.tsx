@@ -476,6 +476,10 @@ export default function HomePage() {
                 storageToken={storage.token}
               />
             </div>
+            <p className="mt-2 text-xs text-ink-muted">
+              This demo answers, here and in the widget, with a free-tier model on Groq, so replies can be slow or
+              briefly unavailable when the shared rate limit is reached.
+            </p>
           </section>
 
           <section id="embed" aria-labelledby={step4Id} className="min-w-0 scroll-mt-6 lg:col-start-1 lg:row-start-3">
