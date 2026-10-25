@@ -239,6 +239,15 @@ field, but API clients could read it. That number is gone.
   backend returns, and were calibrated for `all-MiniLM-L6-v2`. The reference
   server uses that model; a backend with another model gets a different
   cut-off.
+- **The same model does not give identical scores on every platform.** The
+  q8 model's arithmetic differs by CPU and operating system. In QA, the
+  reference server in its Docker image (Linux aarch64) and the app on macOS
+  arm64 scored the same question and passages up to about 0.03 apart, with
+  the same ranking; one passage scored 0.146 on one and 0.157 on the other, so
+  it fell on different sides of the 0.15 cut-off. Passages near the cut-off
+  can be kept or dropped differently, and a 0.03 difference moves the match
+  score by up to about 9 points. Agreement on a production platform such as
+  x86_64 Linux has not been measured.
 - **No authentication.** Anyone can use the builder, and a session ID is the
   only thing protecting a session's documents.
 - **Rate limits are per instance.** On a platform that runs many instances, the
@@ -249,7 +258,11 @@ field, but API clients could read it. That number is gone.
   `src/lib/guard.ts` uses `x-real-ip`, then the first entry of
   `x-forwarded-for`. Vercel overwrites these headers with the caller's address.
   On a host that passes them through from the client, a caller can change them
-  on every request and get around the per-IP limits.
+  on every request and get around the per-IP limits. QA confirmed this on the
+  backend connect route: sending a different `x-real-ip` on each request gets
+  past its limit of 5 per minute. `x-real-ip` is read first and used as sent,
+  so it also overrides an `x-forwarded-for` that a proxy appended to; with
+  neither header, every caller shares one `unknown` count.
 - **Allowed sites rely on the browser's `Origin` and `Referer` headers.** They
   stop other websites using a widget in visitors' browsers. A non-browser
   client can send any `Origin`, so anyone who copies the embed token can call

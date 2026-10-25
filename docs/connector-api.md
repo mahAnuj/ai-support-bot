@@ -266,7 +266,14 @@ score shown to users with `matchScore`, which scales scores between 0.15 and
 with mean pooling and normalised vectors. A connector that embeds with
 another model will produce scores on a different scale, so the same cut-off
 will keep more or fewer passages than intended. The reference server uses the
-same model, pooling and normalisation as the app.
+same model, pooling and normalisation as the app, so its scores are
+comparable to the app's but not identical across CPUs and operating systems:
+the quantised (q8) model's arithmetic differs by platform. In QA, the same
+question and passages scored up to about 0.03 apart between macOS arm64 and
+Linux aarch64 (for example 0.397 and 0.424), with the same ranking. A passage
+scoring close to 0.15 can therefore be kept on one platform and dropped on
+another. How closely scores agree on a production platform such as x86_64
+Linux has not been measured.
 
 ### `POST /v1/answer` (optional)
 

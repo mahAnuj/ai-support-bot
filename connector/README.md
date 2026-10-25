@@ -10,7 +10,9 @@ each request.
   documents. Run a second deployment (or a second database) for a second
   knowledge base.
 - It embeds passages with `Xenova/all-MiniLM-L6-v2`, the model the app uses,
-  so the app's match-score cut-offs apply unchanged.
+  so its scores are on the scale the app's match-score cut-offs were set for.
+  They are close to the app's scores, not identical (see
+  [Security model and limits](#security-model-and-limits)).
 - It answers questions itself (`POST /v1/answer`) only when you give it an
   OpenAI-compatible model. Otherwise the app writes the answers.
 - Plain `node:http`, TypeScript, two runtime dependencies (see
@@ -309,7 +311,16 @@ Limits and known gaps:
 - **Embedding model coupling.** The app's cut-offs (match score 0.15 for "a
   passage is relevant") were calibrated for `Xenova/all-MiniLM-L6-v2` with
   q8 weights, mean pooling and normalisation. Changing the model in
-  `src/embed.ts` changes the scores the app filters on.
+  `src/embed.ts` changes the scores the app filters on. Even with the same
+  model file, scores are comparable to the app's but not identical across
+  CPUs and operating systems, because the quantised model's arithmetic differs
+  by platform. In QA, this server in its Docker image (Linux aarch64) scored
+  the same question and passages up to about 0.03 away from the app on macOS
+  arm64 (for example 0.397 and 0.424 for one passage; 0.146 and 0.157 for
+  another), with the same ranking. A passage close to the 0.15 cut-off can be
+  kept on one platform and dropped on the other, as the second one was. How
+  closely scores agree on a production platform such as x86_64 Linux has
+  not been measured.
 - **Large documents and the app's timeout.** Passages are embedded one at a
   time. On a slow CPU a document with hundreds of passages can take longer
   than the app's 30-second limit for document calls. The app then reports a
@@ -445,7 +456,8 @@ Runtime dependencies, and why:
 - `pg`: the Postgres client.
 - `@huggingface/transformers` (pinned to 4.3.1, the version in the app's
   lockfile): runs the
-  embedding model locally, so embeddings match the app's. It brings
+  embedding model locally, with the same model and settings as the app, so
+  scores are close to the app's (not identical across platforms). It brings
   `onnxruntime-node` and `sharp` with it, which is most of the image size.
 
 Development only: `typescript`, `@types/node`, `@types/pg`. HTTP, signing,
