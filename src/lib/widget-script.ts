@@ -515,8 +515,10 @@ export function widgetScript(widget: Widget, baseUrl: string): string {
 
       addMessage(data.message, 'ai', data.isEnhanced, true);
     } catch (error) {
+      // A refusal by the site policy is a 403 without CORS headers, which a
+      // browser reports as a failed fetch, so this message covers it too.
       hideTyping();
-      addError("Couldn't reach the assistant. Check your connection and try again.");
+      addError("The assistant isn't available right now. Please try again later.");
     } finally {
       isPending = false;
       sendBtn.disabled = false;
