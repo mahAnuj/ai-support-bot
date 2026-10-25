@@ -11,6 +11,7 @@ import {
   openWidgetToken,
   openWidgetTokenV2,
   sealBuilderToken,
+  sealModelToken,
   sealWidgetToken,
   sealWidgetTokenV2,
 } from '../token'
@@ -40,6 +41,8 @@ const PRIVATE_CONN = 'postgresql://user:pw@10.0.0.5:5432/app'
 // Normalised from the worst-case 1000-char input (postgres://$...$@h/$...$); '%24' re-encoding
 // pushes it to the 3000-char normalised cap, and its widget token to ~4187 chars.
 const LONG_CONN = `postgresql://${'%24'.repeat(493)}:@h:5432/${'%24'.repeat(493)}?sslmode=verify-full`
+
+const MODEL = { baseUrl: 'https://api.example.com/v1', model: 'openai/gpt-oss-20b', apiKey: 'sk-test-0123456789' }
 
 const mockedGetPool = getPool as jest.MockedFunction<typeof getPool>
 const mockedCreateStore = createPostgresStore as jest.MockedFunction<typeof createPostgresStore>
@@ -157,6 +160,15 @@ describe('resolveBuilderStore', () => {
     expect(mockedCreateStore).not.toHaveBeenCalled()
   })
 
+  it('rejects a model token with token_wrong_purpose (403) before decrypting', () => {
+    for (const header of [sealModelToken(MODEL), 'sbm1_junk']) {
+      const r = resolveBuilderStore(req(header))
+      expect(!r.ok && r.error.code).toBe('token_wrong_purpose')
+      expect(!r.ok && r.error.status).toBe(403)
+    }
+    expect(mockedCreateStore).not.toHaveBeenCalled()
+  })
+
   it('rejects a tampered builder token with invalid_token and no connection', () => {
     const token = sealBuilderToken({ conn: CONN, workspaceId: randomUUID() })
     const r = resolveBuilderStore(req(tamper(token)))
@@ -199,6 +211,8 @@ describe('resolveBuilderStore', () => {
 describe('rejectWidgetTokenHeader', () => {
   it('flags only widget-shaped headers', () => {
     expect(rejectWidgetTokenHeader(req('sbw1_abc'))?.code).toBe('token_wrong_purpose')
+    expect(rejectWidgetTokenHeader(req('sbw2_abc'))?.code).toBe('token_wrong_purpose')
+    expect(rejectWidgetTokenHeader(req('sbm1_abc'))?.code).toBe('token_wrong_purpose')
     expect(rejectWidgetTokenHeader(req('sbb1_abc'))).toBeNull()
     expect(rejectWidgetTokenHeader(req())).toBeNull()
   })
@@ -226,6 +240,14 @@ describe('resolveWidget', () => {
     const token = sealBuilderToken({ conn: CONN, workspaceId: randomUUID() })
     expect(await resolveWidget(token)).toEqual({ ok: false, status: 403, code: 'token_wrong_purpose' })
     expect(await resolveWidget('sbb1_junk')).toEqual({ ok: false, status: 403, code: 'token_wrong_purpose' })
+    expect(mockedCreateStore).not.toHaveBeenCalled()
+  })
+
+  it('rejects model tokens with 403 without decrypting', async () => {
+    expect(await resolveWidget(sealModelToken(MODEL))).toEqual({ ok: false, status: 403, code: 'token_wrong_purpose' })
+    expect(await resolveWidget('sbm1_junk')).toEqual({ ok: false, status: 403, code: 'token_wrong_purpose' })
+    expect(mockedOpenV1).not.toHaveBeenCalled()
+    expect(mockedOpenV2).not.toHaveBeenCalled()
     expect(mockedCreateStore).not.toHaveBeenCalled()
   })
 
@@ -444,6 +466,64 @@ describe('resolveWidget access policy', () => {
     expect(mockedOpenV1).toHaveBeenCalledTimes(1)
 
     expect(await resolveWidget('widget-' + 'a'.repeat(MAX_TOKEN_LENGTH))).toEqual(notFound)
+  })
+})
+
+describe('resolveWidget owner model', () => {
+  afterEach(() => {
+    jest.restoreAllMocks()
+  })
+
+  it('carries the model from an sbw2_ memory source', async () => {
+    jest.spyOn(memoryStore, 'getWidget').mockResolvedValueOnce(fakeWidget('widget-abc', { sealed: true }))
+    const token = sealWidgetTokenV2({ source: { kind: 'memory', widgetKey: 'widget-abc' }, origins: [], model: MODEL })
+    const r = await resolveWidget(token)
+    if (!r.ok) throw new Error('expected a widget context')
+    expect(r.ctx.model).toEqual(MODEL)
+    expect(r.ctx.access).toEqual({ kind: 'any' })
+  })
+
+  it('carries the model from an sbw2_ postgres source', async () => {
+    const widgetId = randomUUID()
+    const token = sealWidgetTokenV2({
+      source: { kind: 'postgres', conn: CONN, workspaceId: randomUUID(), widgetId },
+      origins: ['https://shop.example.com'],
+      model: MODEL,
+    })
+    const getWidget = jest.fn().mockResolvedValue(fakeWidget(widgetId))
+    mockedCreateStore.mockReturnValueOnce({ kind: 'postgres', getWidget } as unknown as KnowledgeStore)
+    const r = await resolveWidget(token)
+    if (!r.ok) throw new Error('expected a widget context')
+    expect(r.ctx.model).toEqual(MODEL)
+    expect(r.ctx.access).toEqual({ kind: 'exact', origins: ['https://shop.example.com'] })
+  })
+
+  it('has no model for sbw2_ without one, sbw1_ or a plain memory key', async () => {
+    const spy = jest.spyOn(memoryStore, 'getWidget').mockResolvedValue(fakeWidget('widget-abc'))
+    const v2 = await resolveWidget(
+      sealWidgetTokenV2({ source: { kind: 'memory', widgetKey: 'widget-abc' }, origins: ['https://shop.example.com'] }),
+    )
+    expect(v2.ok && v2.ctx.model).toBeNull()
+    const plain = await resolveWidget('widget-abc')
+    expect(plain.ok && plain.ctx.model).toBeNull()
+    spy.mockRestore()
+
+    const widgetId = randomUUID()
+    const getWidget = jest.fn().mockResolvedValue(fakeWidget(widgetId))
+    mockedCreateStore.mockReturnValueOnce({ kind: 'postgres', getWidget } as unknown as KnowledgeStore)
+    const v1 = await resolveWidget(sealWidgetToken({ conn: CONN, workspaceId: randomUUID(), widgetId }))
+    expect(v1.ok && v1.ctx.model).toBeNull()
+  })
+
+  it('returns 404 for an sbw2_ token whose model fails the shape check', async () => {
+    const spy = jest.spyOn(memoryStore, 'getWidget')
+    const token = sealWidgetTokenV2({
+      source: { kind: 'memory', widgetKey: 'widget-abc' },
+      origins: [],
+      model: { ...MODEL, apiKey: 'has a space' },
+    })
+    expect(await resolveWidget(token)).toEqual({ ok: false, status: 404, code: 'widget_not_found' })
+    expect(spy).not.toHaveBeenCalled()
   })
 })
 

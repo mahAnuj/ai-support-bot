@@ -253,11 +253,14 @@ describe('sbw2_ widget token', () => {
   })
 
   it('throws embed_too_large instead of issuing a token over the cap', () => {
+    // Fixed content well past the cap: random-charset text deflates to ~6 bits a char, so twice the cap
+    // in characters always seals far above it, whatever the cap is.
     const rand = seededRandom(7)
-    const conn = 'postgresql://u:' + randomChars(rand, CONN_CHARSET, 6000) + '@db.example.com:5432/app'
+    const conn = 'postgresql://u:' + randomChars(rand, CONN_CHARSET, 2 * MAX_WIDGET_TOKEN_V2_LENGTH) + '@db.example.com:5432/app'
+    const ids = { workspaceId: '11111111-2222-4333-8444-555555555555', widgetId: '66666666-7777-4888-9999-aaaaaaaaaaaa' }
     let caught: unknown
     try {
-      sealWidgetTokenV2({ source: { kind: 'postgres', conn, workspaceId: randomUUID(), widgetId: randomUUID() }, origins: [] }, key)
+      sealWidgetTokenV2({ source: { kind: 'postgres', conn, ...ids }, origins: [] }, key)
     } catch (e) {
       caught = e
     }

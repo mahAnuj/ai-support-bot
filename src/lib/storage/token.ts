@@ -1,15 +1,20 @@
 // Server-only: purpose-bound AES-256-GCM tokens. The key is read from process.env per call, never at import.
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto'
 import { deflateRawSync, inflateRawSync } from 'node:zlib'
+import { API_KEY_PATTERN, MODEL_ID_PATTERN, MODEL_LIMITS, type OwnerModelConfig } from '../model/shared'
+import { checkModelBaseUrl } from '../model/url-guard'
+import { MAX_ALLOWED_ORIGINS, MAX_ORIGIN_LENGTH } from '../origins'
 import { StorageError } from './errors'
 
 export const BUILDER_TOKEN_PREFIX = 'sbb1_'
 export const WIDGET_TOKEN_PREFIX = 'sbw1_'
 export const WIDGET_TOKEN_V2_PREFIX = 'sbw2_'
+export const MODEL_TOKEN_PREFIX = 'sbm1_'
 // Fits a widget token for the longest normalised connection string (3000 chars -> 4187-char token).
 export const MAX_TOKEN_LENGTH = 4200
-// sbw2_ is compressed; a 3000-char connection string plus 10 x 255-char origins, all pseudo-random, seals to ~5,800.
-export const MAX_WIDGET_TOKEN_V2_LENGTH = 6400
+// sbw2_ is compressed. The seeded worst case (3000-char connection string, 10 x 255-char origins and a
+// 500/200/512-char model, all pseudo-random) seals to at most 7,273 chars; the cap adds a small margin.
+export const MAX_WIDGET_TOKEN_V2_LENGTH = 7400
 
 const KEY_PATTERN = /^[A-Za-z0-9+/]{43}=$/
 const BODY_PATTERN = /^[A-Za-z0-9_-]+$/
@@ -18,8 +23,6 @@ const IV_LENGTH = 12
 const TAG_LENGTH = 16
 const MAX_INFLATED_LENGTH = 16384
 const MEMORY_WIDGET_KEY_PATTERN = /^widget-[A-Za-z0-9-]{1,80}$/
-const MAX_TOKEN_ORIGINS = 10
-const MAX_TOKEN_ORIGIN_LENGTH = 255
 
 export function getTokenKey(env: NodeJS.ProcessEnv = process.env): Buffer | null {
   const raw = env.EMBED_TOKEN_KEY?.trim()
@@ -39,9 +42,13 @@ export type WidgetSource =
   | { kind: 'postgres'; conn: string; workspaceId: string; widgetId: string }
   | { kind: 'memory'; widgetKey: string }
 
-export interface WidgetTokenV2Payload { source: WidgetSource; origins: string[] }
+export interface WidgetTokenV2Payload { source: WidgetSource; origins: string[]; model?: OwnerModelConfig }
 
-type Prefix = typeof BUILDER_TOKEN_PREFIX | typeof WIDGET_TOKEN_PREFIX | typeof WIDGET_TOKEN_V2_PREFIX
+type Prefix =
+  | typeof BUILDER_TOKEN_PREFIX
+  | typeof WIDGET_TOKEN_PREFIX
+  | typeof WIDGET_TOKEN_V2_PREFIX
+  | typeof MODEL_TOKEN_PREFIX
 
 function seal(prefix: Prefix, plaintext: string, key: Buffer | null | undefined, compress = false): string {
   const k = key ?? getTokenKey()
@@ -124,11 +131,24 @@ function readSource(s: unknown): WidgetSource | null {
 }
 
 function readOrigins(o: unknown): string[] | null {
-  if (!Array.isArray(o) || o.length > MAX_TOKEN_ORIGINS) return null
+  if (!Array.isArray(o) || o.length > MAX_ALLOWED_ORIGINS) return null
   for (const origin of o) {
-    if (typeof origin !== 'string' || origin.length === 0 || origin.length > MAX_TOKEN_ORIGIN_LENGTH) return null
+    if (typeof origin !== 'string' || origin.length === 0 || origin.length > MAX_ORIGIN_LENGTH) return null
   }
   return [...o] as string[]
+}
+
+// Shape check only: the SSRF guard runs again, with the live private-host policy, on every model call.
+function readModel(u: unknown, id: unknown, k: unknown): OwnerModelConfig | null {
+  if (typeof u !== 'string' || u.length > MODEL_LIMITS.baseUrl || !checkModelBaseUrl(u, { allowPrivate: true }).ok) return null
+  if (typeof id !== 'string' || id.length > MODEL_LIMITS.modelId || !MODEL_ID_PATTERN.test(id)) return null
+  if (typeof k !== 'string' || k.length > MODEL_LIMITS.apiKey || !API_KEY_PATTERN.test(k)) return null
+  return { baseUrl: u, model: id, apiKey: k }
+}
+
+function readModelField(m: unknown): OwnerModelConfig | null {
+  if (!isPlainObject(m) || !hasOnlyKeys(m, ['u', 'id', 'k'])) return null
+  return readModel(m.u, m.id, m.k)
 }
 
 function sourceJson(source: WidgetSource): Record<string, string> {
@@ -158,7 +178,9 @@ export function openWidgetToken(token: unknown, key?: Buffer): WidgetTokenPayloa
 }
 
 export function sealWidgetTokenV2(p: WidgetTokenV2Payload, key?: Buffer): string {
-  const json = JSON.stringify({ v: 2, p: 'w', s: sourceJson(p.source), o: p.origins })
+  const body: Record<string, unknown> = { v: 2, p: 'w', s: sourceJson(p.source), o: p.origins }
+  if (p.model) body.m = { u: p.model.baseUrl, id: p.model.model, k: p.model.apiKey }
+  const json = JSON.stringify(body)
   const token = seal(WIDGET_TOKEN_V2_PREFIX, json, key, true)
   if (token.length > MAX_WIDGET_TOKEN_V2_LENGTH) throw new StorageError('embed_too_large')
   return token
@@ -166,12 +188,26 @@ export function sealWidgetTokenV2(p: WidgetTokenV2Payload, key?: Buffer): string
 
 export function openWidgetTokenV2(token: unknown, key?: Buffer): WidgetTokenV2Payload | null {
   const obj = openObject(WIDGET_TOKEN_V2_PREFIX, token, key, MAX_WIDGET_TOKEN_V2_LENGTH, true)
-  if (!obj || !hasOnlyKeys(obj, ['v', 'p', 's', 'o'])) return null
+  if (!obj || !hasOnlyKeys(obj, ['v', 'p', 's', 'o', 'm'])) return null
   if (obj.v !== 2 || obj.p !== 'w') return null
   const source = readSource(obj.s)
   const origins = readOrigins(obj.o)
   if (!source || !origins) return null
-  return { source, origins }
+  if (obj.m === undefined) return { source, origins }
+  const model = readModelField(obj.m)
+  return model ? { source, origins, model } : null
+}
+
+export function sealModelToken(config: OwnerModelConfig, key?: Buffer): string {
+  const json = JSON.stringify({ v: 1, p: 'm', u: config.baseUrl, id: config.model, k: config.apiKey })
+  return seal(MODEL_TOKEN_PREFIX, json, key)
+}
+
+export function openModelToken(token: unknown, key?: Buffer): OwnerModelConfig | null {
+  const obj = openObject(MODEL_TOKEN_PREFIX, token, key, MAX_TOKEN_LENGTH, false)
+  if (!obj || !hasOnlyKeys(obj, ['v', 'p', 'u', 'id', 'k'])) return null
+  if (obj.v !== 1 || obj.p !== 'm') return null
+  return readModel(obj.u, obj.id, obj.k)
 }
 
 export function isBuilderTokenShape(s: unknown): boolean {
@@ -180,4 +216,8 @@ export function isBuilderTokenShape(s: unknown): boolean {
 
 export function isWidgetTokenShape(s: unknown): boolean {
   return typeof s === 'string' && (s.startsWith(WIDGET_TOKEN_PREFIX) || s.startsWith(WIDGET_TOKEN_V2_PREFIX))
+}
+
+export function isModelTokenShape(s: unknown): boolean {
+  return typeof s === 'string' && s.startsWith(MODEL_TOKEN_PREFIX)
 }

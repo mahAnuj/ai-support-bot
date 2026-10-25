@@ -1,5 +1,6 @@
 // Server-only: the single place routes get a KnowledgeStore from.
 import { NextResponse } from 'next/server'
+import type { OwnerModelConfig } from '../model/shared'
 import { normalizeOrigin, type OriginPolicy } from '../origins'
 import type { ParsedConnection } from './connection'
 import { isPrivateHostAllowed, revalidateNormalizedConnection } from './connection'
@@ -18,6 +19,7 @@ import {
   MAX_WIDGET_TOKEN_V2_LENGTH,
   WIDGET_TOKEN_V2_PREFIX,
   isBuilderTokenShape,
+  isModelTokenShape,
   isStorageEnabled,
   isWidgetTokenShape,
   openBuilderToken,
@@ -38,6 +40,8 @@ export interface WidgetContext {
   kind: StoreKind
   label: string
   access: OriginPolicy
+  // Only an sbw2_ token carries an owner model; everything else answers with the demo model.
+  model: OwnerModelConfig | null
 }
 
 export type WidgetResolution =
@@ -89,7 +93,7 @@ export function resolveBuilderStore(request: Request): BuilderResolution {
   const header = request.headers.get(STORAGE_TOKEN_HEADER)
   if (header === null) return { ok: true, ctx: { kind: 'memory', store: memoryStore } }
   if (!isStorageEnabled()) return builderError('storage_unavailable')
-  if (isWidgetTokenShape(header)) return builderError('token_wrong_purpose')
+  if (isWidgetTokenShape(header) || isModelTokenShape(header)) return builderError('token_wrong_purpose')
 
   const payload = openBuilderToken(header)
   if (!payload) return builderError('invalid_token')
@@ -112,7 +116,8 @@ export function resolveBuilderStore(request: Request): BuilderResolution {
 }
 
 export function rejectWidgetTokenHeader(request: Request): StorageError | null {
-  return isWidgetTokenShape(request.headers.get(STORAGE_TOKEN_HEADER)) ? new StorageError('token_wrong_purpose') : null
+  const header = request.headers.get(STORAGE_TOKEN_HEADER)
+  return isWidgetTokenShape(header) || isModelTokenShape(header) ? new StorageError('token_wrong_purpose') : null
 }
 
 export async function resolveWidget(key: unknown): Promise<WidgetResolution> {
@@ -126,11 +131,18 @@ export async function resolveWidget(key: unknown): Promise<WidgetResolution> {
     if (!widget || widget.sealed) return WIDGET_NOT_FOUND
     return {
       ok: true,
-      ctx: { store: memoryStore, widget, kind: 'memory', label: keyLabel(key), access: widgetAccessPolicy(widget) },
+      ctx: {
+        store: memoryStore,
+        widget,
+        kind: 'memory',
+        label: keyLabel(key),
+        access: widgetAccessPolicy(widget),
+        model: null,
+      },
     }
   }
 
-  if (isBuilderTokenShape(key)) return { ok: false, status: 403, code: 'token_wrong_purpose' }
+  if (isBuilderTokenShape(key) || isModelTokenShape(key)) return { ok: false, status: 403, code: 'token_wrong_purpose' }
   if (!isWidgetTokenShape(key)) return WIDGET_NOT_FOUND
 
   if (!isStorageEnabled()) return { ok: false, status: 503, code: 'storage_unavailable' }
@@ -139,6 +151,7 @@ export async function resolveWidget(key: unknown): Promise<WidgetResolution> {
     const payload = openWidgetTokenV2(key)
     if (!payload || !originsAreNormalized(payload.origins)) return WIDGET_NOT_FOUND
     const { source, origins } = payload
+    const model = payload.model ?? null
 
     if (source.kind === 'memory') {
       const widget = await memoryStore.getWidget(source.widgetKey)
@@ -151,6 +164,7 @@ export async function resolveWidget(key: unknown): Promise<WidgetResolution> {
           kind: 'memory',
           label: keyLabel(key),
           access: widgetAccessPolicy(widget, origins),
+          model,
         },
       }
     }
@@ -165,6 +179,7 @@ export async function resolveWidget(key: unknown): Promise<WidgetResolution> {
         kind: 'postgres',
         label: keyLabel(key),
         access: widgetAccessPolicy(loaded.widget, origins),
+        model,
       },
     }
   }
@@ -182,6 +197,7 @@ export async function resolveWidget(key: unknown): Promise<WidgetResolution> {
       kind: 'postgres',
       label: keyLabel(key),
       access: widgetAccessPolicy(loaded.widget),
+      model: null,
     },
   }
 }
