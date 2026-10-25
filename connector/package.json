@@ -1,0 +1,27 @@
+{
+  "name": "ai-support-bot-connector",
+  "version": "1.0.0",
+  "description": "Reference server for the AI Support Bot connector API v1, on Postgres with pgvector",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --test dist/test/*.test.js",
+    "start": "node dist/src/index.js",
+    "sign": "node dist/src/cli/sign.js",
+    "warm-model": "node dist/src/warm-model.js"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "4.3.1",
+    "pg": "^8.23.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.1",
+    "@types/pg": "^8.23.1",
+    "typescript": "^5.8.3"
+  }
+}
