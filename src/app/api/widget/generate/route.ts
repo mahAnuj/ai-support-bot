@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createWidgetFromSession } from '../../../../lib/database'
 import { clientIp, isRateLimited, isWithinLimit, LIMITS } from '../../../../lib/guard'
-import { resolveBuilderStore, storageErrorResponse } from '../../../../lib/storage/resolve'
+import { builderErrorResponse, resolveBuilderStore, storageErrorResponse } from '../../../../lib/storage/resolve'
 import { isStorageError, safeErrorSummary, StorageError } from '../../../../lib/storage/errors'
 import { keyLabel } from '../../../../lib/storage/log'
 import {
@@ -14,7 +14,19 @@ import {
 import { normalizeOriginList, ORIGIN_ERROR_MESSAGES, ORIGINS_REQUIRED_MESSAGE } from '../../../../lib/origins'
 import { modelErrorResponse, resolveBuilderModel } from '../../../../lib/model/resolve'
 import { isModelError } from '../../../../lib/model/shared'
+import type { OwnerModelConfig } from '../../../../lib/model/shared'
 import type { WidgetSettings } from '../../../../lib/storage/types'
+import { assertCapabilities, getHealth, listDocuments } from '../../../../lib/connector/client'
+import { connectorErrorResponse } from '../../../../lib/connector/resolve'
+import {
+  CONNECTOR_LIMITS,
+  ConnectorError,
+  isConnectorError,
+  type AnswerPath,
+  type ConnectorConfig,
+  type ConnectorWidgetSettings,
+} from '../../../../lib/connector/shared'
+import { sealWidgetTokenV3 } from '../../../../lib/connector/token'
 
 // Deflate output varies by a few bytes with the IDs, so the dry run leaves room for that
 const DRY_RUN_MARGIN = 64
@@ -27,6 +39,87 @@ function assertEmbedFits(payload: WidgetTokenV2Payload): void {
   }
 }
 
+const CONNECTOR_ORIGINS_REQUIRED_MESSAGE =
+  'Add at least one allowed site before generating an embed that uses your backend.'
+const COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/
+const POSITIONS: readonly string[] = ['bottom-right', 'bottom-left']
+const SIZES: readonly string[] = ['small', 'medium', 'large']
+
+function isBoundedString(value: unknown, max: number): value is string {
+  return typeof value === 'string' && value.length >= 1 && value.length <= max
+}
+
+// The whole widget lives in its sbw3_ token, so nothing is created here and the seal itself is the dry run.
+async function generateConnectorWidget(
+  request: NextRequest,
+  connector: ConnectorConfig,
+  ownerModel: OwnerModelConfig | null,
+  config: Record<string, unknown>,
+  origins: string[],
+): Promise<NextResponse> {
+  const title = config.title || 'AI Support Assistant'
+  const welcomeMessage = config.welcome_message || 'Hi! How can I help you today?'
+  const primaryColor = config.primary_color || '#3B82F6'
+  const position = config.position || 'bottom-right'
+  const size = config.size || 'medium'
+  if (
+    !isBoundedString(title, CONNECTOR_LIMITS.widgetTitle) ||
+    !isBoundedString(welcomeMessage, CONNECTOR_LIMITS.widgetWelcome) ||
+    typeof primaryColor !== 'string' || !COLOR_PATTERN.test(primaryColor) ||
+    typeof position !== 'string' || !POSITIONS.includes(position) ||
+    typeof size !== 'string' || !SIZES.includes(size)
+  ) {
+    return NextResponse.json({ error: 'Invalid widget configuration' }, { status: 400 })
+  }
+
+  // The embed carries a credential for the owner's backend, so it must name the sites allowed to use it
+  if (origins.length === 0) {
+    return NextResponse.json({ error: CONNECTOR_ORIGINS_REQUIRED_MESSAGE, code: 'origins_required' }, { status: 400 })
+  }
+
+  // The answer capability comes from a signed call now, not from what was sealed at connect
+  const { answer } = assertCapabilities(await getHealth(connector))
+  if ((await listDocuments(connector)).length === 0) throw new ConnectorError('connector_no_documents')
+
+  const model = answer ? undefined : (ownerModel ?? undefined)
+  const settings: ConnectorWidgetSettings = {
+    title,
+    welcomeMessage,
+    primaryColor,
+    position: position as ConnectorWidgetSettings['position'],
+    size: size as ConnectorWidgetSettings['size'],
+  }
+  if (typeof config.system_prompt === 'string' && config.system_prompt.length > 0) settings.systemPrompt = config.system_prompt
+  if (typeof config.role_context === 'string' && config.role_context.length > 0) settings.roleContext = config.role_context
+
+  // Throws embed_too_large above the 7,800-character cap
+  const widgetKey = sealWidgetTokenV3({ connector, origins, answer, settings, ...(model ? { model } : {}) })
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || new URL(request.url).origin
+  const scriptUrl = `${baseUrl}/api/widget/script/${widgetKey}`
+  if (scriptUrl.length > CONNECTOR_LIMITS.maxScriptUrl) throw new StorageError('embed_too_large')
+  const embedCode = `<script src="${scriptUrl}" async></script>`
+  const answerPath: AnswerPath = answer ? 'backend' : model ? 'owner' : 'demo'
+
+  console.log(`✅ Widget created successfully: ${keyLabel(widgetKey)} answerPath=${answerPath}`)
+  return NextResponse.json({
+    success: true,
+    widget: {
+      widget_key: widgetKey,
+      title,
+      welcome_message: welcomeMessage,
+      primary_color: primaryColor,
+      position,
+      size,
+      is_active: true,
+    },
+    widgetKey,
+    embedCode,
+    scriptUrl,
+    persistent: true,
+    answerPath,
+  })
+}
+
 export async function POST(request: NextRequest) {
   try {
     if (isRateLimited(`generate:${clientIp(request)}`, 10)) {
@@ -35,7 +128,7 @@ export async function POST(request: NextRequest) {
     console.log('🔄 Widget generation started')
     // Resolved before the body is read, so a bad or wrong-purpose token reads and writes nothing
     const resolved = resolveBuilderStore(request)
-    if (!resolved.ok) return storageErrorResponse(resolved.error)
+    if (!resolved.ok) return builderErrorResponse(resolved.error)
     const ctx = resolved.ctx
     const resolvedModel = resolveBuilderModel(request)
     if (!resolvedModel.ok) return modelErrorResponse(resolvedModel.error)
@@ -62,6 +155,13 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: ORIGIN_ERROR_MESSAGES[list.code], code: 'invalid_origin' }, { status: 400 })
       }
       origins = list.origins
+    }
+
+    if (ctx.kind === 'connector') {
+      if (!config.name && !config.title) {
+        return NextResponse.json({ error: 'Widget name or title is required' }, { status: 400 })
+      }
+      return await generateConnectorWidget(request, ctx.connector, model, config, origins)
     }
 
     // An owner-model embed spends the owner's credits, so it must name the sites allowed to use it
@@ -174,6 +274,10 @@ export async function POST(request: NextRequest) {
     if (isStorageError(error)) {
       console.error(`Widget generation storage error ${safeErrorSummary(error)}`)
       return storageErrorResponse(error)
+    }
+    if (isConnectorError(error)) {
+      console.error(`Widget generation connector error code=${error.code}`)
+      return connectorErrorResponse(error)
     }
     // No provider call happens here; mapped anyway so a ModelError message can never be echoed
     if (isModelError(error)) return modelErrorResponse(error)

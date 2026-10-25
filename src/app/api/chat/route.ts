@@ -5,8 +5,10 @@ import { modelErrorResponse, resolveBuilderModel } from '../../../lib/model/reso
 import { isModelError, modelErrorMessage } from '../../../lib/model/shared'
 import { queryRAG, createRAGContext, sessionHasDocuments } from '../../../lib/rag'
 import { clientIp, isRateLimited, isWithinLimit, LIMITS } from '../../../lib/guard'
-import { resolveBuilderStore, storageErrorResponse } from '../../../lib/storage/resolve'
+import { builderErrorResponse, resolveBuilderStore, storageErrorResponse } from '../../../lib/storage/resolve'
 import { StorageError, isStorageError, safeErrorSummary } from '../../../lib/storage/errors'
+import { answerWithConnector } from '../../../lib/connector/answer'
+import { connectorErrorMessage, isConnectorError } from '../../../lib/connector/shared'
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,13 +17,10 @@ export async function POST(request: NextRequest) {
     }
     // Resolved before the body is read, so a bad or wrong-purpose token reads and writes nothing
     const resolved = resolveBuilderStore(request)
-    if (!resolved.ok) return storageErrorResponse(resolved.error)
+    if (!resolved.ok) return builderErrorResponse(resolved.error)
     const ctx = resolved.ctx
-    const store = ctx.store
     const resolvedModel = resolveBuilderModel(request)
     if (!resolvedModel.ok) return modelErrorResponse(resolvedModel.error)
-    // No owner model means the demo model; with one, every call goes to it and nothing falls back (D8, D9)
-    const provider = resolvedModel.model ? ownerProvider(resolvedModel.model) : demoProvider()
 
     const { message, sessionId, systemPrompt, roleContext } = await request.json()
     
@@ -39,6 +38,30 @@ export async function POST(request: NextRequest) {
     ) {
       return NextResponse.json({ error: 'Input too long' }, { status: 400 })
     }
+
+    if (ctx.kind === 'connector') {
+      // The question goes to the backend as typed: no rewording, no embedding and no session on this server.
+      // A backend that answers gets every question; the owner model is not used for it.
+      const result = await answerWithConnector({
+        connector: ctx.connector,
+        answer: ctx.answer,
+        model: ctx.answer ? null : resolvedModel.model,
+        question: message,
+        systemPrompt,
+        roleContext,
+      })
+      console.log(`Chat API connector path=${result.path} confidence=${result.confidence}`)
+      return NextResponse.json({
+        message: result.message,
+        confidence: result.confidence,
+        sources: result.sources,
+        isEnhanced: result.isEnhanced,
+        sessionId: typeof sessionId === 'string' ? sessionId : null,
+      })
+    }
+    const store = ctx.store
+    // No owner model means the demo model; with one, every call goes to it and nothing falls back (D8, D9)
+    const provider = resolvedModel.model ? ownerProvider(resolvedModel.model) : demoProvider()
 
     // Ensure we have a valid database session
     let currentSessionId = sessionId
@@ -127,6 +150,17 @@ export async function POST(request: NextRequest) {
     if (isStorageError(error)) {
       console.error(`Chat API storage error ${safeErrorSummary(error)}`)
       return storageErrorResponse(error)
+    }
+    if (isConnectorError(error)) {
+      console.error(`Chat API connector error code=${error.code}`)
+      return NextResponse.json(
+        {
+          error: 'Failed to generate response',
+          code: error.code,
+          details: connectorErrorMessage(error.code, error.httpStatus),
+        },
+        { status: 502 }
+      )
     }
     // Raw errors on the provider path can carry hostnames or provider text: log the code only
     console.error(`Chat API error code=${chatErrorCode(error)} type=${error instanceof Error ? error.name : typeof error}`)

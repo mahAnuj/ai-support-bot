@@ -5,8 +5,11 @@ import fs from 'fs'
 import path from 'path'
 import os from 'os'
 import { clientIp, isRateLimited } from '../../../lib/guard'
-import { resolveBuilderStore, storageErrorResponse } from '../../../lib/storage/resolve'
+import { builderErrorResponse, resolveBuilderStore, storageErrorResponse } from '../../../lib/storage/resolve'
 import { StorageError, isStorageError, safeErrorSummary } from '../../../lib/storage/errors'
+import { buildDocumentPayload, createDocument, type CreatedDocument } from '../../../lib/connector/client'
+import { connectorErrorResponse } from '../../../lib/connector/resolve'
+import { isConnectorError } from '../../../lib/connector/shared'
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,9 +20,8 @@ export async function POST(request: NextRequest) {
     console.log('📤 Upload API called')
     // Resolved before the body is read, so a bad or wrong-purpose token reads and writes nothing
     const resolved = resolveBuilderStore(request)
-    if (!resolved.ok) return storageErrorResponse(resolved.error)
+    if (!resolved.ok) return builderErrorResponse(resolved.error)
     const ctx = resolved.ctx
-    const store = ctx.store
     const formData = await request.formData()
     const files = formData.getAll('files') as File[]
     
@@ -134,6 +136,36 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      if (ctx.kind === 'connector') {
+        // Passages go to the backend as they are: no embedding, no session and no memory write on this server.
+        // Every payload is checked before the first call, so an oversized file sends nothing.
+        const payloads = processedDocs.map((doc) =>
+          buildDocumentPayload(doc.filename, doc.chunks, path.extname(doc.filename))
+        )
+        const created: CreatedDocument[] = []
+        for (const payload of payloads) {
+          created.push(await createDocument(ctx.connector, payload))
+        }
+        console.log(`Upload API connector documents=${created.length} ${ctx.label}`)
+        return NextResponse.json({
+          success: true,
+          message: `Successfully processed ${processedDocs.length} document(s)`,
+          documents: processedDocs.map((doc, i) => ({
+            filename: payloads[i].filename,
+            chunks: doc.chunks.length,
+            chunkCount: doc.chunks.length,
+            wordCount: doc.wordCount,
+            documentId: created[i].id
+          })),
+          details: {
+            documentsProcessed: processedDocs.length,
+            totalChunks: totalChunks,
+            totalWords: totalWords
+          }
+        })
+      }
+      const store = ctx.store
+
       // Check if sessionId was provided and exists, otherwise create new session
       const providedSessionId = formData.get('sessionId') as string
       let session
@@ -228,6 +260,10 @@ export async function POST(request: NextRequest) {
     if (isStorageError(error)) {
       console.error(`Upload API storage error ${safeErrorSummary(error)}`)
       return storageErrorResponse(error)
+    }
+    if (isConnectorError(error)) {
+      console.error(`Upload API connector error code=${error.code}`)
+      return connectorErrorResponse(error)
     }
     console.error('Upload API error:', error)
     return NextResponse.json(
