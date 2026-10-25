@@ -25,6 +25,7 @@ A powerful platform that lets any business build, test, and deploy intelligent A
 - **Mobile Optimized**: Works seamlessly on desktop, tablet, and mobile devices
 - **Allowed sites**: List up to 10 exact sites (such as `https://example.com`) and the widget refuses to answer anywhere else in a browser
 - **Your own model (optional)**: Answer with your own OpenAI-compatible model and API key instead of the shared demo model on Groq. See [Use your own model](#-use-your-own-model)
+- **Your own backend (optional)**: Keep documents on a server you run, which this app reaches with signed requests, so the app holds no database credentials. See [Connect your backend](#connect-your-backend)
 - **Bounded by default**: Per-IP rate limits and input size caps. See [GOVERNANCE.md](GOVERNANCE.md) for what is and is not protected
 
 ## 🚀 Quick Start
@@ -43,6 +44,52 @@ npm run dev
 ```
 
 Visit [http://localhost:3000](http://localhost:3000) and start building your AI assistant!
+
+## Four ways to run it
+
+| | Where documents are kept | Who writes the answers | What you run |
+| --- | --- | --- | --- |
+| **1. Demo** | This deployment's server memory, lost on restart | The demo model on Groq | Nothing |
+| **2. Your own database or model key** | Your Postgres with pgvector, or server memory | Groq, or your own OpenAI-compatible model | No server: a database and/or a model API key |
+| **3. Your own backend** | Your server, which implements the [connector API](docs/connector-api.md) (for example the reference server in [`connector/`](connector/README.md)) | Your backend, if it offers answering; otherwise your own model or the demo model, through this app | A connector server |
+| **4. Fully self-hosted** | Any of the above | Any of the above | This whole app, on a server you control |
+
+1. **Demo.** Upload documents in the builder and generate an embed. Nothing to
+   set up beyond the deployment's `GROQ_API_KEY`.
+2. **Your own database or model key, no server needed.** Paste a Postgres
+   connection string ([Connect your own database](#-connect-your-own-database))
+   and/or an OpenAI-compatible model key ([Use your own model](#-use-your-own-model)).
+   The credentials travel inside encrypted tokens in your browser and your
+   embed code; this deployment decrypts them on each request. Needs
+   `EMBED_TOKEN_KEY` on the deployment.
+3. **Your own backend.** Run a small server of your own and connect it
+   ([Connect your backend](#connect-your-backend)). This app then sends it
+   your documents and visitors' questions over signed requests. The tokens
+   carry your backend's address, a key id and a signing secret that you can
+   revoke on your server, and no database credentials (a model key only if you
+   also attach your own model). Needs `EMBED_TOKEN_KEY` on the deployment.
+4. **Fully self-hosted.** Run this app yourself so that nothing passes through
+   someone else's deployment. There is no packaged image or deploy button for
+   the app; it is a standard Next.js server:
+
+   ```bash
+   git clone https://github.com/mahAnuj/ai-support-bot.git
+   cd ai-support-bot
+   npm ci
+   npm run build          # needs no env vars
+   # set the runtime variables below (GROQ_API_KEY, NEXT_PUBLIC_BASE_URL, EMBED_TOKEN_KEY, ...)
+   npm start              # next start, port 3000 by default
+   ```
+
+   Put it behind a reverse proxy with TLS, and set `NEXT_PUBLIC_BASE_URL` to
+   its public `https://` address so embed codes point at it. Use Node 20 or
+   later. The demo store lives in each instance's memory and is not shared, and
+   rate limits are counted per instance, so start with one instance. Answers
+   still come from Groq (`GROQ_API_KEY`) unless you attach your own model or
+   your backend writes them. The server downloads the embedding model from
+   Hugging Face the first time it embeds (demo and own-database modes; with a
+   backend connected it embeds nothing). You can also deploy it to your own
+   Vercel account; see [Deployment](#-deployment).
 
 ## 🎥 Demo Features
 
@@ -83,7 +130,7 @@ Visit [http://localhost:3000](http://localhost:3000) and start building your AI 
 
 - **Frontend**: Next.js 15 + React 19 + TypeScript + Tailwind CSS v4
 - **Backend**: Next.js API routes (serverless)
-- **Storage**: In memory by default (`src/lib/database.ts`, no external database required), or your own Postgres with pgvector (see [Connect your own database](#-connect-your-own-database))
+- **Storage**: In memory by default (`src/lib/database.ts`, no external database required), your own Postgres with pgvector (see [Connect your own database](#-connect-your-own-database)), or your own backend over the signed connector API (see [Connect your backend](#connect-your-backend))
 - **Chat model**: `openai/gpt-oss-20b` on Groq by default (free tier; override with `GROQ_MODEL`), or your own OpenAI-compatible model, called through one small adapter in `src/lib/model/`
 - **Embeddings**: `Xenova/all-MiniLM-L6-v2` via transformers.js, run on the server
 - **Vector Search**: Cosine similarity, in-process for the demo and with pgvector's `<=>` operator in your database (exact scan, no approximate index)
@@ -101,7 +148,7 @@ vercel --prod
 
 # Set environment variables in Vercel dashboard:
 # GROQ_API_KEY
-# EMBED_TOKEN_KEY   (only if you want "connect your own database" or "use your own model"; see below)
+# EMBED_TOKEN_KEY   (only if you want "connect your own database", "use your own model" or "connect your backend"; see below)
 ```
 
 ### **Environment Variables**
@@ -112,9 +159,10 @@ GROQ_API_KEY=your_groq_api_key
 # Optional
 GROQ_MODEL=openai/gpt-oss-20b
 NEXT_PUBLIC_BASE_URL=https://yourdomain.com
-EMBED_TOKEN_KEY=          # openssl rand -base64 32; turns on "connect your own database" and "use your own model"
+EMBED_TOKEN_KEY=          # openssl rand -base64 32; turns on "connect your own database", "use your own model" and "connect your backend"
 ALLOW_PRIVATE_DB_HOSTS=   # 1 = allow localhost/private database hosts on a production build
 ALLOW_PRIVATE_MODEL_HOSTS= # 1 = allow localhost/private model addresses on a production build; leave unset in production
+ALLOW_PRIVATE_CONNECTOR_HOSTS= # 1 = allow localhost/private backend addresses on a production build; leave unset in production
 ```
 
 None of these are needed to build. See [.env.example](.env.example).
@@ -338,12 +386,14 @@ openssl rand -base64 32
   refused, and database-backed widgets answer "Widget unavailable". Demo mode
   works as before. Unsetting it is the quickest way to switch the feature off.
 - **Rotating it invalidates every token**: every browser's link and every
-  database-backed embed, for every database. Users must connect again and
-  replace their embed code.
+  database-backed or backend-backed embed, for every database and backend.
+  Users must connect again and replace their embed code.
 - Keep it secret. Anyone with both a token and this key can decrypt the
-  connection string, the model API key and the allowed sites inside it.
-- It also turns on "Use your own model". Without it, that step is disabled,
-  and allowed sites are kept with the demo widget in server memory.
+  connection string, the model API key, the backend signing secret and the
+  allowed sites inside it.
+- It also turns on "Use your own model" and "Connect your backend". Without
+  it, those steps are disabled, and allowed sites are kept with the demo
+  widget in server memory.
 
 `ALLOW_PRIVATE_DB_HOSTS=1` lets a production build connect to localhost,
 private-network and link-local database hosts (and use plain TCP to them).
@@ -351,6 +401,10 @@ Leave it unset on a public deployment.
 
 `ALLOW_PRIVATE_MODEL_HOSTS=1` does the same for model addresses (including
 plain `http:` to them), for example to test against a local mock. Leave it
+unset on a public deployment.
+
+`ALLOW_PRIVATE_CONNECTOR_HOSTS=1` does the same for backend base URLs, for
+example to connect the reference server on `http://127.0.0.1:8080`. Leave it
 unset on a public deployment.
 
 ## 🔒 Allowed sites
@@ -406,6 +460,113 @@ app accepts (a 3,000-character normalised connection string, 10 sites of 255
 characters and the longest model settings), the token is at most 7,273
 characters, and its script URL 7,388 on an 88-character host name. Generate
 refuses an embed that would not fit.
+
+Embeds for [your own backend](#connect-your-backend) carry an `sbw3_` token,
+also compressed, capped at 7,800 characters (script URL at most 8,000). It
+holds the widget settings too, so its size depends mostly on the system
+prompt and role context and how well they compress. Measured over 200 seeded
+cases, with script URLs on an 88-character host:
+
+- every field at its maximum but no system prompt or role context: fits
+  (largest script URL 5,499);
+- a typical embed (short addresses, 2 sites) with a 4,000-character system
+  prompt and 2,000-character role context of varied text: fits (3,803);
+- every field at its maximum, prompts included: fits only if the prompts
+  compress well (repetitive text: 6,463), and is refused with varied text
+  (8,880) or random text (12,380).
+
+The builder does not send a system prompt or role context when generating,
+so its embeds are in the first range.
+
+## Connect your backend
+
+The **Connect your backend** step, next to the database step in the builder,
+points the builder at a server you run. That server stores and searches your
+documents. It must implement the [connector API v1](docs/connector-api.md)
+([OpenAPI](docs/connector-openapi.yaml)). The reference server in
+[`connector/`](connector/README.md) does, on Postgres with pgvector; its
+README covers running it locally, deploying it (written steps only),
+rotating keys and its limits. The step needs `EMBED_TOKEN_KEY` on this app's
+server. While a backend is connected, "Connect your own database" is
+disabled, and the other way round: documents live in one place at a time.
+
+**Connecting**
+
+1. Enter the backend's base URL. Only `https://` addresses on the public
+   internet are accepted (see `ALLOW_PRIVATE_CONNECTOR_HOSTS` below for local
+   testing), and redirects are not followed. The app calls unsigned
+   `GET /v1/health` and shows the version and capabilities. It refuses a
+   backend that is not version `1` or lacks `documents` or `search`.
+2. The app generates a key id (`ck_` and 16 hex characters) and a signing
+   secret, and shows the secret **once**, with the line to add to your backend:
+   `CONNECTOR_KEYS=<key id>:<secret>`. Add it and restart your backend. If you
+   leave or reload the page before confirming, connect again to get a new key.
+3. Press "I've saved it", then **Test connection**. It sends a signed health
+   call and a one-result search, and shows pass or fail with a fixed message.
+
+Connect is limited to 5 attempts per minute per IP, per server instance.
+
+**Documents.** Uploads are read and split into 1,000-character passages on
+this server, as in the other modes, then sent to `POST /v1/documents`, one
+document per request. This server does not embed them or keep them. A
+document over 1,000 passages or 2 MB is refused before anything is sent.
+Documents uploaded to the demo session before you connected are not sent to
+your backend; upload them again. The builder lists your backend's documents
+and can delete one (with a confirm step).
+
+**Questions.** The question is sent to `POST /v1/search` as typed (top 5
+passages), with no rewording, in both the preview and the widget. Passages
+scoring below `MIN_SIMILARITY` are dropped, and the match score is computed
+from the rest. Those cut-offs were measured for `all-MiniLM-L6-v2`; a backend
+that embeds with another model will see a different cut-off.
+
+**Who writes the answer** (the builder and the install guide name the one in
+use):
+
+- **Your backend**, when its health lists `answer`: the question, the passages
+  from that search and the system prompt (if any) go to `POST /v1/answer`. No model on
+  this app is used and nothing goes to Groq. A saved own model is not used for
+  this backend, and the "Use your own model" step is disabled.
+- **Your own model**, when the backend does not answer and you saved one: this
+  app writes the answer from the passages, as in [Use your own model](#-use-your-own-model).
+- **The demo model on Groq** otherwise.
+
+A failed backend or model call is an error (preview 502, widget "Widget
+unavailable"), never a Groq answer instead. The `answer` capability is read
+at connect, again on **Test connection**, and at **Generate**; it is not
+polled. If you turn answering on or off on your backend, test again and
+regenerate the embed code.
+
+**Embed code.** Generate needs at least one allowed site and at least one
+document on your backend. The whole widget (settings, allowed sites, the
+backend's address, key id and secret, the `answer` flag, and your model only
+when the backend does not answer) is sealed into an `sbw3_` token in the
+script URL. Nothing is saved on this server. The `sbw3_` token is at most
+7,800 characters and the script URL at most 8,000; Generate refuses a larger
+embed (`embed_too_large`) before returning anything. See
+[Token size](#token-size) for measured sizes.
+
+**What the tokens hold, and who can read them.** The builder keeps an `sbc1_`
+token in `localStorage`; the embed code carries the `sbw3_` token. Both are
+encrypted with `EMBED_TOKEN_KEY` and hold the backend's base URL, key id and
+signing secret. Anyone with a token and `EMBED_TOKEN_KEY` can recover the
+secret and sign requests as this app does, including adding and deleting
+documents on the reference server, whose keys have no narrower scope. The
+secret is never logged; this server logs each backend call as an operation,
+an 8-character fingerprint of the base URL, an outcome code and a duration.
+
+**Revoking.** On the reference server, remove the key id from
+`CONNECTOR_KEYS` and restart it (another backend has its own way to drop a
+key). Every request signed with that key, including from embeds generated
+with it, is then refused, and those embeds answer "Widget unavailable".
+**Disconnect** in the builder only forgets this browser's link; existing
+embeds keep working until you remove the key id.
+
+**Local testing.** A backend on `localhost`, a private network or plain
+`http:` (such as the reference server on `http://127.0.0.1:8080`) works only
+when this app runs with `npm run dev` or `ALLOW_PRIVATE_CONNECTOR_HOSTS=1`.
+The flag is read on every call, so a link or embed for such a host stops
+working on a server without it.
 
 ## ⚙️ Configuration
 
@@ -463,7 +624,9 @@ ai-support-bot/
 │   ├── lib/                 # Core functionality (RAG, chat model, embeddings)
 │   └── types/               # TypeScript definitions
 ├── public/                  # Static assets
-└── scripts/                 # SQL for connecting your own Postgres (schema + least-privilege role)
+├── scripts/                 # SQL for connecting your own Postgres (schema + least-privilege role)
+├── docs/                    # Connector API v1 spec, OpenAPI file and shared signing test vectors
+└── connector/               # Reference connector server (its own package; see connector/README.md)
 ```
 
 ### **Key Components**
@@ -477,11 +640,16 @@ ai-support-bot/
 mapping and schema SQL (`src/lib/storage/__tests__/`), allowed-site matching
 (`src/lib/__tests__/`), the model URL guard, adapter and tokens
 (`src/lib/model/__tests__/`, with the adapter tested against a mock server
-started in the test), and the widget and preview chat routes
-(`src/app/api/widget/__tests__/`). They need no database, no network and no
-env vars. A Postgres integration test (`pg.integration.test.ts`) is skipped
+started in the test), the connector client, signing, tokens and answer paths
+(`src/lib/connector/__tests__/`, against a mock backend started in the test),
+the connector routes (`src/app/api/connector/__tests__/`), and the widget,
+preview chat and generate routes, plus the upload route in connector mode
+(`src/app/api/widget/__tests__/`).
+They need no database, no network and no env vars. A Postgres integration test (`pg.integration.test.ts`) is skipped
 unless `TEST_DATABASE_URL` points at a database with pgvector installed.
-Chunking, the upload and storage routes and the UI have no tests yet; adding
+The reference server has its own suite: `cd connector && npm ci && npm test`.
+Chunking, the upload route outside connector mode, the storage routes and
+the UI have no tests yet; adding
 some is a good first contribution, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## 🤝 Contributing

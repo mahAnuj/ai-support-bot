@@ -157,15 +157,15 @@ export default function OwnModelStep({ available, ready, ownModel, disabledReaso
         </dl>
         {disabledReason && <p id={reasonId} className={REASON}>{disabledReason}</p>}
         <p className={BODY}>
-          The preview answers with this model. This browser keeps only an encrypted copy of your API key; the key itself
-          is not stored here.
+          {!disabledReason && 'The preview answers with this model. '}This browser keeps only an encrypted copy of your
+          API key; the key itself is not stored here.
         </p>
         <div className="mt-4 flex flex-col items-start gap-2">
           <button type="button" onClick={remove} className={SECONDARY_BUTTON}>
             Remove model
           </button>
           <p className="max-w-[60ch] text-xs text-ink-muted">
-            This removes the model from this browser and the preview goes back to the demo model. Embeds you already
+            This removes the model from this browser{disabledReason ? '' : ' and the preview goes back to the demo model'}. Embeds you already
             generated keep using your key until you revoke it at your provider, or generate a new tag and remove the old
             one from your site.
           </p>
@@ -241,8 +241,9 @@ export default function OwnModelStep({ available, ready, ownModel, disabledReaso
       <p id={introId} className={BODY}>
         {available ? (
           <>
-            The preview and the embed code answer with the demo model unless you add your own. Any API that speaks the
-            OpenAI chat completions format works. Your provider&apos;s rate limits, pricing and data retention then apply.
+            {!disabledReason && 'The preview and the embed code answer with the demo model unless you add your own. '}Any
+            API that speaks the OpenAI chat completions format works. Your provider&apos;s rate limits, pricing and data
+            retention then apply.
           </>
         ) : (
           <>
