@@ -24,6 +24,7 @@ at all, and it must stay that way (see below).
 
 ```bash
 npm run lint    # must be clean
+npm test        # must pass; needs no env vars or database
 npm run build   # must succeed with NO env vars set
 ```
 
@@ -34,17 +35,22 @@ a real outage in this repo. Build clients lazily inside a function.
 
 ## Tests
 
-There are none yet. Jest, jsdom and Testing Library are configured and ready,
-but no test files exist, so `npm test` exits 1 with "No tests found".
+The only tests so far cover `src/lib/storage/` (tokens, connection-string
+validation, error mapping, schema SQL), in `src/lib/storage/__tests__/`. They
+need no env vars or database. `pg.integration.test.ts` runs only when
+`TEST_DATABASE_URL` points at a Postgres with pgvector installed; otherwise it
+is skipped.
 
-**Adding the first test would be a genuinely useful contribution.** Put it in
-`src/**/__tests__/` or name it `*.test.ts`. Good first targets:
+Library tests need `/** @jest-environment node */` at the top (the default is
+jsdom). **Tests for the rest of the app would be a genuinely useful
+contribution.** Put them in `src/**/__tests__/` or name them `*.test.ts`. Good
+targets:
 
 - `src/lib/documents.ts` — chunking behaviour on a known input
 - `src/lib/database.ts` — `cosineSimilarity` against hand-computed vectors
 - `src/lib/rag.ts` — retrieval ordering with a stubbed embedder
 
-Please don't paper over the failure with `--passWithNoTests`.
+Please don't get a green run with `--passWithNoTests` or by skipping a failing suite.
 
 ## What makes a change easy to merge
 
@@ -56,11 +62,17 @@ Please don't paper over the failure with `--passWithNoTests`.
 
 ## Things worth knowing before you change something
 
-- **Storage is in-memory** (`src/lib/database.ts` — plain `Map`s). Data does not
-  survive a restart and is not shared between instances. `scripts/setup-db.sql`
-  describes a pgvector schema the code does not currently use. Wiring up a real
-  datastore is a welcome contribution, but it is a real change, not a config flip.
-- **Vector search is in-process cosine similarity**, not a vector database.
+- **There are two stores behind one interface** (`KnowledgeStore` in
+  `src/lib/storage/`). The demo store is in memory (`src/lib/database.ts`,
+  plain `Map`s): data does not survive a restart and is not shared between
+  instances. Users can connect their own Postgres with pgvector instead; see
+  the README's "Connect your own database" and `scripts/support-bot-*.sql`.
+  Routes get their store from `src/lib/storage/resolve.ts`. SQL there is fixed
+  strings with `$n` parameters only, and connection strings and tokens are never
+  logged; read the invariants in `AGENTS.md` before changing it.
+- **Vector search is cosine similarity**: in-process for the demo, pgvector's
+  `<=>` (exact scan, no ANN index) for Postgres. Both must return the same
+  passages.
 - **`src/lib/widget-script.ts` runs on other people's websites.** It is served by
   `/api/widget/script/[key]`. Treat it, its globals and the `/api/widget/chat`
   request shape as a public API — a breaking change there breaks live embeds.

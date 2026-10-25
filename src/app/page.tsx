@@ -1,11 +1,14 @@
 'use client'
 
-import React, { useCallback, useId, useState } from 'react'
+import React, { useCallback, useEffect, useId, useState } from 'react'
 import ChatInterface from '@/components/ui/ChatInterface'
 import FileUpload from '@/components/ui/FileUpload'
 import DataDisclosure from '@/components/ui/DataDisclosure'
 import EmbedStep, { DEFAULT_PRIMARY_COLOR, toSafeHex, type WidgetConfig } from '@/components/ui/EmbedStep'
 import { readableTextOn } from '@/components/ui/contrast'
+import ConnectDatabaseStep from '@/components/storage/ConnectDatabaseStep'
+import StorageModeLabel from '@/components/storage/StorageModeLabel'
+import { useStorageConnection } from '@/components/storage/useStorageConnection'
 
 // Assistant configurations
 const UNIVERSAL_ASSISTANT = {
@@ -164,6 +167,9 @@ export default function HomePage() {
     position: 'bottom-right',
     size: 'medium',
   })
+  const storage = useStorageConnection()
+  useEffect(() => { if (storage.documents) setUploadedDocuments(storage.documents) }, [storage.documents])
+  const handleDisconnect = useCallback(() => { setUploadedDocuments([]); setSessionId(null) }, [])
 
   const step1Id = useId()
   const step2Id = useId()
@@ -203,6 +209,7 @@ export default function HomePage() {
     try {
       const response = await fetch('/api/upload', {
         method: 'POST',
+        headers: storage.requestHeaders,
         body: formData,
       })
 
@@ -404,7 +411,8 @@ export default function HomePage() {
               status={statuses[1]}
             />
             <div className={PANEL}>
-              <DataDisclosure />
+              <DataDisclosure connected={storage.connected} />
+              <StorageModeLabel storage={storage} place="documents" />
               <div className="mt-5">
                 <FileUpload
                   onUpload={handleFileUpload}
@@ -437,6 +445,7 @@ export default function HomePage() {
                 </div>
               )}
             </div>
+            <ConnectDatabaseStep storage={storage} sessionId={sessionId} onDisconnect={handleDisconnect} />
           </section>
 
           <section
@@ -464,6 +473,7 @@ export default function HomePage() {
                 primaryColor={safeColor}
                 onPrimaryColor={readableTextOn(safeColor)}
                 onMessageSent={handleMessageSent}
+                storageToken={storage.token}
               />
             </div>
           </section>
@@ -481,7 +491,9 @@ export default function HomePage() {
               documentCount={uploadedDocuments.length}
               config={widgetConfig}
               onGenerated={handleGenerated}
+              storageToken={storage.token}
             />
+            <StorageModeLabel storage={storage} place="embed" />
           </section>
         </div>
       </main>

@@ -1,13 +1,10 @@
 import { generateEmbeddings, matchScore, MIN_SIMILARITY } from './embeddings'
 import { CHAT_MODEL, getChatClient, REASONING_OPTIONS } from './llm'
 import { chunkText, extractTextFromFile } from './documents'
-import { 
-  createSession, 
-  storeDocument, 
-  findRelevantChunks, 
-  getSession,
-  updateSessionAccess 
-} from './database'
+import { memoryStore } from './storage/memory-store'
+import { isStorageError } from './storage/errors'
+import { retrievalLog, workspaceLabel } from './storage/log'
+import type { KnowledgeStore } from './storage/types'
 import type { VectorSearchResult } from '../types/database'
 
 export interface RAGProcessResult {
@@ -148,7 +145,7 @@ export async function getCachedEmbedding(text: string): Promise<number[]> {
 // Process and store documents in vector database
 export async function processDocumentsForRAG(files: File[]): Promise<RAGProcessResult> {
   // Create new session
-  const session = await createSession()
+  const session = await memoryStore.createWorkspace()
   
   let totalChunks = 0
   let totalWords = 0
@@ -190,7 +187,7 @@ export async function processDocumentsForRAG(files: File[]): Promise<RAGProcessR
       
       // Store in database
       console.log(`RAG - Storing document: ${file.name} with ${chunksWithEmbeddings.length} chunks`)
-      await storeDocument(session.id, file.name, chunksWithEmbeddings)
+      await memoryStore.storeDocument(session.id, file.name, chunksWithEmbeddings)
       
       const wordCount = extractedText.split(/\s+/).length
       console.log(`RAG - Processed ${file.name}: ${chunks.length} chunks, ${wordCount} words`)
@@ -221,17 +218,18 @@ export async function processDocumentsForRAG(files: File[]): Promise<RAGProcessR
 
 // Query the RAG system for relevant context
 export async function queryRAG(
-  sessionId: string, 
+  store: KnowledgeStore,
+  workspaceId: string,
   query: string,
   maxResults: number = 5
 ): Promise<RAGQueryResult> {
   // Check if session exists and update access time
-  const session = await getSession(sessionId)
+  const session = await store.getWorkspace(workspaceId)
   if (!session) {
     throw new Error('Session not found')
   }
   
-  await updateSessionAccess(sessionId)
+  await store.touchWorkspace(workspaceId)
   
   // Preprocess query to improve semantic matching
   const preprocessedQuery = preprocessQuery(query)
@@ -254,11 +252,11 @@ export async function queryRAG(
     let variationResults: VectorSearchResult[] = []
     
     for (const threshold of thresholds) {
-      const results = await findRelevantChunks({
-        session_id: sessionId,
-        query_embedding: queryEmbedding,
-        similarity_threshold: threshold,
-        max_results: maxResults
+      const results = await store.searchChunks({
+        workspaceId,
+        queryEmbedding,
+        threshold,
+        maxResults
       })
       
       // Use this threshold if we get good results or if it's our last attempt
@@ -325,6 +323,8 @@ export async function queryRAG(
   
   const confidence = matchScore(relevantChunks.map((chunk) => chunk.similarity))
   
+  retrievalLog(store.kind, 'preview', relevantChunks, workspaceLabel(workspaceId))
+  
   return {
     context: context.trim(),
     sources,
@@ -351,34 +351,26 @@ Please provide a detailed answer based on this context. If the context doesn't c
 }
 
 // Check if session has any documents
-export async function sessionHasDocuments(sessionId: string): Promise<boolean> {
+export async function sessionHasDocuments(store: KnowledgeStore, workspaceId: string): Promise<boolean> {
   try {
-    console.log(`🔍 RAG - sessionHasDocuments called for session:`, sessionId)
-    const session = await getSession(sessionId)
-    console.log(`🔍 RAG - Found session:`, session ? {
-      id: session.id,
-      document_count: session.document_count,
-      created_at: session.created_at,
-      last_accessed: session.last_accessed
-    } : 'null')
-    
-    const hasDocuments = session ? session.document_count > 0 : false
+    const hasDocuments = await store.hasDocuments(workspaceId)
     console.log(`🔍 RAG - sessionHasDocuments returning:`, hasDocuments)
     return hasDocuments
   } catch (error) {
+    if (isStorageError(error)) throw error
     console.error('🔍 RAG - Error checking session documents:', error)
     return false
   }
 }
 
 // Get session statistics
-export async function getSessionStats(sessionId: string): Promise<{
+export async function getSessionStats(store: KnowledgeStore, workspaceId: string): Promise<{
   documentCount: number
   lastAccessed: Date
   createdAt: Date
 } | null> {
   try {
-    const session = await getSession(sessionId)
+    const session = await store.getWorkspace(workspaceId)
     if (!session) return null
     
     return {
@@ -387,6 +379,7 @@ export async function getSessionStats(sessionId: string): Promise<{
       createdAt: session.created_at
     }
   } catch (error) {
+    if (isStorageError(error)) throw error
     console.error('Error getting session stats:', error)
     return null
   }

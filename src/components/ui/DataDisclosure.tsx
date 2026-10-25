@@ -72,7 +72,9 @@ const steps = [
   },
 ]
 
-export default function DataDisclosure({ className }: { className?: string }) {
+const CONNECTED_MEMORY_REST = " are stored in your own database. The app keeps a link to it only in this browser and inside your embed code, encrypted with this server's key."
+
+export default function DataDisclosure({ className, connected }: { className?: string; connected?: boolean }) {
   const headingId = useId()
 
   return (
@@ -94,7 +96,7 @@ export default function DataDisclosure({ className }: { className?: string }) {
             </span>
             <p className="pt-0.5 text-sm text-ink-muted">
               <strong className="font-semibold text-ink">{step.lead}</strong>
-              {step.rest}
+              {connected && index === 2 ? CONNECTED_MEMORY_REST : step.rest}
             </p>
           </li>
         ))}

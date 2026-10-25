@@ -17,6 +17,7 @@ type Props = ChatInterfaceProps & {
   primaryColor?: string
   onPrimaryColor?: string
   onMessageSent?: () => void
+  storageToken?: string | null
 }
 
 const onPrimarySurface = 'bg-[var(--preview-primary,var(--color-accent))] text-[color:var(--preview-on-primary,var(--color-white))]'
@@ -141,6 +142,7 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, P
   primaryColor,
   onPrimaryColor,
   onMessageSent,
+  storageToken,
 }, ref) => {
   const titleId = useId()
   const displayTitle = title.trim() || 'Your Business AI Assistant'
@@ -265,7 +267,7 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, P
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(storageToken ? { 'x-storage-token': storageToken } : {}) },
         body: JSON.stringify({
           message: text,
           sessionId: sessionId || undefined,

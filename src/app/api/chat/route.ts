@@ -1,14 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateResponse } from '../../../lib/llm'
 import { queryRAG, createRAGContext, sessionHasDocuments } from '../../../lib/rag'
-import { createSession, getSession } from '../../../lib/database'
 import { clientIp, isRateLimited, isWithinLimit, LIMITS } from '../../../lib/guard'
+import { resolveBuilderStore, storageErrorResponse } from '../../../lib/storage/resolve'
+import { StorageError, isStorageError, safeErrorSummary } from '../../../lib/storage/errors'
 
 export async function POST(request: NextRequest) {
   try {
     if (isRateLimited(`chat:${clientIp(request)}`, 20)) {
       return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
     }
+    // Resolved before the body is read, so a bad or wrong-purpose token reads and writes nothing
+    const resolved = resolveBuilderStore(request)
+    if (!resolved.ok) return storageErrorResponse(resolved.error)
+    const ctx = resolved.ctx
+    const store = ctx.store
 
     const { message, sessionId, systemPrompt, roleContext } = await request.json()
     
@@ -31,12 +37,17 @@ export async function POST(request: NextRequest) {
     let currentSessionId = sessionId
     let dbSession = null
     
-    if (sessionId) {
+    if (ctx.kind === 'postgres') {
+      // The token decides the workspace; a sessionId in the body is ignored
+      currentSessionId = ctx.workspaceId
+      dbSession = await store.getWorkspace(currentSessionId)
+      if (!dbSession) throw new StorageError('workspace_not_found')
+    } else if (sessionId) {
       // Check if provided session exists
-      dbSession = await getSession(sessionId)
+      dbSession = await store.getWorkspace(sessionId)
       if (!dbSession) {
         console.log(`Chat API - Session ${sessionId} not found, creating new one`)
-        dbSession = await createSession()
+        dbSession = await store.createWorkspace()
         currentSessionId = dbSession.id
       } else {
         console.log(`Chat API - Using existing session: ${sessionId}`)
@@ -44,7 +55,7 @@ export async function POST(request: NextRequest) {
     } else {
       // Create new session
       console.log('Chat API - No sessionId provided, creating new session')
-      dbSession = await createSession()
+      dbSession = await store.createWorkspace()
       currentSessionId = dbSession.id
     }
 
@@ -54,12 +65,12 @@ export async function POST(request: NextRequest) {
     
     // Check if we have a session with documents for RAG
     console.log('Chat API - SessionId:', currentSessionId)
-    console.log('Chat API - Has documents:', await sessionHasDocuments(currentSessionId))
+    console.log('Chat API - Has documents:', await sessionHasDocuments(store, currentSessionId))
     
-    if (await sessionHasDocuments(currentSessionId)) {
+    if (await sessionHasDocuments(store, currentSessionId)) {
       try {
         // Query the RAG system for relevant context
-        ragResult = await queryRAG(currentSessionId, message)
+        ragResult = await queryRAG(store, currentSessionId, message)
         console.log('Chat API - RAG result:', {
           contextLength: ragResult.context.length,
           confidence: ragResult.confidence,
@@ -73,6 +84,7 @@ export async function POST(request: NextRequest) {
           confidence = ragResult.confidence
         }
       } catch (error) {
+        if (isStorageError(error)) throw error
         console.error('RAG query error:', error)
         // Continue with generic response if RAG fails
       }
@@ -105,6 +117,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(responseData)
     
   } catch (error) {
+    if (isStorageError(error)) {
+      console.error(`Chat API storage error ${safeErrorSummary(error)}`)
+      return storageErrorResponse(error)
+    }
     console.error('Chat API error:', error)
     
     return NextResponse.json(

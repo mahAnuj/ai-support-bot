@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState, type JSX } from 'react'
 import InstallGuide from './InstallGuide'
 import { readableTextOn } from './contrast'
+import { STORAGE_ERROR_CODES, storageErrorMessage } from '../../lib/storage/errors'
 
 export const DEFAULT_PRIMARY_COLOR = '#1E6B58'
 
@@ -24,6 +25,7 @@ export interface EmbedStepProps {
   documentCount: number
   config: WidgetConfig
   onGenerated?: () => void
+  storageToken?: string | null
 }
 
 const SIZES: Record<WidgetConfig['size'], { width: number; height: number }> = {
@@ -80,7 +82,7 @@ function CloseIcon() {
   )
 }
 
-export default function EmbedStep({ sessionId, documentCount, config, onGenerated }: EmbedStepProps): JSX.Element {
+export default function EmbedStep({ sessionId, documentCount, config, onGenerated, storageToken }: EmbedStepProps): JSX.Element {
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [embedCode, setEmbedCode] = useState('')
@@ -131,7 +133,7 @@ export default function EmbedStep({ sessionId, documentCount, config, onGenerate
     try {
       const response = await fetch('/api/widget/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(storageToken ? { 'x-storage-token': storageToken } : {}) },
         body: JSON.stringify({
           sessionId,
           name: config.name || config.title || 'Support Widget',
@@ -150,7 +152,7 @@ export default function EmbedStep({ sessionId, documentCount, config, onGenerate
       } else if (status === 400) {
         setError(`Couldn't generate embed code: ${body?.error ?? 'invalid request'}.`)
       } else if (!response.ok || typeof body?.embedCode !== 'string' || typeof body?.scriptUrl !== 'string') {
-        setError(`Couldn't generate embed code (status ${status}). Sessions are lost when the server restarts, so upload your documents again and retry.`)
+        setError((STORAGE_ERROR_CODES as readonly string[]).includes(body?.code) ? storageErrorMessage(body.code) : `Couldn't generate embed code (status ${status}). Sessions are lost when the server restarts, so upload your documents again and retry.`)
       } else {
         setEmbedCode(body.embedCode)
         setScriptUrl(body.scriptUrl)
@@ -300,7 +302,7 @@ export default function EmbedStep({ sessionId, documentCount, config, onGenerate
             </p>
           </div>
           {scriptUrl && (
-            <InstallGuide embedCode={embedCode} scriptUrl={scriptUrl} apiBaseUrl={new URL(scriptUrl).origin} />
+            <InstallGuide embedCode={embedCode} scriptUrl={scriptUrl} apiBaseUrl={new URL(scriptUrl).origin} persistent={!!storageToken} />
           )}
         </div>
       </dialog>

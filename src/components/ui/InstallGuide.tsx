@@ -6,6 +6,7 @@ export interface InstallGuideProps {
   embedCode: string
   scriptUrl: string
   apiBaseUrl: string
+  persistent?: boolean
 }
 
 type Platform = {
@@ -87,7 +88,7 @@ const tabSelected =
   'bg-surface font-semibold text-ink shadow-sm after:absolute after:inset-x-2 after:bottom-0.5 after:h-0.5 after:rounded-full after:bg-accent'
 const tabUnselected = 'font-medium text-ink-muted hover:text-ink'
 
-export default function InstallGuide({ embedCode, scriptUrl, apiBaseUrl }: InstallGuideProps): JSX.Element {
+export default function InstallGuide({ embedCode, scriptUrl, apiBaseUrl, persistent }: InstallGuideProps): JSX.Element {
   const list = platforms(embedCode, scriptUrl)
   const [active, setActive] = useState(list[0].id)
   const [copied, setCopied] = useState('')
@@ -229,8 +230,10 @@ export default function InstallGuide({ embedCode, scriptUrl, apiBaseUrl }: Insta
           <div className="sm:grid sm:grid-cols-[12rem_minmax(0,1fr)] sm:gap-x-6">
             <dt className="font-semibold text-ink">Limits</dt>
             <dd className="mt-0.5 max-w-[65ch] text-ink-muted sm:mt-0">
-              Widgets and documents are kept in this server&apos;s memory, so the widget stops answering after a server
-              restart and you need to generate it again. Each visitor network can send 20 questions a minute. Anyone
+              {persistent
+                ? 'Widgets and documents are stored in your database, so the widget keeps answering after server restarts.'
+                : "Widgets and documents are kept in this server's memory, so the widget stops answering after a server restart and you need to generate it again."}{' '}
+              Each visitor network can send 20 questions a minute. Anyone
               who copies the tag can use the widget on another site.
             </dd>
           </div>
