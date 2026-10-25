@@ -7,6 +7,7 @@ import { readableTextOn } from './contrast'
 import { STORAGE_ERROR_CODES, storageErrorMessage } from '../../lib/storage/errors'
 import { ORIGINS_REQUIRED_MESSAGE } from '../../lib/origins'
 import { MODEL_TOKEN_HEADER, isModelErrorCode, modelErrorMessage } from '../../lib/model/shared'
+import { connectorErrorMessage, connectorStatus, isConnectorErrorCode, type AnswerPath } from '../../lib/connector/shared'
 
 export const DEFAULT_PRIMARY_COLOR = '#1E6B58'
 
@@ -34,6 +35,14 @@ export interface EmbedStepProps {
   modelAttached?: boolean
   modelToken?: string | null
   ownModel?: { model: string; host: string } | null
+  // Documents live on a connected backend; allowed sites are then required
+  connectorMode?: boolean
+}
+
+const ANSWER_PATHS: readonly AnswerPath[] = ['backend', 'owner', 'demo']
+
+function toAnswerPath(value: unknown): AnswerPath | null {
+  return (ANSWER_PATHS as readonly unknown[]).includes(value) ? (value as AnswerPath) : null
 }
 
 const SIZES: Record<WidgetConfig['size'], { width: number; height: number }> = {
@@ -41,6 +50,8 @@ const SIZES: Record<WidgetConfig['size'], { width: number; height: number }> = {
   medium: { width: 350, height: 500 },
   large: { width: 400, height: 600 },
 }
+
+const CONNECTOR_ORIGINS_REQUIRED_MESSAGE = 'Add at least one allowed site before generating an embed that uses your backend.'
 
 const NETWORK_ERROR = "Couldn't reach the server. Check your connection and try again."
 
@@ -90,7 +101,7 @@ function CloseIcon() {
   )
 }
 
-export default function EmbedStep({ sessionId, documentCount, config, onGenerated, onWorkspaceMissing, storageToken, modelAttached = false, modelToken, ownModel = null }: EmbedStepProps): JSX.Element {
+export default function EmbedStep({ sessionId, documentCount, config, onGenerated, onWorkspaceMissing, storageToken, modelAttached = false, modelToken, ownModel = null, connectorMode = false }: EmbedStepProps): JSX.Element {
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [embedCode, setEmbedCode] = useState('')
@@ -101,6 +112,7 @@ export default function EmbedStep({ sessionId, documentCount, config, onGenerate
   // The guide describes the embed that was generated, not the list as edited since
   const [generatedWithSites, setGeneratedWithSites] = useState(false)
   const [generatedModel, setGeneratedModel] = useState<{ model: string; host: string } | null>(null)
+  const [generatedAnswerPath, setGeneratedAnswerPath] = useState<AnswerPath | null>(null)
 
   const generateRef = useRef<HTMLButtonElement>(null)
   const sitesRef = useRef<AllowedSitesHandle>(null)
@@ -139,7 +151,9 @@ export default function EmbedStep({ sessionId, documentCount, config, onGenerate
   const isLeft = config.position === 'bottom-left'
   const onPrimary = readableTextOn(primary)
   const copied = copyStatus === 'Copied'
-  const sitesMissing = modelAttached && origins.length === 0
+  const sitesRequired = modelAttached || connectorMode
+  const sitesMissing = sitesRequired && origins.length === 0
+  const originsRequiredMessage = connectorMode ? CONNECTOR_ORIGINS_REQUIRED_MESSAGE : ORIGINS_REQUIRED_MESSAGE
 
   const generate = async () => {
     if (isGenerating || sitesMissing) return
@@ -170,24 +184,27 @@ export default function EmbedStep({ sessionId, documentCount, config, onGenerate
       const body = await response.json().catch(() => null)
       const status = response.status
 
-      if (isModelErrorCode(body?.code)) {
+      if (isConnectorErrorCode(body?.code)) {
+        setError(connectorErrorMessage(body.code, connectorStatus(body.details)))
+      } else if (isModelErrorCode(body?.code)) {
         setError(modelErrorMessage(body.code))
       } else if (status === 429) {
         setError('Too many requests from this network in the last minute. Wait a minute and try again.')
       } else if (status === 400 && body?.code === 'origins_required') {
-        setError(ORIGINS_REQUIRED_MESSAGE)
+        setError(originsRequiredMessage)
       } else if (status === 400 && body?.code === 'invalid_origin' && typeof body?.error === 'string') {
         setError(body.error)
       } else if (status === 400) {
         setError(`Couldn't generate embed code: ${body?.error ?? 'invalid request'}.`)
       } else if (!response.ok || typeof body?.embedCode !== 'string' || typeof body?.scriptUrl !== 'string') {
         if (body?.code === 'workspace_not_found') onWorkspaceMissing?.()
-        setError((STORAGE_ERROR_CODES as readonly string[]).includes(body?.code) ? storageErrorMessage(body.code) : `Couldn't generate embed code (status ${status}). Sessions are lost when the server restarts, so upload your documents again and retry.`)
+        setError((STORAGE_ERROR_CODES as readonly string[]).includes(body?.code) ? storageErrorMessage(body.code) : connectorMode ? `Couldn't generate embed code (status ${status}). Try again shortly.` : `Couldn't generate embed code (status ${status}). Sessions are lost when the server restarts, so upload your documents again and retry.`)
       } else {
         setEmbedCode(body.embedCode)
         setScriptUrl(body.scriptUrl)
         setGeneratedWithSites(sentOrigins.length > 0)
         setGeneratedModel(sentModel)
+        setGeneratedAnswerPath(toAnswerPath(body.answerPath))
         setCopyStatus('')
         setIsOpen(true)
         onGenerated?.()
@@ -260,7 +277,7 @@ export default function EmbedStep({ sessionId, documentCount, config, onGenerate
           ref={sitesRef}
           origins={origins}
           onChange={setOrigins}
-          required={modelAttached}
+          required={sitesRequired}
           describedById={sitesMissing ? requiredId : undefined}
         />
       </div>
@@ -286,7 +303,7 @@ export default function EmbedStep({ sessionId, documentCount, config, onGenerate
         </button>
         {sitesMissing && (
           <p id={requiredId} className="mt-2 max-w-[60ch] text-sm text-ink-muted">
-            {ORIGINS_REQUIRED_MESSAGE}
+            {originsRequiredMessage}
           </p>
         )}
       </div>
@@ -352,7 +369,7 @@ export default function EmbedStep({ sessionId, documentCount, config, onGenerate
             </p>
           </div>
           {scriptUrl && (
-            <InstallGuide embedCode={embedCode} scriptUrl={scriptUrl} apiBaseUrl={new URL(scriptUrl).origin} persistent={!!storageToken} hasAllowedSites={generatedWithSites} ownModel={generatedModel} />
+            <InstallGuide embedCode={embedCode} scriptUrl={scriptUrl} apiBaseUrl={new URL(scriptUrl).origin} persistent={!!storageToken} hasAllowedSites={generatedWithSites} ownModel={generatedModel} connectorAnswerPath={generatedAnswerPath} />
           )}
         </div>
       </dialog>

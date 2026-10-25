@@ -1,4 +1,5 @@
 import { useId } from 'react'
+import type { AnswerPath } from '../../lib/connector/shared'
 
 const iconProps = {
   'aria-hidden': true,
@@ -72,6 +73,9 @@ const steps = [
   },
 ]
 
+const GROQ_RETENTION_NOTE =
+  "Groq may store the inputs and outputs of each request for up to 30 days, for reliability and compliance, unless Zero Data Retention is turned on for the deployment's Groq organisation."
+
 export type OwnModelInfo = { model: string; host: string }
 
 function OwnModelQuestionRest({ ownModel }: { ownModel: OwnModelInfo }) {
@@ -88,14 +92,71 @@ function OwnModelQuestionRest({ ownModel }: { ownModel: OwnModelInfo }) {
 
 const CONNECTED_MEMORY_REST = " are stored in your own database. The app keeps a link to it only in this browser and inside your embed code, encrypted with this server's key."
 
+export const CONNECTOR_ANSWER_COPY: Record<AnswerPath, string> = {
+  backend:
+    'Your backend writes every answer. This app sends it the question and the matching passages; no model on this app is used and nothing goes to Groq.',
+  owner: 'This app writes the answer with your own model, from the passages your backend returns.',
+  demo: 'This app writes the answer with the demo model on Groq, from the passages your backend returns.',
+}
+
+export type ConnectorDisclosureInfo = { host: string; answerPath: AnswerPath }
+
+function Mono({ children }: { children: string }) {
+  return <span className="break-all font-mono text-xs text-ink">{children}</span>
+}
+
+function ConnectorStepRest({
+  index,
+  connector,
+  ownModel,
+}: {
+  index: number
+  connector: ConnectorDisclosureInfo
+  ownModel: OwnModelInfo | null
+}) {
+  if (index === 0) {
+    return (
+      <>
+        {' '}
+        are read and split into passages on this server, then sent to your backend at <Mono>{connector.host}</Mono>.
+        This server keeps no copy after the request.
+      </>
+    )
+  }
+  if (index === 1) {
+    return (
+      <>
+        , including questions visitors ask through the widget on your site, is sent as typed from this server to your
+        backend to find matching passages, with no rewording. {CONNECTOR_ANSWER_COPY[connector.answerPath]}
+        {connector.answerPath === 'owner' && ownModel && (
+          <>
+            {' '}
+            The question and those passages go to <Mono>{ownModel.model}</Mono> at <Mono>{ownModel.host}</Mono>.
+          </>
+        )}
+      </>
+    )
+  }
+  if (index === 2) return <> are kept by your backend, not on this server.</>
+  return (
+    <>
+      {' '}
+      records one line per backend call: the operation, a fingerprint of your backend&apos;s address, the outcome and the
+      time taken. It never records the address, the signing secret, questions or passages. Uploads also log filenames.
+    </>
+  )
+}
+
 export default function DataDisclosure({
   className,
   connected,
   ownModel = null,
+  connector = null,
 }: {
   className?: string
   connected?: boolean
   ownModel?: OwnModelInfo | null
+  connector?: ConnectorDisclosureInfo | null
 }) {
   const headingId = useId()
 
@@ -118,7 +179,9 @@ export default function DataDisclosure({
             </span>
             <p className="pt-0.5 text-sm text-ink-muted">
               <strong className="font-semibold text-ink">{step.lead}</strong>
-              {ownModel && index === 1 ? (
+              {connector ? (
+                <ConnectorStepRest index={index} connector={connector} ownModel={ownModel} />
+              ) : ownModel && index === 1 ? (
                 <OwnModelQuestionRest ownModel={ownModel} />
               ) : connected && index === 2 ? (
                 CONNECTED_MEMORY_REST
@@ -129,7 +192,29 @@ export default function DataDisclosure({
           </li>
         ))}
       </ol>
-      {ownModel ? (
+      {connector ? (
+        <>
+          <p className="mt-4 text-sm text-ink-muted">
+            Your backend&apos;s address, key id and signing secret are kept only encrypted with this server&apos;s key, in
+            this browser and inside your embed code. Anyone who has one of these tokens and this server&apos;s key can
+            recover the secret and use it as this app does, including to add or delete documents on your backend. To
+            revoke it, remove the key id from <Mono>CONNECTOR_KEYS</Mono> on your backend.
+          </p>
+          {connector.answerPath === 'owner' && ownModel && (
+            <p className="mt-2 text-sm text-ink-muted">
+              Your model API key is stored only encrypted with this server&apos;s key, in this browser and inside your
+              embed code. The server does not log or save it.
+            </p>
+          )}
+          {connector.answerPath === 'demo' ? (
+            <p className="mt-2 text-xs text-ink-muted">{GROQ_RETENTION_NOTE}</p>
+          ) : connector.answerPath === 'owner' ? (
+            <p className="mt-2 text-xs text-ink-muted">Your provider&apos;s data retention policy applies.</p>
+          ) : (
+            <p className="mt-2 text-xs text-ink-muted">What your backend keeps and logs is up to your backend.</p>
+          )}
+        </>
+      ) : ownModel ? (
         <>
           <p className="mt-4 text-sm text-ink-muted">
             Your API key is stored only encrypted with this server&apos;s key, in this browser and inside your embed code.
@@ -138,7 +223,7 @@ export default function DataDisclosure({
           <p className="mt-2 text-xs text-ink-muted">Your provider&apos;s data retention policy applies.</p>
         </>
       ) : (
-        <p className="mt-4 text-xs text-ink-muted">Groq may store the inputs and outputs of each request for up to 30 days, for reliability and compliance, unless Zero Data Retention is turned on for the deployment's Groq organisation.</p>
+        <p className="mt-4 text-xs text-ink-muted">{GROQ_RETENTION_NOTE}</p>
       )}
     </section>
   )

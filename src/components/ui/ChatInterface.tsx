@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import MarkdownRenderer from './MarkdownRenderer'
 import { ChatMessage, ChatInterfaceProps } from '@/types'
 import { MODEL_ERROR_MESSAGES, MODEL_TOKEN_HEADER, isModelErrorCode, modelErrorMessage, providerStatus } from '@/lib/model/shared'
+import { connectorErrorMessage, connectorStatus, isConnectorErrorCode } from '@/lib/connector/shared'
 
 interface ChatResponse {
   message: unknown
@@ -117,6 +118,9 @@ function extractAnswer(value: unknown): string {
 function errorTextFor(status: number, body: unknown, hasOwnModel: boolean): string {
   const fields = body && typeof body === 'object' ? (body as Record<string, unknown>) : {}
   const code = fields.code
+  if (isConnectorErrorCode(code)) {
+    return `No answer from your backend. ${connectorErrorMessage(code, connectorStatus(fields.details))}`
+  }
   if (code === 'model_token_invalid') return MODEL_ERROR_MESSAGES.model_token_invalid
   if (hasOwnModel && isModelErrorCode(code)) {
     return `No answer from your model. ${modelErrorMessage(code, providerStatus(fields.details))}`
