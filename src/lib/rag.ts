@@ -251,9 +251,9 @@ export async function queryRAG(
   
   // Smart multi-threshold search with quality filtering
   let bestResults: VectorSearchResult[] = []
-  let bestVariation = queryVariations[0]
+  let bestVariationIndex = 0
   
-  for (const variation of queryVariations) {
+  for (const [variationIndex, variation] of queryVariations.entries()) {
     const queryEmbedding = await getCachedEmbedding(variation)
     
     // Try multiple thresholds: start high, go lower if needed
@@ -296,7 +296,7 @@ export async function queryRAG(
           
         if (avgSimilarity > currentBestAvg) {
           bestResults = filteredResults
-          bestVariation = variation
+          bestVariationIndex = variationIndex
           console.log(`RAG Query - New best variation (avg similarity: ${avgSimilarity.toFixed(3)})`)
         }
       }
@@ -304,7 +304,7 @@ export async function queryRAG(
   }
   
   const relevantChunks = bestResults
-  console.log(`RAG Query - Final results: ${relevantChunks.length} chunks from "${bestVariation}"`)
+  console.log(`RAG Query - Final results: ${relevantChunks.length} chunks from variation ${bestVariationIndex + 1} of ${queryVariations.length}`)
   
   // Create context from relevant chunks with smart truncation
   const maxContextLength = 2000 // Optimize for token limits

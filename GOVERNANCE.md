@@ -78,7 +78,8 @@ certification.
 - **To the browser:** answers, the names of the source files used, and a
   retrieval match score.
 - **To the server log:** request diagnostics, including filenames and the
-  length of each question. The text of visitor questions is not logged.
+  length of each question. The text of questions, in the widget or the
+  preview, and of their reworded versions is not logged.
 
 ### Connected database
 
