@@ -10,7 +10,7 @@ Requires Node 20+.
 git clone https://github.com/mahAnuj/ai-support-bot.git
 cd ai-support-bot
 npm install
-echo "OPENAI_API_KEY=sk-your-key" > .env.local
+echo "GROQ_API_KEY=gsk_your-key" > .env.local  # free key at console.groq.com; only chat needs it
 npm run dev
 ```
 
@@ -28,7 +28,7 @@ npm test        # must pass; needs no env vars or database
 npm run build   # must succeed with NO env vars set
 ```
 
-`npm run build` passing **without** `OPENAI_API_KEY` is a real requirement, not
+`npm run build` passing **without** `GROQ_API_KEY` is a real requirement, not
 a nicety. Hosts like Vercel do not expose runtime secrets to the build step, so
 constructing an SDK client at module scope breaks production deploys — that was
 a real outage in this repo. Build clients lazily inside a function.
