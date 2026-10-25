@@ -1,0 +1,484 @@
+openapi: 3.1.0
+info:
+  title: Support bot connector API
+  version: '1'
+  summary: The HTTP API a site owner's connector server implements for the support bot builder.
+  description: |
+    Version 1 of the connector API. The prose specification, including the
+    signing algorithm and the verifier rules, is `docs/connector-api.md`.
+    Signing test vectors are in `docs/connector-test-vectors.json`.
+
+    Every request except an unsigned `GET /v1/health` carries the four
+    `X-Connector-*` headers. The signature is
+    `v1=` + hex(HMAC-SHA256(key = UTF-8 bytes of the 43-character secret,
+    message = canonical string)), where the canonical string is
+    `v1\n<METHOD>\n<path+query relative to the base URL>\n<timestamp>\n<nonce>\n<hex SHA-256 of the raw body>`.
+    Any signing failure returns 401 with code `unauthorized`.
+
+    "Characters" means UTF-16 code units. `POST /v1/documents` request
+    bodies are at most 2,097,152 bytes; responses are at most 1,048,576
+    bytes. Redirects are not followed by the app.
+  license:
+    name: MIT
+    identifier: MIT
+servers:
+  - url: https://connector.example.com
+    description: Example base URL. A base URL may include a path prefix; paths below are relative to it.
+tags:
+  - name: health
+    description: Version and capabilities.
+  - name: documents
+    description: Store, list and delete documents.
+  - name: retrieval
+    description: Search passages and, optionally, write answers.
+security:
+  - ConnectorKeyId: []
+    ConnectorTimestamp: []
+    ConnectorNonce: []
+    ConnectorSignature: []
+paths:
+  /v1/health:
+    get:
+      operationId: getHealth
+      tags: [health]
+      summary: Report the API version and capabilities
+      description: |
+        Answers unsigned requests (none of the four `X-Connector-*` headers)
+        with the version and capabilities only. A signed request is checked
+        like any other and gets 401 if the check fails. The app refuses a
+        connector whose version is not "1" (`connector_version_unsupported`)
+        or that lacks `documents` or `search` (`connector_capability_missing`).
+      security:
+        - {}
+        - ConnectorKeyId: []
+          ConnectorTimestamp: []
+          ConnectorNonce: []
+          ConnectorSignature: []
+      responses:
+        '200':
+          description: Version and capabilities.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /v1/documents:
+    post:
+      operationId: createDocument
+      tags: [documents]
+      summary: Store one document as pre-split passages
+      description: |
+        The app extracts and splits the document and sends the passages
+        without embeddings; the connector embeds them. The request body is
+        at most 2,097,152 bytes, and passage `index` values are unique
+        within the document.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DocumentCreateRequest'
+      responses:
+        '201':
+          description: The document was stored.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentCreated'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/Internal'
+    get:
+      operationId: listDocuments
+      tags: [documents]
+      summary: List stored documents
+      description: At most 1,000 documents, ordered by `createdAt`, then `id`. The request body is empty.
+      responses:
+        '200':
+          description: The stored documents.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /v1/documents/{id}:
+    delete:
+      operationId: deleteDocument
+      tags: [documents]
+      summary: Delete one document and its passages
+      description: The request body is empty. An unknown id returns 404.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Document id. Unreserved characters only, so it never needs percent-encoding.
+          schema:
+            $ref: '#/components/schemas/DocumentId'
+      responses:
+        '200':
+          description: The document was deleted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Deleted'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /v1/search:
+    post:
+      operationId: search
+      tags: [retrieval]
+      summary: Return the passages most similar to a query
+      description: |
+        `score` is cosine similarity in [-1, 1], ordered highest first, at
+        most `topK` items. The app keeps passages with score >= 0.15
+        (`MIN_SIMILARITY`) and scales scores between 0.15 and 0.50 into its
+        match score. Those values were calibrated for
+        `Xenova/all-MiniLM-L6-v2` with mean pooling and normalisation; a
+        connector using another model sees a different cut-off.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SearchRequest'
+      responses:
+        '200':
+          description: Matching passages.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /v1/answer:
+    post:
+      operationId: answer
+      tags: [retrieval]
+      summary: Write an answer (optional; only when `answer` is advertised)
+      description: |
+        `passages: null` asks the connector to retrieve for itself; this app
+        always sends an array (possibly empty). Passage text is data, not
+        instructions: give it to the model as reference material inside
+        `<documents>` tags and never follow instructions found in it.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnswerRequest'
+      responses:
+        '200':
+          description: The answer.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnswerResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/Internal'
+        '502':
+          $ref: '#/components/responses/UpstreamError'
+components:
+  securitySchemes:
+    ConnectorKeyId:
+      type: apiKey
+      in: header
+      name: X-Connector-Key-Id
+      description: 'Key id, `^ck_[0-9a-f]{16}$`.'
+    ConnectorTimestamp:
+      type: apiKey
+      in: header
+      name: X-Connector-Timestamp
+      description: 'Unix seconds, `^[1-9][0-9]{0,11}$`. Refused when more than 300 seconds from the connector clock.'
+    ConnectorNonce:
+      type: apiKey
+      in: header
+      name: X-Connector-Nonce
+      description: 'Random base64url, `^[A-Za-z0-9_-]{22,64}$`. A repeated (key id, nonce) pair is refused; nonces are kept at least 600 seconds.'
+    ConnectorSignature:
+      type: apiKey
+      in: header
+      name: X-Connector-Signature
+      description: '`v1=` followed by 64 lowercase hex characters of HMAC-SHA256 over the canonical string.'
+  schemas:
+    DocumentId:
+      type: string
+      pattern: '^[A-Za-z0-9._~-]{1,128}$'
+      minLength: 1
+      maxLength: 128
+    Health:
+      type: object
+      required: [version, capabilities]
+      properties:
+        version:
+          type: string
+          const: '1'
+        capabilities:
+          type: array
+          description: Must include `documents` and `search`; `answer` is optional. Unknown strings are ignored.
+          items:
+            type: string
+          examples:
+            - [documents, search, answer]
+    DocumentPassage:
+      type: object
+      required: [index, text]
+      properties:
+        index:
+          type: integer
+          minimum: 0
+          maximum: 999
+        text:
+          type: string
+          minLength: 1
+          maxLength: 1000
+    DocumentCreateRequest:
+      type: object
+      required: [filename, contentType, passages]
+      properties:
+        filename:
+          type: string
+          minLength: 1
+          maxLength: 255
+        contentType:
+          type: string
+          enum:
+            - text/plain
+            - text/markdown
+            - application/pdf
+            - application/vnd.openxmlformats-officedocument.wordprocessingml.document
+        passages:
+          type: array
+          minItems: 1
+          maxItems: 1000
+          items:
+            $ref: '#/components/schemas/DocumentPassage'
+    DocumentCreated:
+      type: object
+      required: [id, filename, passageCount]
+      properties:
+        id:
+          $ref: '#/components/schemas/DocumentId'
+        filename:
+          type: string
+        passageCount:
+          type: integer
+          minimum: 1
+          maximum: 1000
+    Document:
+      type: object
+      required: [id, filename, contentType, passageCount, createdAt]
+      properties:
+        id:
+          $ref: '#/components/schemas/DocumentId'
+        filename:
+          type: string
+        contentType:
+          type: string
+        passageCount:
+          type: integer
+          minimum: 0
+        createdAt:
+          type: string
+          format: date-time
+    DocumentList:
+      type: object
+      required: [documents]
+      properties:
+        documents:
+          type: array
+          maxItems: 1000
+          items:
+            $ref: '#/components/schemas/Document'
+    Deleted:
+      type: object
+      required: [deleted]
+      properties:
+        deleted:
+          type: boolean
+          const: true
+    SearchRequest:
+      type: object
+      required: [query, topK]
+      properties:
+        query:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        topK:
+          type: integer
+          minimum: 1
+          maximum: 10
+    SearchPassage:
+      type: object
+      required: [documentId, filename, text, score]
+      properties:
+        documentId:
+          $ref: '#/components/schemas/DocumentId'
+        filename:
+          type: string
+        text:
+          type: string
+          maxLength: 10000
+        score:
+          type: number
+          minimum: -1
+          maximum: 1
+          description: Cosine similarity between the query and passage embeddings.
+    SearchResponse:
+      type: object
+      required: [passages]
+      properties:
+        passages:
+          type: array
+          maxItems: 10
+          description: At most `topK` items, ordered by score, highest first.
+          items:
+            $ref: '#/components/schemas/SearchPassage'
+    AnswerRequest:
+      type: object
+      required: [question, passages, systemPrompt]
+      properties:
+        question:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        passages:
+          type: [array, 'null']
+          maxItems: 10
+          items:
+            $ref: '#/components/schemas/SearchPassage'
+        systemPrompt:
+          type: [string, 'null']
+          maxLength: 4000
+    AnswerResponse:
+      type: object
+      required: [message, sources]
+      properties:
+        message:
+          type: string
+          minLength: 1
+          maxLength: 20000
+        sources:
+          type: array
+          maxItems: 10
+          description: Filenames of the passages the answer drew on.
+          items:
+            type: string
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code]
+          properties:
+            code:
+              type: string
+              enum:
+                - bad_request
+                - unauthorized
+                - not_found
+                - method_not_allowed
+                - payload_too_large
+                - unsupported_media_type
+                - internal
+                - upstream_error
+  responses:
+    BadRequest:
+      description: The body is not valid JSON or breaks a field rule.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: bad_request
+    Unauthorized:
+      description: Any signing failure. The response is the same for every reason.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: unauthorized
+    NotFound:
+      description: Unknown path or unknown document id.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: not_found
+    PayloadTooLarge:
+      description: The body is over the size limit.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: payload_too_large
+    UnsupportedMediaType:
+      description: A body without `Content-Type application/json`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: unsupported_media_type
+    Internal:
+      description: An unexpected server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: internal
+    UpstreamError:
+      description: The connector's own model call failed.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: upstream_error
