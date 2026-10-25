@@ -18,6 +18,8 @@ export interface WidgetSettings {
   position: 'bottom-right' | 'bottom-left'
   size: 'small' | 'medium' | 'large'
   allowed_domains: string[]
+  allowed_origins?: string[]
+  sealed?: boolean
   business_name?: string
   system_prompt?: string
   role_context?: string

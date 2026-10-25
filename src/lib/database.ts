@@ -448,6 +448,8 @@ export async function createWidgetFromSession(
     position: config.position || 'bottom-right',
     size: config.size || 'medium',
     allowed_domains: config.allowed_domains || [],
+    ...(config.allowed_origins ? { allowed_origins: [...config.allowed_origins] } : {}),
+    ...(config.sealed ? { sealed: true } : {}),
     is_active: true,
     created_at: new Date(),
     updated_at: new Date()
