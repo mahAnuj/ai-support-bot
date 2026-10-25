@@ -311,7 +311,8 @@ export function widgetScript(widget: Widget, baseUrl: string): string {
       return line.length > 1 && line.charAt(0) === '|' && line.charAt(line.length - 1) === '|';
     }
     const lines = [];
-    String(text).split(/\\r?\\n/).forEach(function (raw) {
+    // Two rows joined by a bare <br> ("| a |<br>| b |") are two rows.
+    String(text).replace(/\\|<br\\s*\\/?>\\|/gi, '|\\n|').split(/\\r?\\n/).forEach(function (raw) {
       if (isTableRow(raw.trim())) lines.push(raw);
       else raw.split(/<br\\s*\\/?>/gi).forEach(function (part) { lines.push(part); });
     });
@@ -359,6 +360,7 @@ export function widgetScript(widget: Widget, baseUrl: string): string {
       } else if (isTableRow(line)) {
         const cells = line.slice(1, -1).split('|').map(function (c) { return c.trim(); })
           .filter(function (c) { return c.split(BR).join('').trim(); });
+        if (cells.length === 0) return;
         const row = addBlock('p');
         cells.join(' / ').split(BR).forEach(function (piece, i) {
           if (i > 0) row.appendChild(document.createElement('br'));
