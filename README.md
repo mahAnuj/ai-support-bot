@@ -23,7 +23,9 @@ A powerful platform that lets any business build, test, and deploy intelligent A
 - **Embeddable Widget**: Copy-paste JavaScript code to add to any website
 - **Customizable Appearance**: Match your brand colors and positioning preferences
 - **Mobile Optimized**: Works seamlessly on desktop, tablet, and mobile devices
-- **Bounded by default**: Per-IP rate limits, input size caps, and optional per-widget domain allowlists. See [GOVERNANCE.md](GOVERNANCE.md) for what is and is not protected
+- **Allowed sites**: List up to 10 exact sites (such as `https://example.com`) and the widget refuses to answer anywhere else in a browser
+- **Your own model (optional)**: Answer with your own OpenAI-compatible model and API key instead of the shared demo model on Groq. See [Use your own model](#-use-your-own-model)
+- **Bounded by default**: Per-IP rate limits and input size caps. See [GOVERNANCE.md](GOVERNANCE.md) for what is and is not protected
 
 ## 🚀 Quick Start
 
@@ -82,7 +84,7 @@ Visit [http://localhost:3000](http://localhost:3000) and start building your AI 
 - **Frontend**: Next.js 15 + React 19 + TypeScript + Tailwind CSS v4
 - **Backend**: Next.js API routes (serverless)
 - **Storage**: In memory by default (`src/lib/database.ts`, no external database required), or your own Postgres with pgvector (see [Connect your own database](#-connect-your-own-database))
-- **Chat model**: `openai/gpt-oss-20b` on Groq (free tier; override with `GROQ_MODEL`)
+- **Chat model**: `openai/gpt-oss-20b` on Groq by default (free tier; override with `GROQ_MODEL`), or your own OpenAI-compatible model, called through one small adapter in `src/lib/model/`
 - **Embeddings**: `Xenova/all-MiniLM-L6-v2` via transformers.js, run on the server
 - **Vector Search**: Cosine similarity, in-process for the demo and with pgvector's `<=>` operator in your database (exact scan, no approximate index)
 - **File Processing**: Built-in PDF, TXT, MD, DOCX support
@@ -99,7 +101,7 @@ vercel --prod
 
 # Set environment variables in Vercel dashboard:
 # GROQ_API_KEY
-# EMBED_TOKEN_KEY   (only if you want "connect your own database"; see below)
+# EMBED_TOKEN_KEY   (only if you want "connect your own database" or "use your own model"; see below)
 ```
 
 ### **Environment Variables**
@@ -110,8 +112,9 @@ GROQ_API_KEY=your_groq_api_key
 # Optional
 GROQ_MODEL=openai/gpt-oss-20b
 NEXT_PUBLIC_BASE_URL=https://yourdomain.com
-EMBED_TOKEN_KEY=          # openssl rand -base64 32; turns on "connect your own database"
+EMBED_TOKEN_KEY=          # openssl rand -base64 32; turns on "connect your own database" and "use your own model"
 ALLOW_PRIVATE_DB_HOSTS=   # 1 = allow localhost/private database hosts on a production build
+ALLOW_PRIVATE_MODEL_HOSTS= # 1 = allow localhost/private model addresses on a production build; leave unset in production
 ```
 
 None of these are needed to build. See [.env.example](.env.example).
@@ -143,7 +146,9 @@ server has `EMBED_TOKEN_KEY` set (see [below](#embed_token_key)).
    key, so the script URL is long: roughly 1,600 characters for a
    1,000-character connection string, and over 4,000 if the user name,
    password or database name is mostly characters that need percent-encoding
-   (such as `$`). The widget keeps
+   (such as `$`). If you add allowed sites or your own model, the embed
+   carries a compressed `sbw2_…` token instead; see
+   [Token size](#token-size). The widget keeps
    answering after server restarts.
 
 **Widget scope differs between modes.** A demo widget searches the documents
@@ -154,7 +159,8 @@ searches **every document in its workspace**, including ones you upload later.
 not revoke anything; see [Revoking access](#revoking-access).
 
 What still leaves your database: each visitor question and the matching
-passages pass through this server and go to Groq. See
+passages pass through this server and go to Groq, or to your own model if you
+attached one. See
 [GOVERNANCE.md](GOVERNANCE.md#where-data-goes).
 
 ### Connection string rules
@@ -335,11 +341,71 @@ openssl rand -base64 32
   database-backed embed, for every database. Users must connect again and
   replace their embed code.
 - Keep it secret. Anyone with both a token and this key can decrypt the
-  connection string inside it.
+  connection string, the model API key and the allowed sites inside it.
+- It also turns on "Use your own model". Without it, that step is disabled,
+  and allowed sites are kept with the demo widget in server memory.
 
 `ALLOW_PRIVATE_DB_HOSTS=1` lets a production build connect to localhost,
 private-network and link-local database hosts (and use plain TCP to them).
 Leave it unset on a public deployment.
+
+`ALLOW_PRIVATE_MODEL_HOSTS=1` does the same for model addresses (including
+plain `http:` to them), for example to test against a local mock. Leave it
+unset on a public deployment.
+
+## 🔒 Allowed sites
+
+The embed step has an **Allowed sites** field. Enter each site as
+`scheme://host[:port]`, such as `https://example.com`, up to 10. Matching is
+exact: `https://www.example.com`, `http://example.com` and
+`https://example.com:8443` are different sites, and wildcards are not
+supported. `http://localhost:<port>` works for local testing.
+
+With a list, chat requests from another site are refused, and the widget
+script is not served to a page whose `Origin` or `Referer` names another site.
+A page that sends neither header (for example with
+`Referrer-Policy: no-referrer`) still gets the script, but its questions are
+refused. This relies on the `Origin` and
+`Referer` headers that browsers send. A script outside a browser can send any
+header, so the list does not stop someone who copies your embed token from
+calling the chat API directly. Without a list, any site can use the tag. The
+builder preview is not affected by the list. See
+[GOVERNANCE.md](GOVERNANCE.md#known-gaps) for the details.
+
+## 🤖 Use your own model
+
+The **Use your own model (optional)** step, under the database step in the
+builder, lets answers come from your own OpenAI-compatible model instead of
+the shared demo model on Groq. It needs `EMBED_TOKEN_KEY` on the server.
+
+- Pick a provider (Groq, OpenAI, OpenRouter, Together AI or another
+  OpenAI-compatible endpoint) to fill in the base URL, then enter the model ID
+  and your API key. Only `https://` addresses on the public internet are
+  accepted, and only Bearer-key `/v1` style APIs work.
+- **Save** sends one short test request (at most 16 output tokens) to check
+  the settings. Your provider may bill for it. The browser then keeps an
+  encrypted model token; the key is not shown again.
+- With a model saved, the preview and every embed you generate answer with
+  it, and nothing falls back to Groq if it fails. An embed that uses your
+  model must list at least one allowed site.
+- Visitors on your allowed sites spend your provider credits, up to 20
+  questions a minute per network, per server instance. Your provider's rate
+  limits, pricing and data retention apply.
+- **Remove model** forgets it in this browser only. Embeds you already
+  generated keep using the key until you revoke it at your provider; that is
+  the only way to cut them off.
+
+Provider errors are shown as fixed messages, such as "The provider rejected
+this API key." The provider's own error text is never shown or logged.
+
+### Token size
+
+Embeds with allowed sites or your own model carry an `sbw2_` token in the
+script URL. It is compressed before encryption. For the largest inputs the
+app accepts (a 3,000-character normalised connection string, 10 sites of 255
+characters and the longest model settings), the token is at most 7,273
+characters, and its script URL 7,388 on an 88-character host name. Generate
+refuses an embed that would not fit.
 
 ## ⚙️ Configuration
 
@@ -407,13 +473,16 @@ ai-support-bot/
 
 ### **Testing**
 
-`npm test` runs the Jest unit tests in `src/lib/storage/__tests__/` (tokens,
-connection-string validation, error mapping, schema SQL). They need no database
-and no env vars. A Postgres integration test (`pg.integration.test.ts`) is
-skipped unless `TEST_DATABASE_URL` points at a database with pgvector installed.
-The rest of the app (chunking, the in-memory store, the routes and UI) has no
-tests yet; adding some is a good first contribution, see
-[CONTRIBUTING.md](CONTRIBUTING.md).
+`npm test` runs the Jest tests: tokens, connection-string validation, error
+mapping and schema SQL (`src/lib/storage/__tests__/`), allowed-site matching
+(`src/lib/__tests__/`), the model URL guard, adapter and tokens
+(`src/lib/model/__tests__/`, with the adapter tested against a mock server
+started in the test), and the widget and preview chat routes
+(`src/app/api/widget/__tests__/`). They need no database, no network and no
+env vars. A Postgres integration test (`pg.integration.test.ts`) is skipped
+unless `TEST_DATABASE_URL` points at a database with pgvector installed.
+Chunking, the upload and storage routes and the UI have no tests yet; adding
+some is a good first contribution, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## 🤝 Contributing
 
@@ -426,7 +495,7 @@ tests yet; adding some is a good first contribution, see
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide.
 
 ### **Development Guidelines**
-- Tests are welcome, especially outside `src/lib/storage/`, which is the only covered area so far
+- Tests are welcome, especially for chunking, the upload and storage routes, and the UI
 - Use TypeScript for type safety
 - Follow the existing code style and conventions
 - Add tests for new features

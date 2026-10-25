@@ -1,8 +1,9 @@
 import type { NextRequest } from 'next/server'
 import { exactOriginAllowed, type OriginPolicy } from './origins'
 
-// Every chat request spends the deployment's Groq quota, and the chat routes
-// are reachable from any site. These checks bound what one client can spend.
+// Every chat request spends the deployment's Groq quota, or the owner's provider
+// credits when an owner model is attached, and the chat routes are reachable
+// from any site. These checks bound what one client can spend.
 //
 // Counts live in memory, like the rest of this app: each server instance keeps
 // its own, and a restart resets them. That stops one client hammering an
