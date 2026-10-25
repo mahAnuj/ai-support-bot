@@ -308,17 +308,19 @@ Limits and known gaps:
 - **No rate limiting.** The server does not limit requests per client. Unsigned
   health is open to anyone and shows whether `/v1/answer` is on. Put limits in
   your proxy if you need them.
-- **Embedding model coupling.** The app's cut-offs (match score 0.15 for "a
-  passage is relevant") were calibrated for `Xenova/all-MiniLM-L6-v2` with
-  q8 weights, mean pooling and normalisation. Changing the model in
+- **Embedding model coupling.** The app's cut-offs (the raw similarity
+  threshold `MIN_SIMILARITY`, 0.15, for "a passage is relevant", and the 0 to
+  100 match score scaled between 0.15 and 0.50) were calibrated for
+  `Xenova/all-MiniLM-L6-v2` with q8 weights, mean pooling and normalisation. Changing the model in
   `src/embed.ts` changes the scores the app filters on. Even with the same
   model file, scores are comparable to the app's but not identical across
   CPUs and operating systems, because the quantised model's arithmetic differs
   by platform. In QA, this server in its Docker image (Linux aarch64) scored
   the same question and passages up to about 0.03 away from the app on macOS
   arm64 (for example 0.397 and 0.424 for one passage; 0.146 and 0.157 for
-  another), with the same ranking. A passage close to the 0.15 cut-off can be
-  kept on one platform and dropped on the other, as the second one was. How
+  another), with the same ranking for passages above the cut-off. A passage
+  close to the 0.15 cut-off can be kept on one platform and dropped on the
+  other, as the second one was. How
   closely scores agree on a production platform such as x86_64 Linux has
   not been measured.
 - **Large documents and the app's timeout.** Passages are embedded one at a

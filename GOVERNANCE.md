@@ -243,8 +243,9 @@ field, but API clients could read it. That number is gone.
   q8 model's arithmetic differs by CPU and operating system. In QA, the
   reference server in its Docker image (Linux aarch64) and the app on macOS
   arm64 scored the same question and passages up to about 0.03 apart, with
-  the same ranking; one passage scored 0.146 on one and 0.157 on the other, so
-  it fell on different sides of the 0.15 cut-off. Passages near the cut-off
+  the same ranking for passages above the cut-off; one passage scored 0.146
+  on one and 0.157 on the other, so it fell on different sides of the 0.15
+  cut-off. Passages near the cut-off
   can be kept or dropped differently, and a 0.03 difference moves the match
   score by up to about 9 points. Agreement on a production platform such as
   x86_64 Linux has not been measured.
@@ -459,3 +460,121 @@ End-to-end QA on commit `a61a4b1`: a local production build under
   `sbw2_` token with a Postgres source, allowed sites and an owner model.
 - **Not verified:** real third-party providers over TLS, and real screen
   readers.
+
+### Backend connector
+
+Unit and route tests (`npm test`, no network and no real keys):
+
+- `src/lib/connector/__tests__/signing.test.ts`: the app's signer reproduces
+  every valid vector in `docs/connector-test-vectors.json`: canonical
+  string, body hash and signature.
+- `src/lib/connector/__tests__/client.test.ts`, against a local mock backend:
+  every signed call is accepted by the mock, and only the `/v1/` path is
+  signed, not a base-URL prefix. A 3xx is not followed. 404, 413, a body over
+  1 MB, invalid JSON, wrong shapes, timeouts and a closed port each map to a
+  fixed code. Backend bodies and headers, the secret, the base-URL path and
+  the question appear in no error or log line, and each call writes exactly
+  one `connector call` line.
+- `src/lib/connector/__tests__/connector-token.test.ts`: `sbc1_` and `sbw3_`
+  round-trip, hide the secret, base-URL path, key id and model key, and fail
+  on any changed character, truncation, other key or prefix relabel. An
+  `sbw3_` with the backend answering never carries an owner model. The
+  worst-case size profiles recorded in `AGENTS.md` ("Embed token size") come
+  from this suite.
+- `src/lib/connector/__tests__/answer.test.ts`: with the backend answering,
+  one search and one answer call and no model provider; otherwise the owner
+  model, or the demo model when there is none, gets only the passages above
+  the cut-off. Failures propagate with no fallback, and no question, passage
+  or secret is logged.
+- `src/lib/connector/__tests__/purpose.test.ts`: `x-model-token` refuses
+  `sbc1_` and `sbw3_`, builder storage routes refuse `sbw3_`, and the
+  builder resolver applies the live private-host policy.
+- `src/app/api/connector/__tests__/connector-routes.test.ts`: connect returns
+  the secret once with `no-store` and in no later response or log line; the
+  6th connect per minute gets 429; an oversized body, a private address with
+  the flag unset and a missing `EMBED_TOKEN_KEY` are refused before any
+  network access. Test and documents map backend failures without echoing
+  them, and are rate limited.
+- `src/app/api/widget/__tests__/connector-widget-routes.test.ts`: in
+  connector mode an upload goes to `POST /v1/documents` only, with no
+  embedding call and the memory store sizes unchanged. Preview and widget
+  chat make one search and, with the backend answering, one answer call,
+  and a failure returns 502 or 503 with no demo fallback. Generate refuses
+  without allowed sites, with no documents, and above 8,000 script-URL
+  characters. A tampered `sbw3_` is 404 and an unlisted origin 403 before
+  any backend call.
+- `src/lib/storage/__tests__/connector-resolve.test.ts`: `resolveBuilderStore`
+  opens `sbc1_` and `resolveWidget` opens `sbw3_`; tampered, other-key,
+  over-length and flag-off private-address tokens are refused.
+- `src/components/connector/__tests__/ConnectBackendStep.test.tsx`: focus
+  returns to the URL input after Cancel and Disconnect, and the documents
+  list loads after the connection test passes and shows a failed state
+  rather than staying stuck.
+- `connector/` (`cd connector && npm test`, `node --test`): the server
+  accepts every valid vector in `docs/connector-test-vectors.json` and
+  refuses every invalid one; missing, malformed, stale (outside 300 s),
+  unknown-key, wrong-secret, changed-body, changed-path and replayed requests
+  get the same 401; config, logging, the answer model client, the HTTP
+  routes and the `sign` CLI have their own suites. `pg.integration.test.ts`
+  checks the Postgres store and that nonces survive a restart; it runs only
+  with `TEST_DATABASE_URL` set.
+
+End-to-end QA, first on commit `3f60a2a` and re-run on `043ec08` after
+fixing a focus bug and a documents list that stayed loading. Host: macOS
+arm64, no paid keys. The reference server ran from
+`cd connector && docker compose up -d --build` (`node:20-bookworm-slim` on
+Linux aarch64, `pgvector/pgvector:pg16`), first with `CONNECTOR_KEYS` empty,
+then with the key from the builder added and `docker compose up -d`. Its
+answers came from a local OpenAI-compatible mock reached at
+`host.docker.internal`. The app ran under `next start` with a random
+`EMBED_TOKEN_KEY`, a fake `GROQ_API_KEY`, `ALLOW_PRIVATE_CONNECTOR_HOSTS=1`
+and `NEXT_PUBLIC_BASE_URL=http://127.0.0.1:3100`.
+
+- **Builder flow (H1):** Playwright Chromium at 375px: connect, the secret
+  shown once, confirm, key configured on the server, Test connection, upload
+  `faq.md` (10 passages). The preview answered "What file types can I
+  upload?" with match score 80 and source `faq.md`, and "What is the capital
+  of France?" with 0 and no sources. With an allowed site, generate returned
+  an `sbw3_` embed with `answerPath=backend`. The one-line embed on
+  `http://127.0.0.1:5500` answered from `faq.md`; `http://127.0.0.1:5501`,
+  `localhost` and `https` variants got 403. The `sbw3_` key was 397
+  characters, the script URL 437 (cap 8,000) and the embed code 467.
+- **Nothing kept in the app (H2):** the reference server log showed
+  documents (201), search and answer succeeding; in the re-run it counted
+  answer 5, documents 12, search 6 and health 4. The app logged one
+  `connector call` line per call, no memory-store or embedding lines, and no
+  `provider=demo` line while the backend answered.
+- **Signature checks (H3):** with `npm run sign` in `connector/`, a tampered
+  signature, body or path, a timestamp 400 s either side, an unknown key id
+  and a replayed nonce (also after `docker compose restart connector`) all
+  got 401, with `bad_signature`, `stale`, `unknown_key` and `replay` in the
+  server log.
+- **Address guard, with `ALLOW_PRIVATE_CONNECTOR_HOSTS` unset (B1):** of 22
+  address probes, 20 got `connector_address_blocked`,
+  `http://93.184.216.34` got `connector_https_required` and
+  `https://[fe80::1%25en0]` got `connector_invalid_url`; the backend received
+  no request. Tokens issued with the flag on were refused on a server without
+  it (builder 400, widget 404).
+- **Misbehaving backend (B3):** 14 modes (redirects, oversize, bad JSON,
+  wrong shapes, 10 s timeouts, 5xx) each mapped to a fixed error. A sentinel
+  string in the backend's bodies and headers appeared 0 times in app
+  responses and logs.
+- **Rotation and revocation:** with two keys configured, the old embed
+  still answered. After the old key id was removed, the old embed got 503 and
+  the new key 200.
+- **Secret leak search (B5, H4):** the signing secrets (the one used and a
+  cancelled one), the model keys and `EMBED_TOKEN_KEY` were searched for in
+  app and connector logs, every HTTP capture, `localStorage` and
+  `sessionStorage` (while pending, after confirm, after the test, after
+  generate and after disconnect), the DOM, the embed code, the served script,
+  the browser profile, `.next`, `git log -p --all` and the working tree. The
+  only hit was the single connect response.
+- **Score drift:** with the same q8 model file, the app on macOS arm64 and
+  the reference server on Linux aarch64 differed by at most 0.026866; the
+  same code on the same host gave identical scores to 5 decimals.
+- **Gates (no env):** app lint clean, `tsc` 0 errors, jest 20 suites passed
+  and 1 skipped (719 tests passed, 7 skipped), build ok; `connector/` 68 of 68.
+- **Clean-up:** all compose containers, the volume and the built image were
+  removed, as was a leftover `byo-pgvector-test` container.
+- **Not checked:** a real backend over TLS, a real screen reader announcing
+  "Copied", deploys to Render, Fly or Railway, and score agreement on x86_64.
