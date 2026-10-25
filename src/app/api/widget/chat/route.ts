@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateResponse } from '../../../../lib/llm'
+import { demoProvider } from '../../../../lib/model/provider'
 import { getCachedEmbedding } from '../../../../lib/rag'
 import { matchScore, MIN_SIMILARITY } from '../../../../lib/embeddings'
 import { clientIp, isRateLimited, LIMITS, widgetCorsHeaders, widgetOriginAllowed } from '../../../../lib/guard'
@@ -189,7 +190,7 @@ export async function POST(request: NextRequest) {
       isEnhanced,
       systemPrompt,
       roleContext: widget.role_context
-    })
+    }, demoProvider())
     
     const responseData: any = {
       message: response.message,

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateResponse } from '../../../lib/llm'
+import { demoProvider } from '../../../lib/model/provider'
 import { queryRAG, createRAGContext, sessionHasDocuments } from '../../../lib/rag'
 import { clientIp, isRateLimited, isWithinLimit, LIMITS } from '../../../lib/guard'
 import { resolveBuilderStore, storageErrorResponse } from '../../../lib/storage/resolve'
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
     if (await sessionHasDocuments(store, currentSessionId)) {
       try {
         // Query the RAG system for relevant context
-        ragResult = await queryRAG(store, currentSessionId, message)
+        ragResult = await queryRAG(store, currentSessionId, message, 5, demoProvider())
         console.log('Chat API - RAG result:', {
           contextLength: ragResult.context.length,
           confidence: ragResult.confidence,
@@ -104,7 +105,7 @@ export async function POST(request: NextRequest) {
       isEnhanced,
       systemPrompt,
       roleContext
-    })
+    }, demoProvider())
 
     const responseData: any = {
       message: response.message,
