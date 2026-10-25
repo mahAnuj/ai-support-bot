@@ -104,9 +104,9 @@ export default function ConnectDatabaseStep({ storage, sessionId, onDisconnect }
             Disconnect this browser
           </button>
           <p className="max-w-[60ch] text-xs text-ink-muted">
-            This forgets the link in this browser only. Nothing is deleted from your database. Once you disconnect and reload
-            this page, this builder can&apos;t reopen these documents; connecting again then starts a new, empty workspace.
-            To keep adding to this one, stay connected. To cut off access, change the database user&apos;s password; that
+            This forgets the link in this browser only. Nothing is deleted from your database. Connecting again from this
+            browser may start a new, empty workspace; your earlier documents stay in your database. To keep adding to this
+            one, stay connected. To cut off access, change the database user&apos;s password; that
             also stops every embed made with it.
           </p>
         </div>
