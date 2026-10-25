@@ -191,7 +191,7 @@ export default function InstallGuide({ embedCode, scriptUrl, apiBaseUrl, persist
                 'Copy example'
               )}
             </button>
-            <span role="status" aria-live="polite" className="text-sm text-ink-muted">
+            <span role="status" aria-live="polite" className={copied && copied !== 'Copied' ? 'text-sm text-ink-muted' : 'sr-only'}>
               {copied}
             </span>
           </div>
