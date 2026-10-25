@@ -296,3 +296,43 @@ Unit and route tests (`npm test`, no network and no real keys):
 - `src/lib/storage/__tests__/resolve.test.ts`: each widget's policy comes from
   where its list is stored, a sealed demo widget is not found by its plain
   key, and a model token is refused as a widget key and as a database token.
+
+End-to-end QA on commit `a61a4b1`: a local production build under
+`next start`, a mock OpenAI-compatible server, and Playwright Chromium at a
+375px viewport.
+
+- **Allowed sites:** a widget with an exact list, embedded on an allowed
+  origin, answered from the mock. On a disallowed origin no launcher
+  rendered, there were no JavaScript page errors, and the mock received no
+  request.
+- **Chat:** with a missing, `null`, `www.`, `http:` or other-site `Origin`,
+  chat returned 403 `origin_not_allowed` before retrieval, with no
+  `Access-Control-Allow-Origin` header and `Vary: Origin`.
+- **Script route:** a bad `Origin` or `Referer` got 403 with `no-store` and no
+  widget settings. With neither header present, the script was served.
+- **Tampered `sbw2_` token:** 404 on both routes.
+- **Validation errors:** provider 401, 403, 404, 429, 400 and 500, a response
+  of the wrong shape, a 2 MB body, a timeout, a closed port, NXDOMAIN and a
+  redirect each mapped to its fixed message. The sentinel in the mock's body
+  appeared in no response or log.
+- **Validation rate limit:** the 6th validation within a minute returned 429.
+- **Address guard, with `ALLOW_PRIVATE_MODEL_HOSTS` unset:** 22 address
+  probes were refused before any request was made: loopback,
+  `169.254.169.254`, `10/8`, `100.64/10`, `0.0.0.0`, decimal, hex and octal
+  IPv4, IPv6 loopback, IPv4-mapped, NAT64 and 6to4 addresses, a zone ID,
+  `localhost` names, and `nip.io` and `localtest.me` names that resolve to
+  private addresses. A token issued on a server with the flag set was
+  refused at call time on a server without it.
+- **No silent fallback:** with an owner model attached and the provider
+  down, the preview returned 502 and the widget 503. No `provider=demo` log
+  line appeared during the whole run.
+- **Key leak search:** the sentinel API key and the base-URL path were absent
+  from server logs, response bodies and headers, `localStorage` and
+  `sessionStorage` (which held only the `sbm1_` ciphertext, the model ID and
+  the host), the embed code, the served script, `.next` and `git log -p`.
+- **Back-compat:** an `sbw1_` token sealed by the `ea77ea0` code still
+  resolved, and demo `widget-` keys still work from any origin. The
+  connected-database flow worked against Postgres with pgvector, including an
+  `sbw2_` token with a Postgres source, allowed sites and an owner model.
+- **Not verified:** real third-party providers over TLS, and real screen
+  readers.
