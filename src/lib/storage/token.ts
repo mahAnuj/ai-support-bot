@@ -10,11 +10,15 @@ export const BUILDER_TOKEN_PREFIX = 'sbb1_'
 export const WIDGET_TOKEN_PREFIX = 'sbw1_'
 export const WIDGET_TOKEN_V2_PREFIX = 'sbw2_'
 export const MODEL_TOKEN_PREFIX = 'sbm1_'
+export const CONNECTOR_TOKEN_PREFIX = 'sbc1_'
+export const WIDGET_TOKEN_V3_PREFIX = 'sbw3_'
 // Fits a widget token for the longest normalised connection string (3000 chars -> 4187-char token).
 export const MAX_TOKEN_LENGTH = 4200
 // sbw2_ is compressed. The seeded worst case (3000-char connection string, 10 x 255-char origins and a
 // 500/200/512-char model, all pseudo-random) seals to at most 7,273 chars; the cap adds a small margin.
 export const MAX_WIDGET_TOKEN_V2_LENGTH = 7400
+// sbw3_ is compressed. 88-char host + '/api/widget/script/' (19) + 7,800 = 7,907, inside an 8,000-char script URL.
+export const MAX_WIDGET_TOKEN_V3_LENGTH = 7800
 
 const KEY_PATTERN = /^[A-Za-z0-9+/]{43}=$/
 const BODY_PATTERN = /^[A-Za-z0-9_-]+$/
@@ -44,13 +48,16 @@ export type WidgetSource =
 
 export interface WidgetTokenV2Payload { source: WidgetSource; origins: string[]; model?: OwnerModelConfig }
 
-type Prefix =
+export type TokenPrefix =
   | typeof BUILDER_TOKEN_PREFIX
   | typeof WIDGET_TOKEN_PREFIX
   | typeof WIDGET_TOKEN_V2_PREFIX
   | typeof MODEL_TOKEN_PREFIX
+  | typeof CONNECTOR_TOKEN_PREFIX
+  | typeof WIDGET_TOKEN_V3_PREFIX
 
-function seal(prefix: Prefix, plaintext: string, key: Buffer | null | undefined, compress = false): string {
+// The one AES-256-GCM sealer for every token type; the prefix is the AAD, so a relabelled token never opens.
+export function sealPrefixed(prefix: TokenPrefix, plaintext: string, key: Buffer | null | undefined, compress = false): string {
   const k = key ?? getTokenKey()
   if (!k) throw new StorageError('storage_unavailable')
   const data = compress ? deflateRawSync(Buffer.from(plaintext, 'utf8')) : Buffer.from(plaintext, 'utf8')
@@ -62,12 +69,13 @@ function seal(prefix: Prefix, plaintext: string, key: Buffer | null | undefined,
   return prefix + Buffer.concat([iv, tag, ciphertext]).toString('base64url')
 }
 
-function openObject(
-  prefix: Prefix,
+export function openPrefixed(
+  prefix: TokenPrefix,
   token: unknown,
   key: Buffer | null | undefined,
   maxLength: number,
   compressed: boolean,
+  maxInflated: number = MAX_INFLATED_LENGTH,
 ): Record<string, unknown> | null {
   try {
     if (typeof token !== 'string' || token.length > maxLength || !token.startsWith(prefix)) return null
@@ -87,7 +95,7 @@ function openObject(
       decipher.update(body.subarray(IV_LENGTH + TAG_LENGTH)),
       decipher.final(),
     ])
-    const plain = compressed ? inflateRawSync(decrypted, { maxOutputLength: MAX_INFLATED_LENGTH }) : decrypted
+    const plain = compressed ? inflateRawSync(decrypted, { maxOutputLength: maxInflated }) : decrypted
     const parsed: unknown = JSON.parse(plain.toString('utf8'))
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null
     return parsed as Record<string, unknown>
@@ -95,6 +103,9 @@ function openObject(
     return null
   }
 }
+
+const seal = sealPrefixed
+const openObject = openPrefixed
 
 function open(prefix: typeof BUILDER_TOKEN_PREFIX | typeof WIDGET_TOKEN_PREFIX, token: unknown, key: Buffer | null | undefined): Record<string, unknown> | null {
   const obj = openObject(prefix, token, key, MAX_TOKEN_LENGTH, false)
@@ -215,9 +226,16 @@ export function isBuilderTokenShape(s: unknown): boolean {
 }
 
 export function isWidgetTokenShape(s: unknown): boolean {
-  return typeof s === 'string' && (s.startsWith(WIDGET_TOKEN_PREFIX) || s.startsWith(WIDGET_TOKEN_V2_PREFIX))
+  return (
+    typeof s === 'string' &&
+    (s.startsWith(WIDGET_TOKEN_PREFIX) || s.startsWith(WIDGET_TOKEN_V2_PREFIX) || s.startsWith(WIDGET_TOKEN_V3_PREFIX))
+  )
 }
 
 export function isModelTokenShape(s: unknown): boolean {
   return typeof s === 'string' && s.startsWith(MODEL_TOKEN_PREFIX)
+}
+
+export function isConnectorTokenShape(s: unknown): boolean {
+  return typeof s === 'string' && s.startsWith(CONNECTOR_TOKEN_PREFIX)
 }
