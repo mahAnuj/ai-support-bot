@@ -7,6 +7,8 @@ export interface ConnectDatabaseStepProps {
   storage: StorageConnection
   sessionId: string | null
   onDisconnect?: () => void
+  // When set, the form is shown disabled with this one-line reason.
+  disabledReason?: string | null
 }
 
 const SCHEMA_SQL_URL = 'https://github.com/mahAnuj/ai-support-bot/blob/main/scripts/support-bot-schema.sql'
@@ -23,6 +25,7 @@ const SECONDARY_BUTTON =
   'inline-flex h-11 items-center justify-center gap-2 rounded-md border border-line-strong bg-surface px-5 text-sm font-semibold text-ink hover:bg-sunken'
 const CODE = 'rounded bg-sunken px-1 py-0.5 font-mono text-xs text-ink'
 const LINK = 'text-accent underline underline-offset-2'
+const REASON = 'mt-3 max-w-[60ch] rounded-md border border-line bg-sunken px-3 py-2 text-sm text-ink'
 
 function Spinner() {
   return (
@@ -60,12 +63,13 @@ function ErrorMessage({ message }: { message: string }) {
   )
 }
 
-export default function ConnectDatabaseStep({ storage, sessionId, onDisconnect }: ConnectDatabaseStepProps): JSX.Element | null {
+export default function ConnectDatabaseStep({ storage, sessionId, onDisconnect, disabledReason = null }: ConnectDatabaseStepProps): JSX.Element | null {
   const [value, setValue] = useState('')
   const baseId = useId()
   const headingId = `${baseId}-heading`
   const inputId = `${baseId}-input`
   const helpId = `${baseId}-help`
+  const reasonId = `${baseId}-reason`
 
   if (!storage.ready) return null
 
@@ -114,10 +118,12 @@ export default function ConnectDatabaseStep({ storage, sessionId, onDisconnect }
     )
   }
 
+  const disabled = !!disabledReason
+
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const connectionString = value.trim()
-    if (!connectionString || storage.connecting) return
+    if (disabled || !connectionString || storage.connecting) return
     setValue('')
     await storage.connect(connectionString, sessionId)
   }
@@ -149,42 +155,46 @@ export default function ConnectDatabaseStep({ storage, sessionId, onDisconnect }
         </ol>
       </details>
 
+      {disabledReason && <p id={reasonId} className={REASON}>{disabledReason}</p>}
+
       <form onSubmit={submit} className="mt-4">
-        <label htmlFor={inputId} className="text-sm font-medium text-ink">Connection string</label>
-        <div className="mt-1.5 flex flex-col gap-2 sm:flex-row">
-          <input
-            id={inputId}
-            name="pg-connection"
-            type="password"
-            autoComplete="off"
-            spellCheck={false}
-            autoCapitalize="off"
-            autoCorrect="off"
-            value={value}
-            onChange={e => setValue(e.target.value)}
-            placeholder="postgresql://user:password@host:5432/database"
-            aria-describedby={helpId}
-            aria-invalid={storage.error ? true : undefined}
-            className={`min-w-0 ${INPUT}`}
-          />
-          <button type="submit" disabled={storage.connecting || value.trim() === ''} aria-busy={storage.connecting} className={PRIMARY_BUTTON}>
-            {storage.connecting ? (
-              <>
-                <Spinner />
-                Connecting
-              </>
-            ) : (
-              'Connect'
-            )}
-          </button>
-        </div>
-        <p id={helpId} className="mt-1.5 text-xs text-ink-subtle">
-          Sent to this server once to set up the link. The server does not save it; this browser keeps only an encrypted
-          link to your database.
-        </p>
+        <fieldset disabled={disabled} aria-describedby={disabled ? reasonId : undefined} className="m-0 min-w-0 border-0 p-0">
+          <label htmlFor={inputId} className="text-sm font-medium text-ink">Connection string</label>
+          <div className="mt-1.5 flex flex-col gap-2 sm:flex-row">
+            <input
+              id={inputId}
+              name="pg-connection"
+              type="password"
+              autoComplete="off"
+              spellCheck={false}
+              autoCapitalize="off"
+              autoCorrect="off"
+              value={value}
+              onChange={e => setValue(e.target.value)}
+              placeholder="postgresql://user:password@host:5432/database"
+              aria-describedby={helpId}
+              aria-invalid={storage.error ? true : undefined}
+              className={`min-w-0 ${INPUT} disabled:cursor-not-allowed disabled:bg-sunken`}
+            />
+            <button type="submit" disabled={disabled || storage.connecting || value.trim() === ''} aria-busy={storage.connecting} className={PRIMARY_BUTTON}>
+              {storage.connecting ? (
+                <>
+                  <Spinner />
+                  Connecting
+                </>
+              ) : (
+                'Connect'
+              )}
+            </button>
+          </div>
+          <p id={helpId} className="mt-1.5 text-xs text-ink-subtle">
+            Sent to this server once to set up the link. The server does not save it; this browser keeps only an encrypted
+            link to your database.
+          </p>
+        </fieldset>
       </form>
 
-      {storage.error && <ErrorMessage message={storage.error.message} />}
+      {storage.error && !disabled && <ErrorMessage message={storage.error.message} />}
     </section>
   )
 }

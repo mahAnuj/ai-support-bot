@@ -8,6 +8,8 @@ export interface OwnModelStepProps {
   available: boolean
   ready: boolean
   ownModel: OwnModel
+  // When set, the form is shown disabled with this one-line reason; a saved model can still be removed.
+  disabledReason?: string | null
 }
 
 const WRAPPER = 'mt-6 rounded-lg border border-line bg-surface p-4 shadow-sm sm:p-6'
@@ -26,6 +28,7 @@ const SECONDARY_BUTTON =
   'inline-flex h-11 items-center justify-center gap-2 rounded-md border border-line-strong bg-surface px-5 text-sm font-semibold text-ink hover:bg-sunken'
 const CODE = 'rounded bg-sunken px-1 py-0.5 font-mono text-xs text-ink'
 const VALUE = 'font-mono text-sm text-ink [overflow-wrap:anywhere]'
+const REASON = 'mt-3 max-w-[60ch] rounded-md border border-line bg-sunken px-3 py-2 text-sm text-ink'
 
 const PRESET_IDS = Object.keys(PROVIDER_PRESETS) as ProviderPresetId[]
 const DEFAULT_PRESET: ProviderPresetId = 'groq'
@@ -72,7 +75,7 @@ function ChipIcon() {
   )
 }
 
-export default function OwnModelStep({ available, ready, ownModel }: OwnModelStepProps): JSX.Element | null {
+export default function OwnModelStep({ available, ready, ownModel, disabledReason = null }: OwnModelStepProps): JSX.Element | null {
   const [preset, setPreset] = useState<ProviderPresetId>(DEFAULT_PRESET)
   const [baseUrl, setBaseUrl] = useState<string>(PROVIDER_PRESETS[DEFAULT_PRESET].baseUrl)
   const [modelId, setModelId] = useState('')
@@ -97,6 +100,7 @@ export default function OwnModelStep({ available, ready, ownModel }: OwnModelSte
   }
   const generalErrorId = `${baseId}-error`
   const costId = `${baseId}-cost`
+  const reasonId = `${baseId}-reason`
 
   const saved = ownModel.model
 
@@ -151,6 +155,7 @@ export default function OwnModelStep({ available, ready, ownModel }: OwnModelSte
           <dt className="mt-1 text-sm text-ink-muted sm:mt-0">Address</dt>
           <dd className={VALUE}>{saved.host}</dd>
         </dl>
+        {disabledReason && <p id={reasonId} className={REASON}>{disabledReason}</p>}
         <p className={BODY}>
           The preview answers with this model. This browser keeps only an encrypted copy of your API key; the key itself
           is not stored here.
@@ -186,7 +191,7 @@ export default function OwnModelStep({ available, ready, ownModel }: OwnModelSte
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!available || ownModel.saving) return
+    if (!available || disabledReason || ownModel.saving) return
     const input = trimModelInput({ baseUrl, model: modelId, apiKey })
     const problems = checkModelInput(input)
     const firstInvalid = FIELD_ORDER.find(field => problems[field])
@@ -228,7 +233,7 @@ export default function OwnModelStep({ available, ready, ownModel }: OwnModelSte
     )
   }
 
-  const canSubmit = available && !ownModel.saving && baseUrl.trim() !== '' && modelId.trim() !== '' && apiKey.trim() !== ''
+  const canSubmit = available && !disabledReason && !ownModel.saving && baseUrl.trim() !== '' && modelId.trim() !== '' && apiKey.trim() !== ''
 
   return (
     <section aria-labelledby={headingId} className={WRAPPER}>
@@ -246,9 +251,14 @@ export default function OwnModelStep({ available, ready, ownModel }: OwnModelSte
           </>
         )}
       </p>
+      {available && disabledReason && <p id={reasonId} className={REASON}>{disabledReason}</p>}
 
       <form onSubmit={submit} noValidate className="mt-4">
-        <fieldset disabled={!available} aria-describedby={available ? undefined : introId} className="m-0 flex min-w-0 flex-col gap-4 border-0 p-0">
+        <fieldset
+          disabled={!available || !!disabledReason}
+          aria-describedby={!available ? introId : disabledReason ? reasonId : undefined}
+          className="m-0 flex min-w-0 flex-col gap-4 border-0 p-0"
+        >
           <legend className="sr-only">Your model</legend>
 
           <div>
