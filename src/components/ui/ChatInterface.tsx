@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect, useId, forwardRef, useImperativeHan
 import { createPortal } from 'react-dom'
 import MarkdownRenderer from './MarkdownRenderer'
 import { ChatMessage, ChatInterfaceProps } from '@/types'
-import { MODEL_TOKEN_HEADER, isModelErrorCode, modelErrorMessage } from '@/lib/model/shared'
+import { MODEL_ERROR_MESSAGES, MODEL_TOKEN_HEADER, isModelErrorCode, modelErrorMessage, providerStatus } from '@/lib/model/shared'
 
 interface ChatResponse {
   message: unknown
@@ -21,8 +21,6 @@ type Props = ChatInterfaceProps & {
   storageToken?: string | null
   modelToken?: string | null
 }
-
-export const MODEL_TOKEN_INVALID_TEXT = 'Your saved model is no longer valid. Remove it and add it again.'
 
 const onPrimarySurface = 'bg-[var(--preview-primary,var(--color-accent))] text-[color:var(--preview-on-primary,var(--color-white))]'
 
@@ -116,17 +114,10 @@ function extractAnswer(value: unknown): string {
   return value == null ? '' : String(value)
 }
 
-// The provider's HTTP status is the only part of `details` taken from the body; nothing else is shown verbatim.
-function providerStatus(details: unknown): number | undefined {
-  if (typeof details !== 'string') return undefined
-  const match = /^The provider returned an error \(HTTP (\d{3})\)\.$/.exec(details)
-  return match ? Number(match[1]) : undefined
-}
-
 function errorTextFor(status: number, body: unknown, hasOwnModel: boolean): string {
   const fields = body && typeof body === 'object' ? (body as Record<string, unknown>) : {}
   const code = fields.code
-  if (code === 'model_token_invalid') return MODEL_TOKEN_INVALID_TEXT
+  if (code === 'model_token_invalid') return MODEL_ERROR_MESSAGES.model_token_invalid
   if (hasOwnModel && isModelErrorCode(code)) {
     return `No answer from your model. ${modelErrorMessage(code, providerStatus(fields.details))}`
   }

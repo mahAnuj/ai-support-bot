@@ -41,7 +41,6 @@ const SIZES: Record<WidgetConfig['size'], { width: number; height: number }> = {
 }
 
 const NETWORK_ERROR = "Couldn't reach the server. Check your connection and try again."
-const MODEL_TOKEN_INVALID_TEXT = 'Your saved model is no longer valid. Remove it and add it again.'
 
 const primaryButton =
   'inline-flex h-11 items-center justify-center gap-2 rounded-md bg-accent px-5 text-sm font-semibold text-white hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-60'
@@ -169,9 +168,7 @@ export default function EmbedStep({ sessionId, documentCount, config, onGenerate
       const body = await response.json().catch(() => null)
       const status = response.status
 
-      if (body?.code === 'model_token_invalid') {
-        setError(MODEL_TOKEN_INVALID_TEXT)
-      } else if (isModelErrorCode(body?.code)) {
+      if (isModelErrorCode(body?.code)) {
         setError(modelErrorMessage(body.code))
       } else if (status === 429) {
         setError('Too many requests from this network in the last minute. Wait a minute and try again.')

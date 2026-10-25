@@ -8,6 +8,7 @@ import {
   MODEL_LOCALSTORAGE_KEY,
   isModelErrorCode,
   modelErrorMessage,
+  providerStatus,
   type ModelErrorCode,
 } from '@/lib/model/shared'
 
@@ -91,14 +92,6 @@ function writeStoredModel(saved: SavedModel | null): void {
   } catch {
     // Storage can be blocked (private mode, policy); the model then lasts for this page only.
   }
-}
-
-// The server sends `details` as modelErrorMessage(code, httpStatus); only the status number is taken from it,
-// so nothing the server returns is shown verbatim.
-function providerStatus(details: unknown): number | undefined {
-  if (typeof details !== 'string') return undefined
-  const match = /^The provider returned an error \(HTTP (\d{3})\)\.$/.exec(details)
-  return match ? Number(match[1]) : undefined
 }
 
 function errorFromResponse(status: number, body: unknown): OwnModelError {

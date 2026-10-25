@@ -72,7 +72,7 @@ export const MODEL_ERROR_MESSAGES: Record<ModelErrorCode, string> = {
   model_unreachable: "Couldn't reach this address.",
   model_bad_response: "This address didn't answer like an OpenAI-compatible API.",
   model_http_error: 'The provider returned an error.',
-  model_token_invalid: "This browser's saved model is no longer valid. Add your model again.",
+  model_token_invalid: 'Your saved model is no longer valid. Remove it and add it again.',
   model_token_wrong_purpose: "This key can't be used here.",
   model_validate_rate_limited: 'Too many checks from this network. Wait a minute and try again.',
 }
@@ -91,6 +91,14 @@ export function modelErrorMessage(code: unknown, httpStatus?: unknown): string {
     return `The provider returned an error (HTTP ${httpStatus}).`
   }
   return MODEL_ERROR_MESSAGES[code]
+}
+
+// The server sends `details` as modelErrorMessage(code, httpStatus); only the status number is taken from it,
+// so nothing the server returns is shown verbatim.
+export function providerStatus(details: unknown): number | undefined {
+  if (typeof details !== 'string') return undefined
+  const match = /^The provider returned an error \(HTTP (\d{3})\)\.$/.exec(details)
+  return match ? Number(match[1]) : undefined
 }
 
 export class ModelError extends Error {
