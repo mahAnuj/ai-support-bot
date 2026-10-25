@@ -5,28 +5,6 @@ import { TextEncoder, TextDecoder } from 'util'
 global.TextEncoder = TextEncoder
 global.TextDecoder = TextDecoder
 
-// Mock environment variables
-process.env.OPENAI_API_KEY = 'test-api-key'
-
-// Mock OpenAI module
-jest.mock('openai', () => {
-  return {
-    __esModule: true,
-    default: jest.fn().mockImplementation(() => ({
-      chat: {
-        completions: {
-          create: jest.fn()
-        }
-      },
-      embeddings: {
-        create: jest.fn()
-      }
-    }))
-  }
-})
-
-
-
 // Mock scrollIntoView for JSDOM
 if (typeof Element !== 'undefined') {
   Object.defineProperty(Element.prototype, 'scrollIntoView', {
