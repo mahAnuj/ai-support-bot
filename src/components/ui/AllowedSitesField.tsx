@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useId, useRef, useState, type JSX, type KeyboardEvent } from 'react'
+import { useEffect, useId, useImperativeHandle, useRef, useState, type JSX, type KeyboardEvent, type Ref } from 'react'
 import { MAX_ALLOWED_ORIGINS, normalizeOrigin, ORIGIN_ERROR_MESSAGES } from '../../lib/origins'
 
 export interface AllowedSitesFieldProps {
@@ -8,6 +8,13 @@ export interface AllowedSitesFieldProps {
   onChange: (origins: string[]) => void
   required: boolean
   describedById?: string
+  ref?: Ref<AllowedSitesHandle>
+}
+
+export interface AllowedSitesHandle {
+  // Adds a typed-but-not-added site before generating. Returns the list to use, or null when the
+  // typed text is not a valid site (the inline error is shown and the input focused).
+  commitPending(): string[] | null
 }
 
 const INPUT =
@@ -25,7 +32,7 @@ function CloseIcon() {
   )
 }
 
-export default function AllowedSitesField({ origins, onChange, required, describedById }: AllowedSitesFieldProps): JSX.Element {
+export default function AllowedSitesField({ origins, onChange, required, describedById, ref }: AllowedSitesFieldProps): JSX.Element {
   const [value, setValue] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [announcement, setAnnouncement] = useState('')
@@ -54,7 +61,7 @@ export default function AllowedSitesField({ origins, onChange, required, describ
     else inputRef.current?.focus()
   }, [origins])
 
-  const add = () => {
+  const tryAdd = (): string[] | null => {
     const result = normalizeOrigin(value)
     let problem: string | null = null
     if (!result.ok) problem = ORIGIN_ERROR_MESSAGES[result.code]
@@ -64,13 +71,34 @@ export default function AllowedSitesField({ origins, onChange, required, describ
     if (problem !== null || !result.ok) {
       setError(problem)
       setAnnouncement('')
-      return
+      return null
     }
+    const next = [...origins, result.origin]
     setError(null)
     setValue('')
     setAnnouncement(`Added ${result.origin}`)
-    onChange([...origins, result.origin])
+    onChange(next)
+    return next
   }
+
+  const add = () => {
+    tryAdd()
+  }
+
+  useImperativeHandle(ref, () => ({
+    commitPending() {
+      if (value.trim() === '') return origins
+      const result = normalizeOrigin(value)
+      if (result.ok && origins.includes(result.origin)) {
+        setValue('')
+        setError(null)
+        return origins
+      }
+      const next = tryAdd()
+      if (next === null) inputRef.current?.focus()
+      return next
+    },
+  }))
 
   const remove = (index: number) => {
     const removed = origins[index]

@@ -9,6 +9,8 @@ import { readableTextOn } from '@/components/ui/contrast'
 import ConnectDatabaseStep from '@/components/storage/ConnectDatabaseStep'
 import StorageModeLabel from '@/components/storage/StorageModeLabel'
 import { useStorageConnection } from '@/components/storage/useStorageConnection'
+import OwnModelStep from '@/components/model/OwnModelStep'
+import { useOwnModel } from '@/components/model/useOwnModel'
 
 // Assistant configurations
 const UNIVERSAL_ASSISTANT = {
@@ -169,6 +171,9 @@ export default function HomePage() {
   })
   const storage = useStorageConnection()
   useEffect(() => { if (storage.documents) setUploadedDocuments(storage.documents) }, [storage.documents])
+  const ownModel = useOwnModel(storage.available)
+  const savedModel = ownModel.model
+  const modelInfo = savedModel ? { model: savedModel.model, host: savedModel.host } : null
   const handleDisconnect = useCallback(() => { setUploadedDocuments([]); setSessionId(null) }, [])
 
   const step1Id = useId()
@@ -411,7 +416,7 @@ export default function HomePage() {
               status={statuses[1]}
             />
             <div className={PANEL}>
-              <DataDisclosure connected={storage.connected} />
+              <DataDisclosure connected={storage.connected} ownModel={modelInfo} />
               <StorageModeLabel storage={storage} place="documents" />
               <div className="mt-5">
                 <FileUpload
@@ -446,6 +451,7 @@ export default function HomePage() {
               )}
             </div>
             <ConnectDatabaseStep storage={storage} sessionId={sessionId} onDisconnect={handleDisconnect} />
+            <OwnModelStep available={storage.available} ready={storage.ready} ownModel={ownModel} />
           </section>
 
           <section
@@ -474,12 +480,22 @@ export default function HomePage() {
                 onPrimaryColor={readableTextOn(safeColor)}
                 onMessageSent={handleMessageSent}
                 storageToken={storage.token}
+                modelToken={savedModel?.token ?? null}
               />
             </div>
-            <p className="mt-2 text-xs text-ink-muted">
-              This demo answers, here and in the widget, with a free-tier model on Groq, so replies can be slow or
-              briefly unavailable when the shared rate limit is reached.
-            </p>
+            {savedModel ? (
+              <p className="mt-2 text-xs text-ink-muted">
+                Answers here and in the widget come from{' '}
+                <span className="font-mono break-all text-ink">{savedModel.model}</span> at{' '}
+                <span className="font-mono break-all text-ink">{savedModel.host}</span>, using your API key. Your
+                provider&apos;s rate limits, pricing and data retention apply.
+              </p>
+            ) : (
+              <p className="mt-2 text-xs text-ink-muted">
+                This demo answers, here and in the widget, with a free-tier model on Groq, so replies can be slow or
+                briefly unavailable when the shared rate limit is reached.
+              </p>
+            )}
           </section>
 
           <section id="embed" aria-labelledby={step4Id} className="min-w-0 scroll-mt-6 lg:col-start-1 lg:row-start-3">
@@ -496,6 +512,9 @@ export default function HomePage() {
               config={widgetConfig}
               onGenerated={handleGenerated}
               storageToken={storage.token}
+              modelAttached={!!savedModel}
+              modelToken={savedModel?.token ?? null}
+              ownModel={modelInfo}
             />
             <StorageModeLabel storage={storage} place="embed" />
           </section>
