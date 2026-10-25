@@ -1,0 +1,44 @@
+# Local stack: the reference connector plus Postgres with pgvector.
+#   cp .env.example .env   # then fill in CONNECTOR_KEYS
+#   docker compose up --build
+# The database has no published port. The connector listens on
+# 127.0.0.1:8080 only; put a TLS reverse proxy in front of it to expose it.
+name: ai-support-bot-connector
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: connector
+      POSTGRES_PASSWORD: connector
+      POSTGRES_DB: connector
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      # Runs once, when the volume is first created.
+      - ./sql/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
+    healthcheck:
+      # TCP, not the socket: during first-run init Postgres listens on the
+      # socket only, so this stays unhealthy until the schema has been applied.
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "connector", "-d", "connector"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+
+  connector:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://connector:connector@db:5432/connector
+      PORT: "8080"
+    ports:
+      - "127.0.0.1:8080:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  db-data:
