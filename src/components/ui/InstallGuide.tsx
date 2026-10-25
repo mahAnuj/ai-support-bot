@@ -7,6 +7,7 @@ export interface InstallGuideProps {
   scriptUrl: string
   apiBaseUrl: string
   persistent?: boolean
+  hasAllowedSites?: boolean
 }
 
 type Platform = {
@@ -88,7 +89,7 @@ const tabSelected =
   'bg-surface font-semibold text-ink shadow-sm after:absolute after:inset-x-2 after:bottom-0.5 after:h-0.5 after:rounded-full after:bg-accent'
 const tabUnselected = 'font-medium text-ink-muted hover:text-ink'
 
-export default function InstallGuide({ embedCode, scriptUrl, apiBaseUrl, persistent }: InstallGuideProps): JSX.Element {
+export default function InstallGuide({ embedCode, scriptUrl, apiBaseUrl, persistent, hasAllowedSites }: InstallGuideProps): JSX.Element {
   const list = platforms(embedCode, scriptUrl)
   const [active, setActive] = useState(list[0].id)
   const [copied, setCopied] = useState('')
@@ -233,8 +234,9 @@ export default function InstallGuide({ embedCode, scriptUrl, apiBaseUrl, persist
               {persistent
                 ? 'Widgets and documents are stored in your database, so the widget keeps answering after server restarts.'
                 : "Widgets and documents are kept in this server's memory, so the widget stops answering after a server restart and you need to generate it again."}{' '}
-              Each visitor network can send 20 questions a minute. Anyone
-              who copies the tag can use the widget on another site.
+              {hasAllowedSites
+                ? 'A copy of the tag on a site that is not in your allowed list is refused. Visitors on your allowed sites can still use the widget, up to 20 questions a minute per visitor network on each server instance.'
+                : 'Each visitor network can send 20 questions a minute. Anyone who copies the tag can use the widget on another site.'}
             </dd>
           </div>
         </dl>
