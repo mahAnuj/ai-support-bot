@@ -10,7 +10,7 @@ A powerful platform that lets any business build, test, and deploy intelligent A
 - **Custom Configuration**: Set display name, welcome message, colors, and positioning
 - **Your Documents**: Upload business documents (PDF, TXT, MD, DOCX) for the assistant to answer from
 - **Live Preview**: See exactly how your assistant will look and behave
-- **One-Click Deployment**: Generate embeddable JavaScript code for your website
+- **One-line embed**: Generate embeddable JavaScript code for your website
 - **Professional UI**: Clean, mobile-responsive design that works on any website
 
 ### 📚 **Intelligent Document Processing**
@@ -19,7 +19,7 @@ A powerful platform that lets any business build, test, and deploy intelligent A
 - **Source Attribution**: Shows which documents were used in each response
 - **Retrieval Match Score**: Shows how closely the retrieved passages match the question (a similarity score, not a probability that the answer is correct)
 
-### 🌐 **Production-Ready Deployment**
+### 🌐 **On Your Website**
 - **Embeddable Widget**: Copy-paste JavaScript code to add to any website
 - **Customizable Appearance**: Match your brand colors and positioning preferences
 - **Mobile Optimized**: Works seamlessly on desktop, tablet, and mobile devices
@@ -103,8 +103,8 @@ Visit [http://localhost:3000](http://localhost:3000) and start building your AI 
 - Automatic chunking and indexing
 - Progress indicators and success confirmation
 
-### **🚀 One-Click Deployment**
-- Generate production-ready JavaScript code
+### **🚀 One-line embed**
+- Generate JavaScript embed code
 - Copy-paste integration for any website
 - Complete implementation guide included
 
@@ -114,7 +114,7 @@ Visit [http://localhost:3000](http://localhost:3000) and start building your AI 
 2. **Upload Documents**: Add your business knowledge (PDFs, docs, text files)
 3. **Configure Assistant**: Customize name, welcome message, colors, and position
 4. **Live Preview**: See real-time improvements in the chat interface
-5. **Deploy**: Generate and copy embeddable code for your website
+5. **Embed**: Generate and copy embeddable code for your website
 
 ## 📊 Before vs After
 
@@ -136,7 +136,7 @@ Visit [http://localhost:3000](http://localhost:3000) and start building your AI 
 - **Vector Search**: Cosine similarity, in-process for the demo and with pgvector's `<=>` operator in your database (exact scan, no approximate index)
 - **File Processing**: Built-in PDF, TXT, MD, DOCX support
 - **Enhancement**: RAG (Retrieval-Augmented Generation)
-- **Deployment**: Vercel-ready with one-click deploy
+- **Deployment**: Builds with `npm run build` and runs on Vercel or any Node.js host (no deploy button; see [Deployment](#-deployment))
 
 ## 🚀 Deployment
 

@@ -124,8 +124,10 @@ works only when the app itself runs with `ALLOW_PRIVATE_CONNECTOR_HOSTS=1` or
 `NODE_ENV=development`, which is meant for local testing.
 
 If you turn on `/v1/answer` (or turn it off) later, press "Test connection"
-again and regenerate your embed code. The app records the capability at those
-two moments and does not poll for it.
+again and regenerate your embed code. The app reads the capability when you
+connect (from the unsigned health call), when you press "Test connection" and
+when you generate the embed code (both signed health calls). It does not poll
+for it.
 
 ## Deploy
 

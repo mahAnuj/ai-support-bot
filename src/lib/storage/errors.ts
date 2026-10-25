@@ -61,7 +61,7 @@ export const STORAGE_ERROR_MESSAGES: Record<StorageErrorCode, string> = {
   invalid_token: "This browser's link to your database is no longer valid. Connecting again may start a new, empty workspace; your earlier documents stay in your database.",
   token_wrong_purpose: "This key can't be used here.",
   workspace_not_found: 'The workspace for this link is no longer in your database. Connect again to start a new one.',
-  embed_too_large: 'This embed has too much to fit in its script address. Remove some allowed sites or use a shorter connection string.',
+  embed_too_large: 'This embed has too much to fit in its script address. Shorten the longest settings, such as the allowed sites, the prompts, the connection string, the backend address or the model details, and try again.',
   storage_error: 'Something went wrong talking to your database. Try again.',
 }
 
