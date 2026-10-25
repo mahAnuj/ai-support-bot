@@ -10,11 +10,11 @@ import { StorageError, isStorageError, safeErrorSummary } from '../../../lib/sto
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('📤 Upload API called')
     // Uploads are embedded on this server, so each one spends its CPU and memory
     if (isRateLimited(`upload:${clientIp(request)}`, 10)) {
       return NextResponse.json({ error: 'Too many uploads' }, { status: 429 })
     }
+    console.log('📤 Upload API called')
     // Resolved before the body is read, so a bad or wrong-purpose token reads and writes nothing
     const resolved = resolveBuilderStore(request)
     if (!resolved.ok) return storageErrorResponse(resolved.error)

@@ -9,10 +9,10 @@ import type { WidgetSettings } from '../../../../lib/storage/types'
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('🔄 Widget generation started')
     if (isRateLimited(`generate:${clientIp(request)}`, 10)) {
       return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
     }
+    console.log('🔄 Widget generation started')
     // Resolved before the body is read, so a bad or wrong-purpose token reads and writes nothing
     const resolved = resolveBuilderStore(request)
     if (!resolved.ok) return storageErrorResponse(resolved.error)
