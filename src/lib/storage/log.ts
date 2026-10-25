@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import type { VectorSearchResult } from '../../types/database'
 import type { StoreKind } from './types'
 
-const TOKEN_PREFIXES = ['sbw1_', 'sbb1_'] as const
+const TOKEN_PREFIXES = ['sbw1_', 'sbw2_', 'sbb1_', 'sbm1_'] as const
 
 export function fingerprint(value: string): string {
   return createHash('sha256').update(value).digest('hex').slice(0, 8)

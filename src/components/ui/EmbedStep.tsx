@@ -1,9 +1,12 @@
 'use client'
 
 import { useEffect, useId, useRef, useState, type JSX } from 'react'
+import AllowedSitesField, { type AllowedSitesHandle } from './AllowedSitesField'
 import InstallGuide from './InstallGuide'
 import { readableTextOn } from './contrast'
 import { STORAGE_ERROR_CODES, storageErrorMessage } from '../../lib/storage/errors'
+import { ORIGINS_REQUIRED_MESSAGE } from '../../lib/origins'
+import { MODEL_TOKEN_HEADER, isModelErrorCode, modelErrorMessage } from '../../lib/model/shared'
 
 export const DEFAULT_PRIMARY_COLOR = '#1E6B58'
 
@@ -28,6 +31,9 @@ export interface EmbedStepProps {
   // Called when the connected workspace no longer exists, so the stale link can be cleared
   onWorkspaceMissing?: () => void
   storageToken?: string | null
+  modelAttached?: boolean
+  modelToken?: string | null
+  ownModel?: { model: string; host: string } | null
 }
 
 const SIZES: Record<WidgetConfig['size'], { width: number; height: number }> = {
@@ -84,21 +90,27 @@ function CloseIcon() {
   )
 }
 
-export default function EmbedStep({ sessionId, documentCount, config, onGenerated, onWorkspaceMissing, storageToken }: EmbedStepProps): JSX.Element {
+export default function EmbedStep({ sessionId, documentCount, config, onGenerated, onWorkspaceMissing, storageToken, modelAttached = false, modelToken, ownModel = null }: EmbedStepProps): JSX.Element {
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [embedCode, setEmbedCode] = useState('')
   const [scriptUrl, setScriptUrl] = useState('')
   const [isOpen, setIsOpen] = useState(false)
   const [copyStatus, setCopyStatus] = useState('')
+  const [origins, setOrigins] = useState<string[]>([])
+  // The guide describes the embed that was generated, not the list as edited since
+  const [generatedWithSites, setGeneratedWithSites] = useState(false)
+  const [generatedModel, setGeneratedModel] = useState<{ model: string; host: string } | null>(null)
 
   const generateRef = useRef<HTMLButtonElement>(null)
+  const sitesRef = useRef<AllowedSitesHandle>(null)
   const dialogRef = useRef<HTMLDialogElement>(null)
   const copyRef = useRef<HTMLButtonElement>(null)
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const titleId = useId()
   const descriptionId = useId()
+  const requiredId = useId()
 
   useEffect(() => {
     const dialog = dialogRef.current
@@ -127,15 +139,23 @@ export default function EmbedStep({ sessionId, documentCount, config, onGenerate
   const isLeft = config.position === 'bottom-left'
   const onPrimary = readableTextOn(primary)
   const copied = copyStatus === 'Copied'
+  const sitesMissing = modelAttached && origins.length === 0
 
   const generate = async () => {
-    if (isGenerating) return
+    if (isGenerating || sitesMissing) return
+    const sentOrigins = sitesRef.current ? sitesRef.current.commitPending() : origins
+    if (sentOrigins === null) return
+    const sentModel = ownModel
     setError(null)
     setIsGenerating(true)
     try {
       const response = await fetch('/api/widget/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(storageToken ? { 'x-storage-token': storageToken } : {}) },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(storageToken ? { 'x-storage-token': storageToken } : {}),
+          ...(modelToken ? { [MODEL_TOKEN_HEADER]: modelToken } : {}),
+        },
         body: JSON.stringify({
           sessionId,
           name: config.name || config.title || 'Support Widget',
@@ -143,14 +163,21 @@ export default function EmbedStep({ sessionId, documentCount, config, onGenerate
           welcome_message: config.welcome_message || 'Hi! How can I help you today?',
           primary_color: toSafeHex(config.primary_color),
           position: config.position || 'bottom-right',
-          size: config.size || 'medium'
+          size: config.size || 'medium',
+          allowed_origins: sentOrigins,
         }),
       })
       const body = await response.json().catch(() => null)
       const status = response.status
 
-      if (status === 429) {
+      if (isModelErrorCode(body?.code)) {
+        setError(modelErrorMessage(body.code))
+      } else if (status === 429) {
         setError('Too many requests from this network in the last minute. Wait a minute and try again.')
+      } else if (status === 400 && body?.code === 'origins_required') {
+        setError(ORIGINS_REQUIRED_MESSAGE)
+      } else if (status === 400 && body?.code === 'invalid_origin' && typeof body?.error === 'string') {
+        setError(body.error)
       } else if (status === 400) {
         setError(`Couldn't generate embed code: ${body?.error ?? 'invalid request'}.`)
       } else if (!response.ok || typeof body?.embedCode !== 'string' || typeof body?.scriptUrl !== 'string') {
@@ -159,6 +186,8 @@ export default function EmbedStep({ sessionId, documentCount, config, onGenerate
       } else {
         setEmbedCode(body.embedCode)
         setScriptUrl(body.scriptUrl)
+        setGeneratedWithSites(sentOrigins.length > 0)
+        setGeneratedModel(sentModel)
         setCopyStatus('')
         setIsOpen(true)
         onGenerated?.()
@@ -227,12 +256,23 @@ export default function EmbedStep({ sessionId, documentCount, config, onGenerate
       </div>
 
       <div className="mt-6">
+        <AllowedSitesField
+          ref={sitesRef}
+          origins={origins}
+          onChange={setOrigins}
+          required={modelAttached}
+          describedById={sitesMissing ? requiredId : undefined}
+        />
+      </div>
+
+      <div className="mt-6">
         <button
           ref={generateRef}
           type="button"
           onClick={generate}
-          disabled={isGenerating}
+          disabled={isGenerating || sitesMissing}
           aria-busy={isGenerating}
+          aria-describedby={sitesMissing ? requiredId : undefined}
           className={primaryButton}
         >
           {isGenerating ? (
@@ -244,6 +284,11 @@ export default function EmbedStep({ sessionId, documentCount, config, onGenerate
             'Generate embed code'
           )}
         </button>
+        {sitesMissing && (
+          <p id={requiredId} className="mt-2 max-w-[60ch] text-sm text-ink-muted">
+            {ORIGINS_REQUIRED_MESSAGE}
+          </p>
+        )}
       </div>
 
       {error && (
@@ -267,7 +312,9 @@ export default function EmbedStep({ sessionId, documentCount, config, onGenerate
                 Embed code
               </h2>
               <p id={descriptionId} className="mt-1 max-w-[60ch] text-sm text-ink-muted">
-                One line adds the assistant to any website. Paste it before the closing body tag of your pages, or follow the steps for your platform below.
+                {generatedWithSites
+                  ? 'One line adds the assistant to your allowed sites. Paste it before the closing body tag of their pages, or follow the steps for your platform below.'
+                  : 'One line adds the assistant to any website. Paste it before the closing body tag of your pages, or follow the steps for your platform below.'}
               </p>
             </div>
             <button type="button" aria-label="Close" onClick={closeDialog} className={`${iconButton} -mr-2 -mt-1 shrink-0`}>
@@ -305,7 +352,7 @@ export default function EmbedStep({ sessionId, documentCount, config, onGenerate
             </p>
           </div>
           {scriptUrl && (
-            <InstallGuide embedCode={embedCode} scriptUrl={scriptUrl} apiBaseUrl={new URL(scriptUrl).origin} persistent={!!storageToken} />
+            <InstallGuide embedCode={embedCode} scriptUrl={scriptUrl} apiBaseUrl={new URL(scriptUrl).origin} persistent={!!storageToken} hasAllowedSites={generatedWithSites} ownModel={generatedModel} />
           )}
         </div>
       </dialog>

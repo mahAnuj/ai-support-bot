@@ -84,6 +84,8 @@ export interface Widget {
   position: 'bottom-right' | 'bottom-left'
   size: 'small' | 'medium' | 'large'
   allowed_domains: string[]
+  allowed_origins?: string[] // Exact origins (memory widgets only)
+  sealed?: boolean // Only reachable through its sbw2_ token, never the plain key
   is_active: boolean
   created_at: Date
   updated_at: Date
@@ -169,6 +171,8 @@ export interface CreateWidgetRequest {
   position?: 'bottom-right' | 'bottom-left'
   size?: 'small' | 'medium' | 'large'
   allowed_domains?: string[]
+  allowed_origins?: string[]
+  sealed?: boolean
 }
 
 export interface UploadDocumentRequest {

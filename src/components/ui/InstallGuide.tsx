@@ -7,6 +7,8 @@ export interface InstallGuideProps {
   scriptUrl: string
   apiBaseUrl: string
   persistent?: boolean
+  hasAllowedSites?: boolean
+  ownModel?: { model: string; host: string } | null
 }
 
 type Platform = {
@@ -88,7 +90,14 @@ const tabSelected =
   'bg-surface font-semibold text-ink shadow-sm after:absolute after:inset-x-2 after:bottom-0.5 after:h-0.5 after:rounded-full after:bg-accent'
 const tabUnselected = 'font-medium text-ink-muted hover:text-ink'
 
-export default function InstallGuide({ embedCode, scriptUrl, apiBaseUrl, persistent }: InstallGuideProps): JSX.Element {
+export default function InstallGuide({
+  embedCode,
+  scriptUrl,
+  apiBaseUrl,
+  persistent,
+  hasAllowedSites,
+  ownModel = null,
+}: InstallGuideProps): JSX.Element {
   const list = platforms(embedCode, scriptUrl)
   const [active, setActive] = useState(list[0].id)
   const [copied, setCopied] = useState('')
@@ -216,15 +225,35 @@ export default function InstallGuide({ embedCode, scriptUrl, apiBaseUrl, persist
             <dd className="mt-0.5 max-w-[65ch] text-ink-muted sm:mt-0">
               No. Your site only serves the tag. Each question goes from the visitor&apos;s browser to this app at{' '}
               <span className="break-all font-mono text-xs text-ink">{apiBaseUrl}</span>, which finds matching passages in
-              your documents and asks the chat model on Groq. The answer goes straight back to the browser. No API key
-              is placed on your site, and your site&apos;s server is never contacted.
+              your documents and{' '}
+              {ownModel ? (
+                <>
+                  asks <span className="break-all font-mono text-xs text-ink">{ownModel.model}</span> at{' '}
+                  <span className="break-all font-mono text-xs text-ink">{ownModel.host}</span> with your API key. The
+                  answer goes straight back to the browser. Your API key is inside the tag only in encrypted form, which
+                  only this app can decrypt, and your site&apos;s server is never contacted.
+                </>
+              ) : (
+                <>
+                  asks the chat model on Groq. The answer goes straight back to the browser. No API key is placed on your
+                  site, and your site&apos;s server is never contacted.
+                </>
+              )}
             </dd>
           </div>
           <div className="sm:grid sm:grid-cols-[12rem_minmax(0,1fr)] sm:gap-x-6">
             <dt className="font-semibold text-ink">What a visitor sends</dt>
             <dd className="mt-0.5 max-w-[65ch] text-ink-muted sm:mt-0">
               The question they type and the widget key. The question and matching passages from your documents are
-              sent to Groq to write the answer.
+              sent{' '}
+              {ownModel ? (
+                <>
+                  from this app to <span className="break-all font-mono text-xs text-ink">{ownModel.host}</span>, instead
+                  of Groq, to write the answer. That provider&apos;s data retention policy applies.
+                </>
+              ) : (
+                'to Groq to write the answer.'
+              )}
             </dd>
           </div>
           <div className="sm:grid sm:grid-cols-[12rem_minmax(0,1fr)] sm:gap-x-6">
@@ -233,8 +262,13 @@ export default function InstallGuide({ embedCode, scriptUrl, apiBaseUrl, persist
               {persistent
                 ? 'Widgets and documents are stored in your database, so the widget keeps answering after server restarts.'
                 : "Widgets and documents are kept in this server's memory, so the widget stops answering after a server restart and you need to generate it again."}{' '}
-              Each visitor network can send 20 questions a minute. Anyone
-              who copies the tag can use the widget on another site.
+              {hasAllowedSites
+                ? ownModel
+                  ? 'A copy of the tag on a site that is not in your allowed list is refused. Visitors on your allowed sites can spend your provider credits, up to 20 questions a minute per visitor network on each server instance.'
+                  : 'A copy of the tag on a site that is not in your allowed list is refused. Visitors on your allowed sites can still use the widget, up to 20 questions a minute per visitor network on each server instance.'
+                : ownModel
+                  ? 'Each visitor network can send 20 questions a minute. Anyone who copies the tag can use the widget on another site and spend your provider credits.'
+                  : 'Each visitor network can send 20 questions a minute. Anyone who copies the tag can use the widget on another site.'}
             </dd>
           </div>
         </dl>

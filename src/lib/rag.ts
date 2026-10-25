@@ -1,9 +1,10 @@
 import { generateEmbeddings, matchScore, MIN_SIMILARITY } from './embeddings'
-import { CHAT_MODEL, getChatClient, REASONING_OPTIONS } from './llm'
+import { chatErrorCode } from './llm'
+import type { ChatProvider } from './model/provider'
 import { chunkText, extractTextFromFile } from './documents'
 import { memoryStore } from './storage/memory-store'
 import { isStorageError } from './storage/errors'
-import { retrievalLog, workspaceLabel } from './storage/log'
+import { fingerprint, retrievalLog, workspaceLabel } from './storage/log'
 import type { KnowledgeStore } from './storage/types'
 import type { VectorSearchResult } from '../types/database'
 
@@ -33,9 +34,19 @@ function preprocessQuery(query: string): string {
   return query.trim()
 }
 
+// Lenient: models without JSON mode often wrap the object in prose or a code fence
+function parseVariations(content: string): unknown[] {
+  const match = content.match(/\{[\s\S]*\}/)
+  if (!match) throw new Error('No JSON object in the response')
+  const parsed: unknown = JSON.parse(match[0])
+  const variations = (parsed as { variations?: unknown } | null)?.variations
+  return Array.isArray(variations) ? variations : []
+}
+
 // Ask the chat model to reword the question, for better semantic matching
-async function generateQueryVariations(query: string): Promise<string[]> {
-  const cacheKey = query.trim().toLowerCase()
+async function generateQueryVariations(query: string, provider: ChatProvider): Promise<string[]> {
+  // Keyed per provider endpoint and model so cached variations are never shared between owners
+  const cacheKey = `${provider.kind}\n${provider.cacheKey}\n${fingerprint(query.trim().toLowerCase())}`
   
   // Check cache first
   if (variationCache.has(cacheKey)) {
@@ -48,8 +59,7 @@ async function generateQueryVariations(query: string): Promise<string[]> {
   try {
     console.log(`🤖 Generating query variations (${query.length} chars)`)
     
-    const response = await getChatClient().chat.completions.create({
-      model: CHAT_MODEL,
+    const content = await provider.complete({
       messages: [
         {
           role: 'system',
@@ -72,21 +82,19 @@ Examples:
 Return ONLY a JSON object of the form {"variations": ["...", "...", "..."]}.`
         }
       ],
-      // JSON object mode works on every Groq model; json_schema only on some
-      response_format: { type: 'json_object' },
-      max_completion_tokens: 512,
+      maxTokens: 512,
       temperature: 0.7,
-      ...REASONING_OPTIONS
+      // JSON object mode is sent to gpt-oss models only; the parse below is lenient for the rest
+      jsonObject: true,
     })
 
-    const content = response.choices[0]?.message?.content
     if (!content) {
       throw new Error('No response from the chat model')
     }
 
-    // Parse the structured JSON response
-    const parsed = JSON.parse(content)
-    const aiVariations = parsed.variations || []
+    const aiVariations = parseVariations(content).filter(
+      (v): v is string => typeof v === 'string' && v.trim().length > 0
+    )
 
     if (aiVariations.length > 0) {
       variations.push(...aiVariations)
@@ -95,7 +103,7 @@ Return ONLY a JSON object of the form {"variations": ["...", "...", "..."]}.`
       throw new Error('No valid variations generated')
     }
   } catch (error) {
-    console.warn('🤖 AI variation generation error, using fallback:', error)
+    console.warn(`🤖 AI variation generation error code=${chatErrorCode(error)}, using fallback`)
     // Fallback for any errors - simple variations
     const lowerQuery = query.toLowerCase()
     if (!lowerQuery.includes('what') && !lowerQuery.includes('how')) {
@@ -221,7 +229,8 @@ export async function queryRAG(
   store: KnowledgeStore,
   workspaceId: string,
   query: string,
-  maxResults: number = 5
+  maxResults: number,
+  provider: ChatProvider
 ): Promise<RAGQueryResult> {
   // Check if session exists and update access time
   const session = await store.getWorkspace(workspaceId)
@@ -237,14 +246,14 @@ export async function queryRAG(
   console.log(`RAG Query - ${query.length} chars`)
   
   // Generate query variations for better semantic matching
-  const queryVariations = await generateQueryVariations(preprocessedQuery)
+  const queryVariations = await generateQueryVariations(preprocessedQuery, provider)
   console.log(`RAG Query - ${queryVariations.length} variations`)
   
   // Smart multi-threshold search with quality filtering
   let bestResults: VectorSearchResult[] = []
-  let bestVariation = queryVariations[0]
+  let bestVariationIndex = 0
   
-  for (const variation of queryVariations) {
+  for (const [variationIndex, variation] of queryVariations.entries()) {
     const queryEmbedding = await getCachedEmbedding(variation)
     
     // Try multiple thresholds: start high, go lower if needed
@@ -287,7 +296,7 @@ export async function queryRAG(
           
         if (avgSimilarity > currentBestAvg) {
           bestResults = filteredResults
-          bestVariation = variation
+          bestVariationIndex = variationIndex
           console.log(`RAG Query - New best variation (avg similarity: ${avgSimilarity.toFixed(3)})`)
         }
       }
@@ -295,7 +304,7 @@ export async function queryRAG(
   }
   
   const relevantChunks = bestResults
-  console.log(`RAG Query - Final results: ${relevantChunks.length} chunks from "${bestVariation}"`)
+  console.log(`RAG Query - Final results: ${relevantChunks.length} chunks from variation ${bestVariationIndex + 1} of ${queryVariations.length}`)
   
   // Create context from relevant chunks with smart truncation
   const maxContextLength = 2000 // Optimize for token limits

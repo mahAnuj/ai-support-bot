@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect, useId, forwardRef, useImperativeHan
 import { createPortal } from 'react-dom'
 import MarkdownRenderer from './MarkdownRenderer'
 import { ChatMessage, ChatInterfaceProps } from '@/types'
+import { MODEL_ERROR_MESSAGES, MODEL_TOKEN_HEADER, isModelErrorCode, modelErrorMessage, providerStatus } from '@/lib/model/shared'
 
 interface ChatResponse {
   message: unknown
@@ -18,6 +19,7 @@ type Props = ChatInterfaceProps & {
   onPrimaryColor?: string
   onMessageSent?: () => void
   storageToken?: string | null
+  modelToken?: string | null
 }
 
 const onPrimarySurface = 'bg-[var(--preview-primary,var(--color-accent))] text-[color:var(--preview-on-primary,var(--color-white))]'
@@ -112,15 +114,27 @@ function extractAnswer(value: unknown): string {
   return value == null ? '' : String(value)
 }
 
-function errorTextFor(status: number, body: unknown): string {
+function errorTextFor(status: number, body: unknown, hasOwnModel: boolean): string {
+  const fields = body && typeof body === 'object' ? (body as Record<string, unknown>) : {}
+  const code = fields.code
+  if (code === 'model_token_invalid') return MODEL_ERROR_MESSAGES.model_token_invalid
+  if (hasOwnModel && isModelErrorCode(code)) {
+    return `No answer from your model. ${modelErrorMessage(code, providerStatus(fields.details))}`
+  }
   if (status === 429) {
     return 'Too many messages from this network in the last minute. Wait a minute and try again.'
   }
   if (status === 400) {
-    const error = body && typeof body === 'object' ? (body as { error?: unknown }).error : undefined
+    const error = fields.error
     return `The message couldn't be sent: ${typeof error === 'string' ? error : 'invalid request'}.`
   }
-  return `No answer. The server returned an error (status ${status}). If you run this app, check that GROQ_API_KEY is set and valid.`
+  if (!hasOwnModel && (fields.details === 'GROQ_API_KEY is not set' || code === 'model_auth_rejected')) {
+    return `No answer. The server returned an error (status ${status}). If you run this app, check that GROQ_API_KEY is set and valid.`
+  }
+  if (!hasOwnModel && code === 'model_rate_limited') {
+    return "The demo model's shared rate limit was reached. Wait a minute and try again."
+  }
+  return `No answer. The server returned an error (status ${status}). Try again shortly.`
 }
 
 function documentSources(sources?: string[]): string[] {
@@ -143,6 +157,7 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, P
   onPrimaryColor,
   onMessageSent,
   storageToken,
+  modelToken,
 }, ref) => {
   const titleId = useId()
   const displayTitle = title.trim() || 'Your Business AI Assistant'
@@ -267,7 +282,11 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, P
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(storageToken ? { 'x-storage-token': storageToken } : {}) },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(storageToken ? { 'x-storage-token': storageToken } : {}),
+          ...(modelToken ? { [MODEL_TOKEN_HEADER]: modelToken } : {}),
+        },
         body: JSON.stringify({
           message: text,
           sessionId: sessionId || undefined,
@@ -278,7 +297,7 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, P
 
       if (!response.ok) {
         const body: unknown = await response.json().catch(() => null)
-        addSystemMessage(errorTextFor(response.status, body))
+        addSystemMessage(errorTextFor(response.status, body, !!modelToken))
         return
       }
 

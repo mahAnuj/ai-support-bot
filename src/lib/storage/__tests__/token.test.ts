@@ -3,14 +3,19 @@ import { randomBytes, randomUUID } from 'node:crypto'
 import { StorageError } from '../errors'
 import {
   BUILDER_TOKEN_PREFIX,
+  MAX_WIDGET_TOKEN_V2_LENGTH,
   WIDGET_TOKEN_PREFIX,
+  WIDGET_TOKEN_V2_PREFIX,
   getTokenKey,
   isBuilderTokenShape,
   isWidgetTokenShape,
   openBuilderToken,
   openWidgetToken,
+  openWidgetTokenV2,
   sealBuilderToken,
   sealWidgetToken,
+  sealWidgetTokenV2,
+  type WidgetTokenV2Payload,
 } from '../token'
 
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-'
@@ -135,3 +140,187 @@ describe('AC 24: widget token fits in a script URL', () => {
     expect(('https://support-bot.example.com/api/widget/script/' + token).length).toBeLessThan(2000)
   })
 })
+
+describe('sbw1_ back-compat', () => {
+  // Sealed by sealWidgetToken at ea77ea0 with this test-only key. Embeds issued then must keep opening.
+  const FIXTURE_KEY = Buffer.from('c2J3MS1maXh0dXJlLXRlc3Qtb25seS1rZXktMDAwMDA=', 'base64')
+  const FIXTURE_TOKEN =
+    'sbw1_q3xwfzc_Fg89yIsqAbtkhhK38K7GecwVVJCh8Md4XPZMiQaooS0dt-gWwmQZQTJasjrnJy7kTjCqc6SsSS3fnEt8LoED_UJjREg0nyjrEiQ2EJ5unKKVR1WZ499YTCaT4pmwLSHCzPMgNxpzjwcuhS-ivwjbeveGtYkF24joRHjP4Sz__oCQKaCEYP03Pqw50bHoL3z9oahxWMHw4mADO31V9bUyDGHmNRP1j-Sq0WTVoqvrQChZJ0xbMTWEE8bbUGqPAIa_F4ReZg0'
+
+  it('opens an sbw1_ token sealed by the ea77ea0 code', () => {
+    expect(openWidgetToken(FIXTURE_TOKEN, FIXTURE_KEY)).toEqual({
+      conn: 'postgresql://fixture:pw@db.example.com:5432/app?sslmode=verify-full',
+      workspaceId: '11111111-2222-4333-8444-555555555555',
+      widgetId: '66666666-7777-4888-9999-aaaaaaaaaaaa',
+    })
+    expect(isWidgetTokenShape(FIXTURE_TOKEN)).toBe(true)
+    expect(openWidgetTokenV2(FIXTURE_TOKEN, FIXTURE_KEY)).toBeNull()
+  })
+})
+
+describe('sbw2_ widget token', () => {
+  const pgPayload: WidgetTokenV2Payload = {
+    source: { kind: 'postgres', conn: CONN, workspaceId: randomUUID(), widgetId: randomUUID() },
+    origins: ['https://example.com', 'http://localhost:3000'],
+  }
+  const memPayload: WidgetTokenV2Payload = {
+    source: { kind: 'memory', widgetKey: 'widget-' + randomUUID() },
+    origins: ['https://shop.example.com'],
+  }
+
+  it.each([
+    ['postgres', pgPayload],
+    ['memory', memPayload],
+  ] as const)('round-trips a %s source', (_name, payload) => {
+    const token = sealWidgetTokenV2(payload, key)
+    expect(token).toMatch(/^sbw2_[A-Za-z0-9_-]+$/)
+    expect(token.startsWith(WIDGET_TOKEN_V2_PREFIX)).toBe(true)
+    expect(isWidgetTokenShape(token)).toBe(true)
+    expect(isBuilderTokenShape(token)).toBe(false)
+    expect(openWidgetTokenV2(token, key)).toEqual(payload)
+  })
+
+  it('round-trips an empty origin list', () => {
+    const payload: WidgetTokenV2Payload = { source: memPayload.source, origins: [] }
+    expect(openWidgetTokenV2(sealWidgetTokenV2(payload, key), key)).toEqual(payload)
+  })
+
+  it('does not reveal the connection string or origins', () => {
+    const token = sealWidgetTokenV2(pgPayload, key)
+    expect(token).not.toContain('db.example.com')
+    expect(token).not.toContain('example.com')
+  })
+
+  it('rejects every single-character change', () => {
+    const token = sealWidgetTokenV2(memPayload, key)
+    for (let i = 0; i < token.length; i++) {
+      const tampered = replaceAt(token, i)
+      expect(tampered).not.toBe(token)
+      expect(openWidgetTokenV2(tampered, key)).toBeNull()
+    }
+  })
+
+  it('rejects truncated tokens and a different key', () => {
+    const token = sealWidgetTokenV2(pgPayload, key)
+    expect(openWidgetTokenV2(token.slice(0, -1), key)).toBeNull()
+    expect(openWidgetTokenV2(token.slice(0, -20), key)).toBeNull()
+    expect(openWidgetTokenV2(token, randomBytes(32))).toBeNull()
+  })
+
+  it('is bound to its prefix in both directions', () => {
+    const v2 = sealWidgetTokenV2(pgPayload, key)
+    const body = v2.slice(WIDGET_TOKEN_V2_PREFIX.length)
+    expect(openWidgetToken(WIDGET_TOKEN_PREFIX + body, key)).toBeNull()
+    expect(openBuilderToken(BUILDER_TOKEN_PREFIX + body, key)).toBeNull()
+
+    const v1 = sealWidgetToken(widgetPayload, key)
+    expect(openWidgetTokenV2(WIDGET_TOKEN_V2_PREFIX + v1.slice(WIDGET_TOKEN_PREFIX.length), key)).toBeNull()
+    const b = sealBuilderToken(builderPayload, key)
+    expect(openWidgetTokenV2(WIDGET_TOKEN_V2_PREFIX + b.slice(BUILDER_TOKEN_PREFIX.length), key)).toBeNull()
+    expect(openWidgetTokenV2(v1, key)).toBeNull()
+    expect(openWidgetTokenV2(b, key)).toBeNull()
+  })
+
+  it('rejects non-strings and oversized input without throwing', () => {
+    expect(openWidgetTokenV2(undefined, key)).toBeNull()
+    expect(openWidgetTokenV2(42, key)).toBeNull()
+    expect(openWidgetTokenV2('sbw2_', key)).toBeNull()
+    expect(openWidgetTokenV2('sbw2_!!!', key)).toBeNull()
+    expect(openWidgetTokenV2('sbw2_' + 'A'.repeat(MAX_WIDGET_TOKEN_V2_LENGTH), key)).toBeNull()
+  })
+
+  it('refuses to inflate an authenticated body past the output cap', () => {
+    const token = sealWidgetTokenV2(
+      { source: { kind: 'postgres', conn: 'a'.repeat(20000), workspaceId: randomUUID(), widgetId: randomUUID() }, origins: [] },
+      key,
+    )
+    expect(token.length).toBeLessThan(MAX_WIDGET_TOKEN_V2_LENGTH)
+    expect(openWidgetTokenV2(token, key)).toBeNull()
+  })
+
+  it.each([
+    ['a bad memory key', { source: { kind: 'memory', widgetKey: 'not-a-widget' }, origins: [] }],
+    ['a memory key that is too long', { source: { kind: 'memory', widgetKey: 'widget-' + 'a'.repeat(81) }, origins: [] }],
+    ['a bad workspace id', { source: { ...pgPayload.source, workspaceId: 'nope' }, origins: [] }],
+    ['a bad widget id', { source: { ...pgPayload.source, widgetId: 'nope' }, origins: [] }],
+    ['an empty connection string', { source: { ...pgPayload.source, conn: '' }, origins: [] }],
+    ['11 origins', { source: memPayload.source, origins: Array.from({ length: 11 }, (_, i) => `https://s${i}.example.com`) }],
+    ['a 256-char origin', { source: memPayload.source, origins: ['https://' + 'a'.repeat(248)] }],
+    ['a non-string origin', { source: memPayload.source, origins: [42] }],
+  ])('seals but refuses to open %s', (_name, payload) => {
+    const token = sealWidgetTokenV2(payload as unknown as WidgetTokenV2Payload, key)
+    expect(openWidgetTokenV2(token, key)).toBeNull()
+  })
+
+  it('throws embed_too_large instead of issuing a token over the cap', () => {
+    // Fixed content well past the cap: random-charset text deflates to ~6 bits a char, so twice the cap
+    // in characters always seals far above it, whatever the cap is.
+    const rand = seededRandom(7)
+    const conn = 'postgresql://u:' + randomChars(rand, CONN_CHARSET, 2 * MAX_WIDGET_TOKEN_V2_LENGTH) + '@db.example.com:5432/app'
+    const ids = { workspaceId: '11111111-2222-4333-8444-555555555555', widgetId: '66666666-7777-4888-9999-aaaaaaaaaaaa' }
+    let caught: unknown
+    try {
+      sealWidgetTokenV2({ source: { kind: 'postgres', conn, ...ids }, origins: [] }, key)
+    } catch (e) {
+      caught = e
+    }
+    expect(caught).toBeInstanceOf(StorageError)
+    expect((caught as StorageError).code).toBe('embed_too_large')
+  })
+
+  it('AC 34: the origins-only worst case fits under the cap and in a script URL', () => {
+    const rand = seededRandom(20261025)
+    const conn = worstCaseConnection(rand)
+    expect(conn).toHaveLength(3000)
+    const origins = Array.from({ length: 10 }, () => worstCaseOrigin(rand))
+    for (const o of origins) expect(o).toHaveLength(255)
+    const payload: WidgetTokenV2Payload = {
+      source: { kind: 'postgres', conn, workspaceId: randomUUID(), widgetId: randomUUID() },
+      origins,
+    }
+    const token = sealWidgetTokenV2(payload, key)
+    expect(token.length).toBeLessThanOrEqual(MAX_WIDGET_TOKEN_V2_LENGTH)
+    expect(('https://support-bot.example.com/api/widget/script/' + token).length).toBeLessThan(8000)
+    expect(openWidgetTokenV2(token, key)).toEqual(payload)
+  })
+})
+
+const CONN_CHARSET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~%'
+const HOST_CHARSET = 'abcdefghijklmnopqrstuvwxyz0123456789'
+
+function seededRandom(seed: number): () => number {
+  let a = seed >>> 0
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0
+    let t = a
+    t = Math.imul(t ^ (t >>> 15), t | 1)
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+function randomChars(rand: () => number, charset: string, n: number): string {
+  let out = ''
+  for (let i = 0; i < n; i++) out += charset[Math.floor(rand() * charset.length)]
+  return out
+}
+
+function worstCaseConnection(rand: () => number): string {
+  const head = 'postgresql://'
+  const tail = '@db.example.com:5432/app?sslmode=verify-full'
+  const user = randomChars(rand, CONN_CHARSET, 60)
+  return head + user + ':' + randomChars(rand, CONN_CHARSET, 3000 - head.length - user.length - 1 - tail.length) + tail
+}
+
+function worstCaseOrigin(rand: () => number): string {
+  const head = 'https://'
+  const labels: string[] = []
+  let length = head.length
+  while (length < 255) {
+    const room = 255 - length - (labels.length ? 1 : 0)
+    const n = Math.min(63, room)
+    labels.push(randomChars(rand, HOST_CHARSET, n))
+    length += n + (labels.length > 1 ? 1 : 0)
+  }
+  return head + labels.join('.')
+}

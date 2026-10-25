@@ -505,7 +505,9 @@ export function widgetScript(widget: Widget, baseUrl: string): string {
       if (!response.ok || !data || typeof data.message !== 'string' || !data.message) {
         addError(response.status === 429
           ? 'Too many messages from this network. Wait a minute and try again.'
-          : "The assistant couldn't answer just now. Try again in a moment.");
+          : response.status === 403
+            ? "This assistant isn't available on this site."
+            : "The assistant couldn't answer just now. Try again in a moment.");
         return;
       }
 
@@ -515,8 +517,10 @@ export function widgetScript(widget: Widget, baseUrl: string): string {
 
       addMessage(data.message, 'ai', data.isEnhanced, true);
     } catch (error) {
+      // A refusal by the site policy is a 403 without CORS headers, which a
+      // browser reports as a failed fetch, so this message covers it too.
       hideTyping();
-      addError("Couldn't reach the assistant. Check your connection and try again.");
+      addError("The assistant isn't available right now. Please try again later.");
     } finally {
       isPending = false;
       sendBtn.disabled = false;

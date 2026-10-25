@@ -8,7 +8,7 @@ export const STORAGE_ERROR_CODES = [
   'tls_required', 'private_host_not_allowed', 'host_not_found', 'db_unreachable', 'db_timeout', 'tls_failed',
   'auth_failed', 'database_not_found', 'pgvector_missing', 'insufficient_privilege', 'schema_mismatch',
   'schema_missing', 'pooler_unsupported', 'rate_limited', 'invalid_token', 'token_wrong_purpose',
-  'workspace_not_found', 'storage_error',
+  'workspace_not_found', 'embed_too_large', 'storage_error',
 ] as const
 
 export type StorageErrorCode = typeof STORAGE_ERROR_CODES[number]
@@ -34,6 +34,7 @@ export const STORAGE_ERROR_STATUS: Record<StorageErrorCode, number> = {
   invalid_token: 401,
   token_wrong_purpose: 403,
   workspace_not_found: 404,
+  embed_too_large: 400,
   storage_unavailable: 503,
   storage_error: 500,
 }
@@ -60,6 +61,7 @@ export const STORAGE_ERROR_MESSAGES: Record<StorageErrorCode, string> = {
   invalid_token: "This browser's link to your database is no longer valid. Connecting again may start a new, empty workspace; your earlier documents stay in your database.",
   token_wrong_purpose: "This key can't be used here.",
   workspace_not_found: 'The workspace for this link is no longer in your database. Connect again to start a new one.',
+  embed_too_large: 'This embed has too much to fit in its script address. Remove some allowed sites or use a shorter connection string.',
   storage_error: 'Something went wrong talking to your database. Try again.',
 }
 

@@ -72,9 +72,31 @@ const steps = [
   },
 ]
 
+export type OwnModelInfo = { model: string; host: string }
+
+function OwnModelQuestionRest({ ownModel }: { ownModel: OwnModelInfo }) {
+  return (
+    <>
+      , including questions visitors ask through the widget on your site, is matched to passages on this server. This
+      server then sends the question and those passages to{' '}
+      <span className="break-all font-mono text-xs text-ink">{ownModel.model}</span> at{' '}
+      <span className="break-all font-mono text-xs text-ink">{ownModel.host}</span>, the provider you chose, instead of
+      Groq, to write the answer. In this preview, that model also rewords the question to widen the search.
+    </>
+  )
+}
+
 const CONNECTED_MEMORY_REST = " are stored in your own database. The app keeps a link to it only in this browser and inside your embed code, encrypted with this server's key."
 
-export default function DataDisclosure({ className, connected }: { className?: string; connected?: boolean }) {
+export default function DataDisclosure({
+  className,
+  connected,
+  ownModel = null,
+}: {
+  className?: string
+  connected?: boolean
+  ownModel?: OwnModelInfo | null
+}) {
   const headingId = useId()
 
   return (
@@ -96,12 +118,28 @@ export default function DataDisclosure({ className, connected }: { className?: s
             </span>
             <p className="pt-0.5 text-sm text-ink-muted">
               <strong className="font-semibold text-ink">{step.lead}</strong>
-              {connected && index === 2 ? CONNECTED_MEMORY_REST : step.rest}
+              {ownModel && index === 1 ? (
+                <OwnModelQuestionRest ownModel={ownModel} />
+              ) : connected && index === 2 ? (
+                CONNECTED_MEMORY_REST
+              ) : (
+                step.rest
+              )}
             </p>
           </li>
         ))}
       </ol>
-      <p className="mt-4 text-xs text-ink-muted">Groq may store the inputs and outputs of each request for up to 30 days, for reliability and compliance, unless Zero Data Retention is turned on for the deployment's Groq organisation.</p>
+      {ownModel ? (
+        <>
+          <p className="mt-4 text-sm text-ink-muted">
+            Your API key is stored only encrypted with this server&apos;s key, in this browser and inside your embed code.
+            The server does not log or save it.
+          </p>
+          <p className="mt-2 text-xs text-ink-muted">Your provider&apos;s data retention policy applies.</p>
+        </>
+      ) : (
+        <p className="mt-4 text-xs text-ink-muted">Groq may store the inputs and outputs of each request for up to 30 days, for reliability and compliance, unless Zero Data Retention is turned on for the deployment's Groq organisation.</p>
+      )}
     </section>
   )
 }

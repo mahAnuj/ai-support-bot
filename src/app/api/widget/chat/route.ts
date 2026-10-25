@@ -1,22 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { generateResponse } from '../../../../lib/llm'
+import { chatErrorCode, generateResponse } from '../../../../lib/llm'
+import { demoProvider, ownerProvider } from '../../../../lib/model/provider'
+import { isModelError } from '../../../../lib/model/shared'
 import { getCachedEmbedding } from '../../../../lib/rag'
 import { matchScore, MIN_SIMILARITY } from '../../../../lib/embeddings'
-import { clientIp, isRateLimited, LIMITS, originAllowed } from '../../../../lib/guard'
+import { clientIp, isRateLimited, LIMITS, widgetCorsHeaders, widgetOriginAllowed } from '../../../../lib/guard'
 import { resolveWidget } from '../../../../lib/storage/resolve'
 import { retrievalLog } from '../../../../lib/storage/log'
 import { safeErrorSummary } from '../../../../lib/storage/errors'
 import type { VectorSearchResult } from '../../../../types/database'
 
-const CORS_HEADERS = {
+const CORS_HEADERS: Record<string, string> = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
 }
 
-function corsJson(body: unknown, status: number) {
-  return new NextResponse(JSON.stringify(body), { status, headers: CORS_HEADERS })
+function corsJson(body: unknown, status: number, headers: Record<string, string> = CORS_HEADERS) {
+  return new NextResponse(JSON.stringify(body), { status, headers })
 }
 
 // A persistent widget whose database cannot be read must not answer without its documents.
@@ -30,6 +32,8 @@ const UNAVAILABLE_BODY = {
 }
 
 export async function POST(request: NextRequest) {
+  // Before the widget is resolved its policy is unknown, so early errors keep `*`.
+  let cors = CORS_HEADERS
   try {
     console.log('🔥 WIDGET CHAT API CALLED')
     if (isRateLimited(`widget:${clientIp(request)}`, 20)) {
@@ -86,10 +90,12 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    const { store, widget, kind, label } = resolved.ctx
+    const { store, widget, kind, label, access, model } = resolved.ctx
+    const origin = request.headers.get('origin')
+    cors = widgetCorsHeaders(access, origin)
 
-    if (!originAllowed(request.headers.get('origin'), widget.allowed_domains)) {
-      return corsJson({ error: 'This widget is not enabled for this site' }, 403)
+    if (!widgetOriginAllowed(access, origin)) {
+      return corsJson({ error: 'This widget is not enabled for this site', code: 'origin_not_allowed' }, 403, cors)
     }
 
     console.log('Widget Chat API - Widget found:', label)
@@ -104,7 +110,7 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       if (kind === 'memory') throw error
       console.error('Widget chat storage error:', safeErrorSummary(error))
-      return corsJson(UNAVAILABLE_BODY, 503)
+      return corsJson(UNAVAILABLE_BODY, 503, cors)
     }
 
     if (hasDocuments) {
@@ -162,7 +168,7 @@ export async function POST(request: NextRequest) {
       } catch (error) {
         if (kind === 'postgres') {
           console.error('Widget chat storage error:', safeErrorSummary(error))
-          return corsJson(UNAVAILABLE_BODY, 503)
+          return corsJson(UNAVAILABLE_BODY, 503, cors)
         }
         console.error('Widget RAG query error:', error)
         // Continue with generic response if RAG fails
@@ -178,14 +184,23 @@ export async function POST(request: NextRequest) {
     const systemPrompt = widget.system_prompt || 
       'You are a helpful AI assistant embedded in a website widget. Provide helpful and accurate information formatted with proper markdown for easy reading.'
     
-    const response = await generateResponse({
-      query: message,
-      context,
-      sessionId: sessionId || 'widget-session',
-      isEnhanced,
-      systemPrompt,
-      roleContext: widget.role_context
-    })
+    // An owner model answers alone: a failure is an error, never a Groq answer (D8)
+    const provider = model ? ownerProvider(model) : demoProvider()
+    let response
+    try {
+      response = await generateResponse({
+        query: message,
+        context,
+        sessionId: sessionId || 'widget-session',
+        isEnhanced,
+        systemPrompt,
+        roleContext: widget.role_context
+      }, provider)
+    } catch (error) {
+      if (!isModelError(error)) throw error
+      console.error(`Widget chat model error code=${error.code}`)
+      return corsJson(UNAVAILABLE_BODY, 503, cors)
+    }
     
     const responseData: any = {
       message: response.message,
@@ -196,18 +211,11 @@ export async function POST(request: NextRequest) {
       widgetKey
     }
 
-    return new NextResponse(JSON.stringify(responseData), {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
-      },
-    })
+    return corsJson(responseData, 200, cors)
       
   } catch (error) {
-    console.error('Widget chat error:', error)
+    // Raw errors on the provider path can carry hostnames or provider text: log the code only
+    console.error(`Widget chat error code=${chatErrorCode(error)} type=${error instanceof Error ? error.name : typeof error}`)
     return new NextResponse(JSON.stringify({ 
       message: 'Sorry, I encountered an error. Please try again.',
       confidence: 0,
@@ -216,12 +224,7 @@ export async function POST(request: NextRequest) {
       sessionId: 'error-session'
     }), {
       status: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
-      },
+      headers: cors,
     })
   }
 }

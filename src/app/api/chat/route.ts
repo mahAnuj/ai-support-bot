@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { generateResponse } from '../../../lib/llm'
+import { chatErrorCode, generateResponse } from '../../../lib/llm'
+import { demoProvider, ownerProvider } from '../../../lib/model/provider'
+import { modelErrorResponse, resolveBuilderModel } from '../../../lib/model/resolve'
+import { isModelError, modelErrorMessage } from '../../../lib/model/shared'
 import { queryRAG, createRAGContext, sessionHasDocuments } from '../../../lib/rag'
 import { clientIp, isRateLimited, isWithinLimit, LIMITS } from '../../../lib/guard'
 import { resolveBuilderStore, storageErrorResponse } from '../../../lib/storage/resolve'
@@ -15,6 +18,10 @@ export async function POST(request: NextRequest) {
     if (!resolved.ok) return storageErrorResponse(resolved.error)
     const ctx = resolved.ctx
     const store = ctx.store
+    const resolvedModel = resolveBuilderModel(request)
+    if (!resolvedModel.ok) return modelErrorResponse(resolvedModel.error)
+    // No owner model means the demo model; with one, every call goes to it and nothing falls back (D8, D9)
+    const provider = resolvedModel.model ? ownerProvider(resolvedModel.model) : demoProvider()
 
     const { message, sessionId, systemPrompt, roleContext } = await request.json()
     
@@ -70,7 +77,7 @@ export async function POST(request: NextRequest) {
     if (await sessionHasDocuments(store, currentSessionId)) {
       try {
         // Query the RAG system for relevant context
-        ragResult = await queryRAG(store, currentSessionId, message)
+        ragResult = await queryRAG(store, currentSessionId, message, 5, provider)
         console.log('Chat API - RAG result:', {
           contextLength: ragResult.context.length,
           confidence: ragResult.confidence,
@@ -104,7 +111,7 @@ export async function POST(request: NextRequest) {
       isEnhanced,
       systemPrompt,
       roleContext
-    })
+    }, provider)
 
     const responseData: any = {
       message: response.message,
@@ -121,8 +128,19 @@ export async function POST(request: NextRequest) {
       console.error(`Chat API storage error ${safeErrorSummary(error)}`)
       return storageErrorResponse(error)
     }
-    console.error('Chat API error:', error)
-    
+    // Raw errors on the provider path can carry hostnames or provider text: log the code only
+    console.error(`Chat API error code=${chatErrorCode(error)} type=${error instanceof Error ? error.name : typeof error}`)
+    if (isModelError(error)) {
+      return NextResponse.json(
+        {
+          error: 'Failed to generate response',
+          code: error.code,
+          details: modelErrorMessage(error.code, error.httpStatus),
+        },
+        { status: 502 }
+      )
+    }
+
     return NextResponse.json(
       { 
         error: 'Failed to generate response',

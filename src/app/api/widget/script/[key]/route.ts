@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { clientIp, isRateLimited } from '../../../../../lib/guard'
 import { widgetScript } from '../../../../../lib/widget-script'
 import { resolveWidget } from '../../../../../lib/storage/resolve'
+import { exactOriginAllowed, originFromReferer } from '../../../../../lib/origins'
+
+const JS_NO_STORE = { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'no-store' }
 
 // Loaded by the one-line embed code on the site owner's pages, once per page
 // view, so the limit is higher than for chat.
@@ -19,17 +22,20 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     })
   }
   if (!resolved.ok && resolved.status === 403) {
-    return new NextResponse('// This widget key cannot be used here', {
-      status: 403,
-      headers: { 'Content-Type': 'application/javascript; charset=utf-8' },
-    })
+    return new NextResponse('// This widget key cannot be used here', { status: 403, headers: JS_NO_STORE })
   }
   const widget = resolved.ok ? resolved.ctx.widget : null
   if (!widget || !widget.is_active) {
-    return new NextResponse('// Widget not found', {
-      status: 404,
-      headers: { 'Content-Type': 'application/javascript; charset=utf-8' },
-    })
+    return new NextResponse('// Widget not found', { status: 404, headers: JS_NO_STORE })
+  }
+
+  // With neither header the script is served (D2); the chat route still enforces the list.
+  const access = resolved.ok ? resolved.ctx.access : null
+  if (access?.kind === 'exact') {
+    const seen = request.headers.get('origin') ?? originFromReferer(request.headers.get('referer'))
+    if (seen !== null && !exactOriginAllowed(access.origins, seen)) {
+      return new NextResponse('// This widget is not enabled for this site', { status: 403, headers: JS_NO_STORE })
+    }
   }
 
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || new URL(request.url).origin

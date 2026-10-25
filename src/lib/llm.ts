@@ -1,37 +1,25 @@
-import OpenAI from 'openai'
+import { isModelError } from './model/shared'
+import { MAX_OUTPUT_TOKENS, type ChatProvider } from './model/provider'
 
-// Chat runs on Groq. Its API is OpenAI-compatible, so the OpenAI SDK is used
-// with Groq's base URL. By default Groq may store inputs and outputs for up to
-// 30 days for reliability and compliance; the organisation's "Inference APIs
-// ZDR" setting (console.groq.com/settings/data-controls) turns that off. Its rate
-// limits are per organisation and per model, so the model is configurable:
-// pick one no other project in the same Groq organisation uses.
-const GROQ_BASE_URL = 'https://api.groq.com/openai/v1'
-// Groq shut down llama-3.1-8b-instant on 2026-08-16 and names gpt-oss-20b as
-// its replacement (console.groq.com/docs/deprecations).
-export const CHAT_MODEL = process.env.GROQ_MODEL || 'openai/gpt-oss-20b'
+// Every chat-model call goes through a ChatProvider (src/lib/model/provider.ts):
+// demoProvider() is the deployment's Groq account (GROQ_API_KEY, GROQ_MODEL),
+// ownerProvider() is a site owner's own OpenAI-compatible endpoint. Both run on
+// the same adapter, which never follows redirects, caps the response size and
+// only throws ModelError codes. The caller picks the provider; nothing here
+// falls back from an owner model to Groq. The demo provider reads its env when
+// called, never at import, so `next build` needs no secrets.
+//
+// By default Groq may store inputs and outputs for up to 30 days; the
+// organisation's "Inference APIs ZDR" setting turns that off. Its rate limits are
+// per organisation and per model, so GROQ_MODEL should be one no other project
+// in the same Groq organisation uses.
 
-// gpt-oss reasons before answering, and those tokens count against the output
-// limit. Keep the reasoning short and leave room for it in the limit.
-export const REASONING_OPTIONS = CHAT_MODEL.startsWith('openai/gpt-oss')
-  ? ({ reasoning_effort: 'low' } as const)
-  : {}
-
-// Created on first use, not at import time. Next.js evaluates route modules
-// while collecting page data during `next build`, and the client constructor
-// throws when the key is absent - which broke the production build on any host
-// that does not expose runtime secrets to the build step.
-let chatClient: OpenAI | null = null
-
-export function getChatClient(): OpenAI {
-  if (!chatClient) {
-    const apiKey = process.env.GROQ_API_KEY
-    if (!apiKey) {
-      throw new Error('GROQ_API_KEY is not set')
-    }
-    chatClient = new OpenAI({ apiKey, baseURL: GROQ_BASE_URL })
-  }
-  return chatClient
+// Code-only description of a provider failure. Raw errors can carry hostnames
+// or provider text, so they are never logged.
+export function chatErrorCode(error: unknown): string {
+  if (isModelError(error)) return error.code
+  if (error instanceof Error && error.message === 'GROQ_API_KEY is not set') return 'demo_key_missing'
+  return 'unknown'
 }
 
 export interface ChatResponse {
@@ -65,14 +53,17 @@ function wrapDocuments(context: string, query: string): string {
 }
 
 // Generate a chat response
-export async function generateResponse({
-  query,
-  context,
-  isEnhanced = false,
-  systemPrompt: customSystemPrompt,
-  roleContext,
-  structured = false
-}: GenerateResponseOptions): Promise<ChatResponse> {
+export async function generateResponse(
+  {
+    query,
+    context,
+    isEnhanced = false,
+    systemPrompt: customSystemPrompt,
+    roleContext,
+    structured = false
+  }: GenerateResponseOptions,
+  provider: ChatProvider
+): Promise<ChatResponse> {
   try {
     let systemPrompt = ''
     let userPrompt = query
@@ -137,34 +128,26 @@ FORMAT: Direct answer first, then brief suggestion if applicable.`
       systemPrompt += DOCUMENTS_RULE
     }
 
-    const response = await getChatClient().chat.completions.create({
-      model: CHAT_MODEL,
+    const content = await provider.complete({
       messages: [
-        {
-          role: 'system',
-          content: systemPrompt
-        },
-        {
-          role: 'user',
-          content: userPrompt
-        }
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
       ],
       // Length is enforced by ensureConciseResponse below; this limit only
       // has to fit the reasoning plus a short answer
-      max_completion_tokens: 1024,
+      maxTokens: MAX_OUTPUT_TOKENS,
       temperature: 0.3, // Lower temperature for more focused responses
-      ...REASONING_OPTIONS,
     })
 
-    let message = response.choices[0]?.message?.content || 'I apologize, but I was unable to generate a response.'
-    
+    let message = content || 'I apologize, but I was unable to generate a response.'
+
     // Post-process for conciseness
     const maxWords = isEnhanced ? 180 : 120
     message = ensureConciseResponse(message, maxWords)
     
     return { message }
   } catch (error) {
-    console.error('Chat model error:', error)
+    console.error(`Chat model error code=${chatErrorCode(error)}`)
     // Fail loudly. The old fallback returned a canned answer with HTTP 200, so
     // an expired or unfunded key looked like a working bot giving vague replies.
     throw error
@@ -202,5 +185,4 @@ export function ensureConciseResponse(message: string, maxWords: number = 100): 
   return kept.join('\n').trim()
 }
 
-// (No default export: the client is created on demand via getChatClient().)
  
