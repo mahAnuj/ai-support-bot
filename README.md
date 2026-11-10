@@ -1,12 +1,20 @@
-# 🚀 AI Assistant Builder
+# ai-support-bot
 
-> **Create custom AI assistants trained on your business knowledge in minutes**
+**An embeddable support assistant that answers from your own documents — built so you can see, and choose, where your data goes.**
 
-A powerful platform that lets any business build, test, and deploy intelligent AI assistants trained on their specific documents and knowledge base. Transform generic AI into domain experts with just a few clicks.
+Upload your documents, preview the assistant, and paste one `<script>` tag into your site. What sets it apart is not the RAG — it is the control around it:
+
+- **Your documents can stay on your server.** With the [signed connector API](docs/connector-api.md) (OpenAPI spec, shared test vectors and a [reference server](connector/README.md)), this app reaches a backend you run over signed requests and holds no database credentials at all.
+- **Local embeddings.** Indexing runs on the server with an open-source model, so no document text goes to a third party just to be searched.
+- **Bring your own model or database.** Point it at any OpenAI-compatible model, or your own Postgres with pgvector, through encrypted, scope-separated tokens.
+- **Guarded by default.** The server refuses to call localhost or private-network addresses for model, database or backend URLs (unless the operator opts in); widgets answer only on the sites you list; per-IP rate limits and size caps bound abuse and spend.
+- **Honest about what it protects.** [GOVERNANCE.md](GOVERNANCE.md) lists what is enforced, where data goes, and what is still open. It describes controls; it is not a certification.
+
+~390 tests across the app and the connector, needing no database, network or API keys. MIT licensed.
 
 ## ✨ What It Does
 
-### 🎯 **Complete AI Assistant Builder**
+### 🎯 **The builder**
 - **Custom Configuration**: Set display name, welcome message, colors, and positioning
 - **Your Documents**: Upload business documents (PDF, TXT, MD, DOCX) for the assistant to answer from
 - **Live Preview**: See exactly how your assistant will look and behave
@@ -603,10 +611,14 @@ Upload user manuals, API docs, troubleshooting guides
 - *"How do I invite team members?"*
 - *"What are the API rate limits?"*
 
-### **Healthcare**
-Upload patient information, procedure guides, insurance details
+### **Clinics and local services**
+Upload opening hours, procedure guides and the insurers you accept
 - *"Do you accept my insurance?"*
 - *"What should I bring to my appointment?"*
+
+> Do not upload patient records or other personal health data. In the demo,
+> passages and questions are sent to a model provider to write answers; see
+> [GOVERNANCE.md](GOVERNANCE.md) for exactly where data goes.
 
 ### **Professional Services**
 Upload service descriptions, process guides, FAQ documents
@@ -680,15 +692,3 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide.
 ## 📝 License
 
 MIT. See [LICENSE](LICENSE).
-
----
-
-## 🌟 Why Choose AI Assistant Builder?
-
-✅ **5-Minute Setup** - From documents to deployed assistant in minutes  
-✅ **No Technical Skills Required** - Visual interface, no coding needed  
-✅ **Mobile Optimized** - Works on desktop, tablet and phone  
-✅ **Brand Consistent** - Match your company's look and feel  
-✅ **Honest About Data** - [GOVERNANCE.md](GOVERNANCE.md) says exactly where your documents go  
-
-**Transform your customer support** with intelligent AI assistants powered by your business knowledge! 🚀
