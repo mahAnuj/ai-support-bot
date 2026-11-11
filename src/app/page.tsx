@@ -25,12 +25,17 @@ const SAMPLE_DOCUMENTS = [
   'juniper-lane-warranty.md',
 ]
 // The last question is deliberately not answered by the documents, so the
-// demo also shows the assistant declining rather than inventing.
+// demo also shows the assistant declining rather than inventing. Chosen by
+// testing on the live demo (2026-11-11): questions far from the documents
+// ("opening hours") are declined, but ones close to them are not —
+// "Do you sell electric scooters?" and "Do you have a store in Manchester?"
+// both got confident answers the documents do not support. Re-test before
+// changing this list.
 const SAMPLE_QUESTIONS = [
   "Can I return a bike I've already ridden?",
   'Do you deliver to France?',
   'Is the frame covered by warranty?',
-  'Do you sell electric scooters?',
+  'What are your shop opening hours?',
 ]
 const DEFAULT_TITLE = 'AI Support Assistant'
 
