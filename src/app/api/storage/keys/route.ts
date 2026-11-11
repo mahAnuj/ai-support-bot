@@ -8,25 +8,14 @@ import {
 } from '../../../../lib/storage/api-keys'
 import { StorageError, mapDriverError, safeErrorSummary } from '../../../../lib/storage/errors'
 import { getPool } from '../../../../lib/storage/pg-pool'
-import { builderErrorResponse, resolveBuilderStore, storageErrorResponse, type BuilderContext } from '../../../../lib/storage/resolve'
+import { resolveOwnerDatabase, storageErrorResponse } from '../../../../lib/storage/resolve'
 import { ensureSchema } from '../../../../lib/storage/schema'
 
 export const dynamic = 'force-dynamic'
 
-// Managing automation keys needs the owner's builder token (the browser that
-// connected the database), never a key: a leaked key must not be able to mint
-// or revoke keys. Only databases have keys; a backend or the demo does not.
-function postgresContext(request: NextRequest): { ok: true; ctx: Extract<BuilderContext, { kind: 'postgres' }> } | { ok: false; res: NextResponse } {
-  if (request.headers.get('authorization') !== null) {
-    return { ok: false, res: storageErrorResponse(new StorageError('token_wrong_purpose')) }
-  }
-  const resolved = resolveBuilderStore(request)
-  if (!resolved.ok) return { ok: false, res: builderErrorResponse(resolved.error) }
-  if (resolved.ctx.kind !== 'postgres') {
-    return { ok: false, res: storageErrorResponse(new StorageError(resolved.ctx.kind === 'connector' ? 'token_wrong_purpose' : 'invalid_token')) }
-  }
-  return { ok: true, ctx: resolved.ctx }
-}
+// Managing automation keys needs the owner's builder token, never a key: see
+// resolveOwnerDatabase. Only databases have keys; a backend or the demo does not.
+const postgresContext = resolveOwnerDatabase
 
 export async function GET(request: NextRequest) {
   if (isRateLimited(`storage-keys:${clientIp(request)}`, 30)) return storageErrorResponse(new StorageError('rate_limited'))

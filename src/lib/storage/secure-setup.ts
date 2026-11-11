@@ -75,7 +75,7 @@ function grantStatements(role: string): string[] {
   return [
     `GRANT USAGE ON SCHEMA support_bot TO ${r}`,
     `GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA support_bot TO ${r}`,
-    `GRANT DELETE ON support_bot.documents, support_bot.chunks TO ${r}`,
+    `GRANT DELETE ON support_bot.documents, support_bot.chunks, support_bot.conversations TO ${r}`,
     // Tables a later version adds are created by this admin login, so grant them in advance.
     `ALTER DEFAULT PRIVILEGES IN SCHEMA support_bot GRANT SELECT, INSERT, UPDATE ON TABLES TO ${r}`,
     `ALTER ROLE ${r} SET search_path = support_bot, public, extensions`,

@@ -9,6 +9,9 @@ interface SchemaStep {
   readonly sql: string
   // Catalog object this statement creates; null means "always run during a DDL pass".
   readonly object: string | null
+  // Added after v1. A login that may not create it still connects; the feature
+  // that needs it reports what to run instead (see createMissingObjects).
+  readonly optional?: true
 }
 
 const SCHEMA_STEPS: readonly SchemaStep[] = [
@@ -45,17 +48,39 @@ const SCHEMA_STEPS: readonly SchemaStep[] = [
     // row is what makes it revocable. Added after v1 shipped; additive, so the
     // schema version is unchanged and existing databases gain it on Connect.
     object: 'support_bot.api_keys',
+    optional: true,
     sql: 'CREATE TABLE IF NOT EXISTS support_bot.api_keys (id uuid PRIMARY KEY, workspace_id uuid NOT NULL REFERENCES support_bot.workspaces(id) ON DELETE CASCADE, label text NOT NULL, created_at timestamptz NOT NULL DEFAULT now(), last_used_at timestamptz, revoked_at timestamptz, expires_at timestamptz)',
   },
   {
     // Audit trail of what each automation key did (uploaded, replaced,
     // removed, refused): filenames and actions, never document content.
     object: 'support_bot.key_events',
+    optional: true,
     sql: 'CREATE TABLE IF NOT EXISTS support_bot.key_events (id uuid PRIMARY KEY, key_id uuid NOT NULL REFERENCES support_bot.api_keys(id) ON DELETE CASCADE, workspace_id uuid NOT NULL REFERENCES support_bot.workspaces(id) ON DELETE CASCADE, action text NOT NULL, filename text, detail text, at timestamptz NOT NULL DEFAULT now())',
   },
   {
     object: 'support_bot.key_events_key_idx',
+    optional: true,
     sql: 'CREATE INDEX IF NOT EXISTS key_events_key_idx ON support_bot.key_events (key_id, at DESC)',
+  },
+  {
+    // Conversation log: what widget visitors asked and what they were told.
+    // Written only when the owner turned the log on and the widget showed the
+    // visitor the notice; no IP, user agent or cookie, only a random chat id.
+    object: 'support_bot.conversations',
+    optional: true,
+    sql: 'CREATE TABLE IF NOT EXISTS support_bot.conversations (id uuid PRIMARY KEY, workspace_id uuid NOT NULL REFERENCES support_bot.workspaces(id) ON DELETE CASCADE, chat_id uuid, question text NOT NULL, answer text NOT NULL, matched boolean NOT NULL, sources text[] NOT NULL DEFAULT \'{}\', created_at timestamptz NOT NULL DEFAULT now())',
+  },
+  {
+    object: 'support_bot.conversations_workspace_idx',
+    optional: true,
+    sql: 'CREATE INDEX IF NOT EXISTS conversations_workspace_idx ON support_bot.conversations (workspace_id, created_at DESC)',
+  },
+  {
+    // One row per workspace: whether the log is on, and how long it keeps entries.
+    object: 'support_bot.log_settings',
+    optional: true,
+    sql: 'CREATE TABLE IF NOT EXISTS support_bot.log_settings (workspace_id uuid PRIMARY KEY REFERENCES support_bot.workspaces(id) ON DELETE CASCADE, enabled boolean NOT NULL DEFAULT false, retention_days integer NOT NULL DEFAULT 90, updated_at timestamptz NOT NULL DEFAULT now())',
   },
   {
     object: 'support_bot.documents_workspace_idx',
@@ -95,10 +120,13 @@ function missingObjects(state: CatalogState): string[] {
 // least-privilege role must never run DDL for objects that already exist.
 async function createMissingObjects(client: PoolClient): Promise<void> {
   await client.query('BEGIN')
+  let onlyOptionalMissing = false
   try {
     await client.query("SELECT pg_advisory_xact_lock(hashtext('support_bot.schema'))")
     const state = await readCatalog(client)
-    if (missingObjects(state).length > 0) {
+    const missing = missingObjects(state)
+    onlyOptionalMissing = missing.every((name) => SCHEMA_STEPS.some((step) => step.object === name && step.optional))
+    if (missing.length > 0) {
       for (const step of SCHEMA_STEPS) {
         if (step.object !== null && state.has(step.object)) continue
         await client.query(step.sql)
@@ -110,6 +138,12 @@ async function createMissingObjects(client: PoolClient): Promise<void> {
       await client.query('ROLLBACK')
     } catch {
       // The original error is the one worth reporting.
+    }
+    // A limited login after an upgrade: the core tables exist and only a newer,
+    // optional one is missing. Carry on; that feature reports what to run.
+    if (onlyOptionalMissing && (err as { code?: unknown })?.code === '42501') {
+      console.log('schema: newer optional tables are missing and this login cannot create them')
+      return
     }
     throw err
   }

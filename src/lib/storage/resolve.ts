@@ -63,6 +63,8 @@ export interface WidgetContext {
   access: OriginPolicy
   // Only an sbw2_ token carries an owner model; everything else answers with the demo model.
   model: OwnerModelConfig | null
+  // Set for a widget backed by the owner's database: where its conversation log lives.
+  database?: { connection: ParsedConnection; workspaceId: string }
 }
 
 // An sbw3_ widget: the token is the whole record, and documents live on the owner's backend.
@@ -101,7 +103,7 @@ function originsAreNormalized(origins: readonly string[]): boolean {
   })
 }
 
-type LoadResult = { ok: true; store: KnowledgeStore; widget: WidgetRecord } | Extract<WidgetResolution, { ok: false }>
+type LoadResult = { ok: true; store: KnowledgeStore; widget: WidgetRecord; connection: ParsedConnection; workspaceId: string } | Extract<WidgetResolution, { ok: false }>
 
 async function loadPostgresWidget(conn: string, workspaceId: string, widgetId: string): Promise<LoadResult> {
   // Re-validate so the current private-host policy applies to tokens issued under an older one.
@@ -116,7 +118,7 @@ async function loadPostgresWidget(conn: string, workspaceId: string, widgetId: s
     return { ok: false, status: 503, code: mapDriverError(e).code }
   }
   if (!widget) return WIDGET_NOT_FOUND
-  return { ok: true, store, widget }
+  return { ok: true, store, widget, connection: validated.connection, workspaceId }
 }
 
 function builderError(code: StorageErrorCode): BuilderResolution {
@@ -336,6 +338,7 @@ export async function resolveWidget(key: unknown): Promise<WidgetResolution> {
         label: keyLabel(key),
         access: widgetAccessPolicy(loaded.widget, origins),
         model,
+        database: { connection: loaded.connection, workspaceId: loaded.workspaceId },
       },
     }
   }
@@ -354,8 +357,26 @@ export async function resolveWidget(key: unknown): Promise<WidgetResolution> {
       label: keyLabel(key),
       access: widgetAccessPolicy(loaded.widget),
       model: null,
+      database: { connection: loaded.connection, workspaceId: loaded.workspaceId },
     },
   }
+}
+
+// For owner-only database features (automation keys, the conversation log):
+// the owner's builder token, never an automation key, and only for a database,
+// not a backend or the demo. A leaked key must not manage keys or read the log.
+export function resolveOwnerDatabase(request: Request):
+  | { ok: true; ctx: Extract<BuilderContext, { kind: 'postgres' }> }
+  | { ok: false; res: NextResponse } {
+  if (request.headers.get('authorization') !== null) {
+    return { ok: false, res: storageErrorResponse(new StorageError('token_wrong_purpose')) }
+  }
+  const resolved = resolveBuilderStore(request)
+  if (!resolved.ok) return { ok: false, res: builderErrorResponse(resolved.error) }
+  if (resolved.ctx.kind !== 'postgres') {
+    return { ok: false, res: storageErrorResponse(new StorageError(resolved.ctx.kind === 'connector' ? 'token_wrong_purpose' : 'invalid_token')) }
+  }
+  return { ok: true, ctx: resolved.ctx }
 }
 
 export function storageErrorResponse(err: StorageError): NextResponse {

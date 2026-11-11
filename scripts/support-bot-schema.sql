@@ -35,6 +35,10 @@ CREATE TABLE IF NOT EXISTS support_bot.api_keys (id uuid PRIMARY KEY, workspace_
 -- Audit trail of automation-key actions: filenames and actions, never document content.
 CREATE TABLE IF NOT EXISTS support_bot.key_events (id uuid PRIMARY KEY, key_id uuid NOT NULL REFERENCES support_bot.api_keys(id) ON DELETE CASCADE, workspace_id uuid NOT NULL REFERENCES support_bot.workspaces(id) ON DELETE CASCADE, action text NOT NULL, filename text, detail text, at timestamptz NOT NULL DEFAULT now());
 CREATE INDEX IF NOT EXISTS key_events_key_idx ON support_bot.key_events (key_id, at DESC);
+-- Conversation log (off until the owner turns it on): questions and answers, no IP or user agent.
+CREATE TABLE IF NOT EXISTS support_bot.conversations (id uuid PRIMARY KEY, workspace_id uuid NOT NULL REFERENCES support_bot.workspaces(id) ON DELETE CASCADE, chat_id uuid, question text NOT NULL, answer text NOT NULL, matched boolean NOT NULL, sources text[] NOT NULL DEFAULT '{}', created_at timestamptz NOT NULL DEFAULT now());
+CREATE INDEX IF NOT EXISTS conversations_workspace_idx ON support_bot.conversations (workspace_id, created_at DESC);
+CREATE TABLE IF NOT EXISTS support_bot.log_settings (workspace_id uuid PRIMARY KEY REFERENCES support_bot.workspaces(id) ON DELETE CASCADE, enabled boolean NOT NULL DEFAULT false, retention_days integer NOT NULL DEFAULT 90, updated_at timestamptz NOT NULL DEFAULT now());
 
 CREATE INDEX IF NOT EXISTS documents_workspace_idx ON support_bot.documents (workspace_id);
 
