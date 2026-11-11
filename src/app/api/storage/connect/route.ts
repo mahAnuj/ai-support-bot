@@ -46,12 +46,13 @@ export async function POST(request: NextRequest) {
   try {
     const pool = await getPool(conn)
     await ensureSchema(pool)
-    const { workspaceId, migratedDocuments, migratedChunks } = await migrateSessionToPostgres(conn, sessionId)
+    const { workspaceId, migratedDocuments, migratedChunks, reopened, existingDocuments, skippedDocuments } =
+      await migrateSessionToPostgres(conn, sessionId)
     const token = sealBuilderToken({ conn: conn.normalized, workspaceId })
     console.log(
       `storage connect ok db=${conn.fingerprint} ${workspaceLabel(workspaceId)} docs=${migratedDocuments} chunks=${migratedChunks}`,
     )
-    return NextResponse.json({ status: 'connected', token, migratedDocuments, migratedChunks })
+    return NextResponse.json({ status: 'connected', token, migratedDocuments, migratedChunks, reopened, existingDocuments, skippedDocuments })
   } catch (e) {
     // A failed connect must not leave a pool behind holding credentials that did not work.
     await discardPool(conn)

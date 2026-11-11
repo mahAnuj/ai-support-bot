@@ -6,6 +6,8 @@ import type { StorageConnection } from './useStorageConnection'
 export interface ConnectDatabaseStepProps {
   storage: StorageConnection
   sessionId: string | null
+  // Demo documents this browser uploaded, to check the copy on Connect brought them all
+  sessionDocumentCount?: number
   onDisconnect?: () => void
   // When set, the form is shown disabled with this one-line reason.
   disabledReason?: string | null
@@ -63,7 +65,8 @@ function ErrorMessage({ message }: { message: string }) {
   )
 }
 
-export default function ConnectDatabaseStep({ storage, sessionId, onDisconnect, disabledReason = null }: ConnectDatabaseStepProps): JSX.Element | null {
+export default function ConnectDatabaseStep({ storage, sessionId, sessionDocumentCount = 0, onDisconnect, disabledReason = null }: ConnectDatabaseStepProps): JSX.Element | null {
+  const [expectedCopies, setExpectedCopies] = useState(0)
   const [value, setValue] = useState('')
   const baseId = useId()
   const headingId = `${baseId}-heading`
@@ -95,9 +98,22 @@ export default function ConnectDatabaseStep({ storage, sessionId, onDisconnect, 
           Stored in your database.
         </h3>
         {migration && (
-          <p className={BODY} role="status">
-            {`Moved ${migration.documents} ${migration.documents === 1 ? 'document' : 'documents'} (${migration.chunks} ${migration.chunks === 1 ? 'chunk' : 'chunks'}) from this demo session.`}
-          </p>
+          <div className={BODY} role="status">
+            {migration.reopened && (
+              <p>{`Reopened the assistant already in this database (${migration.existing} ${migration.existing === 1 ? 'document' : 'documents'}).`}</p>
+            )}
+            {migration.documents > 0 && (
+              <p>{`Moved ${migration.documents} ${migration.documents === 1 ? 'document' : 'documents'} (${migration.chunks} ${migration.chunks === 1 ? 'chunk' : 'chunks'}) from this demo session.`}</p>
+            )}
+            {migration.skipped > 0 && (
+              <p>{`Kept the database's copy of ${migration.skipped} ${migration.skipped === 1 ? 'file' : 'files'} with the same name.`}</p>
+            )}
+            {expectedCopies > migration.documents + migration.skipped && (
+              <p className="font-medium text-ink">
+                {`${expectedCopies - migration.documents - migration.skipped} of your demo documents could not be copied, because the server that indexed them did not handle this request. Upload them again: a file with the same name replaces the old one, so nothing is duplicated.`}
+              </p>
+            )}
+          </div>
         )}
         <p className={BODY}>
           Generate new embed code below. Embed code made before connecting keeps working only until this server restarts.
@@ -125,6 +141,7 @@ export default function ConnectDatabaseStep({ storage, sessionId, onDisconnect, 
     const connectionString = value.trim()
     if (disabled || !connectionString || storage.connecting) return
     setValue('')
+    setExpectedCopies(sessionDocumentCount)
     await storage.connect(connectionString, sessionId)
   }
 

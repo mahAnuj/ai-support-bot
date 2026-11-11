@@ -150,7 +150,8 @@ run('Postgres knowledge store (integration)', () => {
     const before = await storeA.listDocuments(workspaceA)
     const again = await migrateSessionToPostgres(connection, memorySessionId)
 
-    expect(again).toEqual({ workspaceId: workspaceA, migratedDocuments: 0, migratedChunks: 0 })
+    // The session's own workspace is found again: not a reopen of another, nothing copied or skipped.
+    expect(again).toEqual({ workspaceId: workspaceA, migratedDocuments: 0, migratedChunks: 0, reopened: false, existingDocuments: 0, skippedDocuments: 0 })
     expect(await storeA.listDocuments(workspaceA)).toHaveLength(before.length)
     expect(await chunkCount(workspaceA)).toBe(PARITY_CHUNKS)
   })
@@ -241,5 +242,31 @@ run('Postgres knowledge store (integration)', () => {
     const third = await store.storeDocument(workspace, 'services.md', toChunks(queries.slice(0, 1), 0, 'dup'))
     expect(third.replaced).toBe(0)
     expect((await store.listDocuments(workspace)).filter((d) => d.filename === 'services.md')).toHaveLength(2)
+  })
+
+  it('reconnecting reopens the existing workspace instead of creating an empty one', async () => {
+    // Any session that never connected (another browser, or after Disconnect)
+    // reopens the workspace with documents rather than starting empty.
+    const again = await migrateSessionToPostgres(connection, null)
+    expect(again.reopened).toBe(true)
+    expect(again.existingDocuments).toBeGreaterThan(0)
+    expect(createdWorkspaces).toContain(again.workspaceId)
+
+    // A new demo session with one file the database already has by name and
+    // one it does not: the known name is skipped, the new one is copied.
+    const reopenedStore = createPostgresStore(connection, again.workspaceId)
+    const known = (await reopenedStore.listDocuments(again.workspaceId))[0].filename
+    const session = await memoryStore.createWorkspace()
+    await memoryStore.storeDocument(session.id, known, toChunks(queries.slice(0, 1), 0, 'dup'))
+    await memoryStore.storeDocument(session.id, 'brand-new.md', toChunks(queries.slice(1, 2), 0, 'new'))
+    const before = (await reopenedStore.listDocuments(again.workspaceId)).length
+    const result = await migrateSessionToPostgres(connection, session.id)
+    expect(result.workspaceId).toBe(again.workspaceId)
+    expect(result.reopened).toBe(true)
+    expect(result.skippedDocuments).toBe(1)
+    expect(result.migratedDocuments).toBe(1)
+    const after = await reopenedStore.listDocuments(again.workspaceId)
+    expect(after).toHaveLength(before + 1)
+    expect(after.filter((d) => d.filename === known)).toHaveLength(1)
   })
 })

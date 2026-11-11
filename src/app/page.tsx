@@ -650,6 +650,7 @@ export default function HomePage() {
             <ConnectDatabaseStep
               storage={storage}
               sessionId={sessionId}
+              sessionDocumentCount={storage.connected ? 0 : uploadedDocuments.length}
               onDisconnect={handleDisconnect}
               disabledReason={!storage.connected && (connector.connected || connector.pending) ? ONE_PLACE_FROM_BACKEND : null}
             />

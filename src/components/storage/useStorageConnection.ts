@@ -17,7 +17,7 @@ export interface StorageConnection {
   documents: { id?: string; filename: string; chunks: number }[] | null
   connecting: boolean
   error: { code: StorageErrorCode; message: string } | null
-  lastMigration: { documents: number; chunks: number } | null
+  lastMigration: { documents: number; chunks: number; reopened: boolean; existing: number; skipped: number } | null
   requestHeaders: Record<string, string>
   connect(connectionString: string, sessionId: string | null): Promise<boolean>
   disconnect(): void
@@ -172,9 +172,13 @@ export function useStorageConnection(): StorageConnection {
       }
       writeStoredToken(newToken)
       setToken(newToken)
+      const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0)
       setLastMigration({
-        documents: typeof body.migratedDocuments === 'number' ? body.migratedDocuments : 0,
-        chunks: typeof body.migratedChunks === 'number' ? body.migratedChunks : 0,
+        documents: num(body.migratedDocuments),
+        chunks: num(body.migratedChunks),
+        reopened: body.reopened === true,
+        existing: num(body.existingDocuments),
+        skipped: num(body.skippedDocuments),
       })
       const result = await loadDocuments(newToken)
       if (started === generation.current) applyLoad(result)
