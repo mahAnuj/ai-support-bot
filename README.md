@@ -275,8 +275,9 @@ owner's rights. Instead, run
 -- a connection string that logs in as support_bot_app.
 --
 -- What the role gets:
---   - USAGE on the support_bot schema and SELECT, INSERT, UPDATE on its tables.
---     No DELETE, no CREATE, no DDL.
+--   - USAGE on the support_bot schema and SELECT, INSERT, UPDATE on its tables,
+--     plus DELETE on documents and chunks so the builder can remove or replace a
+--     document. No DELETE on workspaces or widgets, no CREATE, no DDL.
 --   - A search_path that finds the pgvector type whether it lives in public
 --     (self-hosted, Neon) or extensions (Supabase). Schemas in the list that do
 --     not exist are ignored.
@@ -295,6 +296,7 @@ owner's rights. Instead, run
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'support_bot_app') THEN CREATE ROLE support_bot_app LOGIN PASSWORD 'change-me-to-a-long-random-password'; END IF; END $$;
 GRANT USAGE ON SCHEMA support_bot TO support_bot_app;
 GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA support_bot TO support_bot_app;
+GRANT DELETE ON support_bot.documents, support_bot.chunks TO support_bot_app;
 ALTER ROLE support_bot_app SET search_path = support_bot, public, extensions;
 DO $$ BEGIN IF EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'extensions') THEN GRANT USAGE ON SCHEMA extensions TO support_bot_app; END IF; END $$;
 ```
@@ -302,8 +304,11 @@ DO $$ BEGIN IF EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'extensions') 
 What it does:
 
 - The role gets `USAGE` on `support_bot` and `SELECT, INSERT, UPDATE` on the
-  tables that exist there when it runs. No `DELETE`, no DDL, and no rights on
-  `public` or any other schema's tables. That is why the setup SQL must run
+  tables that exist there when it runs, plus `DELETE` on `documents` and
+  `chunks` so the builder can remove a document or replace one uploaded again
+  under the same name. No `DELETE` on workspaces or widgets, no DDL, and no
+  rights on `public` or any other schema's tables. A role made before this
+  change lacks `DELETE`; Remove then says so and gives the one `GRANT` to run. That is why the setup SQL must run
   first: the app cannot create tables as this role.
 - `search_path` is set to `support_bot, public, extensions`, so the `vector`
   type is found whether pgvector lives in `public` (self-hosted, Neon) or in

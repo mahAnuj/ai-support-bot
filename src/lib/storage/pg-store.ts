@@ -18,6 +18,10 @@ const SQL_INSERT_DOCUMENT =
   'INSERT INTO support_bot.documents (id, workspace_id, filename, content_preview, chunk_count) VALUES ($1, $2, $3, $4, $5)'
 const SQL_INSERT_CHUNKS =
   'INSERT INTO support_bot.chunks (id, document_id, workspace_id, chunk_index, content, embedding) SELECT i, d, w, n, c, e::vector FROM unnest($1::uuid[], $2::uuid[], $3::uuid[], $4::int[], $5::text[], $6::text[]) AS t(i, d, w, n, c, e)'
+// Documents are deleted within the token's workspace only; chunks follow by
+// ON DELETE CASCADE.
+const SQL_DELETE_DOCUMENT = 'DELETE FROM support_bot.documents WHERE id = $1 AND workspace_id = $2'
+const SQL_DELETE_DOCUMENTS_BY_FILENAME = 'DELETE FROM support_bot.documents WHERE workspace_id = $1 AND filename = $2'
 const SQL_LIST_DOCUMENTS =
   'SELECT id, filename, chunk_count, created_at FROM support_bot.documents WHERE workspace_id = $1 ORDER BY created_at, id'
 const SQL_HAS_DOCUMENTS = 'SELECT EXISTS (SELECT 1 FROM support_bot.chunks WHERE workspace_id = $1) AS has_documents'
@@ -172,13 +176,19 @@ export function createPostgresStore(connection: ParsedConnection, workspaceId: s
       await q(SQL_TOUCH_WORKSPACE, [bound])
     },
 
-    async storeDocument(id, filename, chunks: ChunkInput[]) {
+    async storeDocument(id, filename, chunks: ChunkInput[], options) {
       assertBound(id)
       const documentId = randomUUID()
       const preview = stripNul(chunks[0]?.content.substring(0, 200) || '')
       const embeddings = chunks.map((chunk) => vectorLiteral(chunk.embedding))
+      let replaced = 0
 
+      // One transaction: a failed upload leaves the old copy in place.
       await tx(async (client) => {
+        if (options?.replace) {
+          const removed = await client.query(SQL_DELETE_DOCUMENTS_BY_FILENAME, [bound, stripNul(filename)])
+          replaced = removed.rowCount ?? 0
+        }
         await client.query(SQL_INSERT_DOCUMENT, [documentId, bound, stripNul(filename), preview, chunks.length])
         if (chunks.length > 0) {
           await client.query(SQL_INSERT_CHUNKS, [
@@ -192,7 +202,14 @@ export function createPostgresStore(connection: ParsedConnection, workspaceId: s
         }
       })
 
-      return { documentId, chunkCount: chunks.length }
+      return { documentId, chunkCount: chunks.length, replaced }
+    },
+
+    async deleteDocument(id, documentId) {
+      assertBound(id)
+      if (typeof documentId !== 'string' || !UUID_PATTERN.test(documentId)) return false
+      const result = await tx((client) => client.query(SQL_DELETE_DOCUMENT, [documentId, bound]))
+      return (result.rowCount ?? 0) > 0
     },
 
     async listDocuments(id): Promise<DocumentSummary[]> {

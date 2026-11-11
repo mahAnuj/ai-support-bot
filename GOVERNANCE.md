@@ -302,10 +302,12 @@ field, but API clients could read it. That number is gone.
   fact the documents do not contain remains possible.
 - **Fencing documents reduces prompt injection; it does not prevent it.** A
   document written to manipulate the model can still influence answers.
-- **No retention control, and no delete-my-data UI.** Demo data lasts until
-  the instance restarts. Connected data lasts until the database owner deletes
-  it; the app has no way to delete documents, widgets or a workspace, and the
-  least-privilege role has no `DELETE` right. On a connected backend the
+- **No retention control, and only document-level deletion.** Demo data lasts
+  until the instance restarts. On a connected database the builder can remove a
+  document (and its chunks), and uploading a file again under the same name
+  replaces it; the least-privilege role has `DELETE` on `documents` and
+  `chunks` for that alone. Widgets and workspaces cannot be deleted from the
+  app; that is still up to the database owner. On a connected backend the
   builder can delete documents; everything else there is up to the backend.
 - **Credentials in the token have read-write access.** Builder and widget
   tokens carry the same connection string. The widget token is limited to

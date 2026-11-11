@@ -32,7 +32,10 @@ export interface KnowledgeStore {
   createWorkspace(): Promise<DemoSession>
   getWorkspace(workspaceId: string): Promise<DemoSession | null>
   touchWorkspace(workspaceId: string): Promise<void>
-  storeDocument(workspaceId: string, filename: string, chunks: ChunkInput[]): Promise<{ documentId: string; chunkCount: number }>
+  /** replace: first remove any document in the workspace with the same filename; `replaced` counts them. */
+  storeDocument(workspaceId: string, filename: string, chunks: ChunkInput[], options?: { replace?: boolean }): Promise<{ documentId: string; chunkCount: number; replaced: number }>
+  /** Removes one document and its chunks, only if it belongs to the workspace. */
+  deleteDocument(workspaceId: string, documentId: string): Promise<boolean>
   listDocuments(workspaceId: string): Promise<DocumentSummary[]>
   hasDocuments(workspaceId: string): Promise<boolean>
   searchChunks(params: SearchParams): Promise<VectorSearchResult[]>

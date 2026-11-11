@@ -4,8 +4,9 @@
 -- a connection string that logs in as support_bot_app.
 --
 -- What the role gets:
---   - USAGE on the support_bot schema and SELECT, INSERT, UPDATE on its tables.
---     No DELETE, no CREATE, no DDL.
+--   - USAGE on the support_bot schema and SELECT, INSERT, UPDATE on its tables,
+--     plus DELETE on documents and chunks so the builder can remove or replace a
+--     document. No DELETE on workspaces or widgets, no CREATE, no DDL.
 --   - A search_path that finds the pgvector type whether it lives in public
 --     (self-hosted, Neon) or extensions (Supabase). Schemas in the list that do
 --     not exist are ignored.
@@ -24,5 +25,6 @@
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'support_bot_app') THEN CREATE ROLE support_bot_app LOGIN PASSWORD 'change-me-to-a-long-random-password'; END IF; END $$;
 GRANT USAGE ON SCHEMA support_bot TO support_bot_app;
 GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA support_bot TO support_bot_app;
+GRANT DELETE ON support_bot.documents, support_bot.chunks TO support_bot_app;
 ALTER ROLE support_bot_app SET search_path = support_bot, public, extensions;
 DO $$ BEGIN IF EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'extensions') THEN GRANT USAGE ON SCHEMA extensions TO support_bot_app; END IF; END $$;

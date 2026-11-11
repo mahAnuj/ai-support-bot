@@ -240,6 +240,21 @@ export async function storeDocument(
   }
 }
 
+// Remove one document and its chunks from a demo session. Returns false when
+// the document is not in that session, so one session cannot remove another's.
+export async function deleteSessionDocument(sessionId: string, documentId: string): Promise<boolean> {
+  const ids = db.sessionDocuments.get(sessionId) || []
+  if (!ids.includes(documentId)) return false
+  for (const chunkId of db.documentChunks.get(documentId) || []) db.chunks.delete(chunkId)
+  db.documentChunks.delete(documentId)
+  db.documents.delete(documentId)
+  const remaining = ids.filter((id) => id !== documentId)
+  db.sessionDocuments.set(sessionId, remaining)
+  const session = db.sessions.get(sessionId)
+  if (session) session.document_count = remaining.length
+  return true
+}
+
 // Legacy interface for session-based search (backward compatibility)
 interface LegacyVectorSearchParams {
   session_id: string

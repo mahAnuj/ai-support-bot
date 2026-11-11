@@ -194,6 +194,7 @@ export async function POST(request: NextRequest) {
       }
       
       // Store each processed document in the RAG system
+      const replacedFilenames: string[] = []
       for (const doc of processedDocs) {
         try {
           console.log(`🔗 Storing ${doc.filename} in RAG system...`)
@@ -217,8 +218,10 @@ export async function POST(request: NextRequest) {
             }
           }
           
-          // Store document with embeddings in RAG database
-          await store.storeDocument(session.id, doc.filename, chunksWithEmbeddings)
+          // Store document with embeddings in RAG database. A file with the
+          // same name replaces the earlier copy instead of duplicating it.
+          const stored = await store.storeDocument(session.id, doc.filename, chunksWithEmbeddings, { replace: true })
+          if (stored.replaced > 0) replacedFilenames.push(doc.filename)
           console.log(`✅ Stored ${doc.filename} with ${chunksWithEmbeddings.length} chunks in RAG`)
           
         } catch (error) {
@@ -230,6 +233,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         sessionId: session.id,
+        replaced: replacedFilenames,
         message: `Successfully processed ${processedDocs.length} document(s)`,
         documents: processedDocs.map(doc => ({
           filename: doc.filename,

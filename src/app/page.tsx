@@ -67,7 +67,7 @@ const SIZE_OPTIONS: { value: WidgetConfig['size']; label: string; dimensions: st
   { value: 'large', label: 'Large', dimensions: '400×600' },
 ]
 
-type UploadedDocument = { filename: string; chunks: number }
+type UploadedDocument = { id?: string; filename: string; chunks: number }
 
 type StepStatus = 'done' | 'current' | 'upcoming'
 
@@ -191,6 +191,8 @@ export default function HomePage() {
   const [isUploading, setIsUploading] = useState(false)
   const [uploadComplete, setUploadComplete] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
+  const [uploadNotice, setUploadNotice] = useState<string | null>(null)
+  const [removingId, setRemovingId] = useState<string | null>(null)
   const [hasTried, setHasTried] = useState(false)
   const [hasEmbed, setHasEmbed] = useState(false)
   const [usingSamples, setUsingSamples] = useState(false)
@@ -320,12 +322,19 @@ export default function HomePage() {
         setSessionId(result.sessionId)
       }
 
-      if (Array.isArray(result.documents)) {
+      const replaced: string[] = Array.isArray(result.replaced) ? result.replaced.filter((f: unknown) => typeof f === 'string') : []
+      setUploadNotice(replaced.length ? `Replaced the earlier ${replaced.length === 1 ? 'copy' : 'copies'} of ${replaced.join(', ')}.` : null)
+
+      if (storage.connected) {
+        // The database is the source of truth: reload its list, so a replaced
+        // file shows once and every row carries its id for Remove.
+        await storage.refreshDocuments()
+      } else if (Array.isArray(result.documents)) {
         const added: UploadedDocument[] = result.documents.map((d: { filename: string; chunks: number }) => ({
           filename: d.filename,
           chunks: d.chunks,
         }))
-        setUploadedDocuments(prev => [...prev, ...added])
+        setUploadedDocuments(prev => [...prev.filter(d => !replaced.includes(d.filename)), ...added])
       }
 
       setUploadComplete(true)
@@ -355,6 +364,33 @@ export default function HomePage() {
       )
     } catch {
       setUploadError("Couldn't load the sample documents. Try again, or upload your own.")
+    }
+  }
+
+  const handleRemoveDocument = async (doc: UploadedDocument) => {
+    if (!doc.id || removingId) return
+    if (!window.confirm(`Remove ${doc.filename}? The assistant will stop answering from it. This cannot be undone.`)) return
+    setRemovingId(doc.id)
+    setUploadError(null)
+    setUploadNotice(null)
+    try {
+      const response = await fetch(`/api/storage/documents?id=${encodeURIComponent(doc.id)}`, {
+        method: 'DELETE',
+        headers: storage.requestHeaders,
+      })
+      if (!response.ok) {
+        const body = await response.json().catch(() => null)
+        setUploadError(body?.code === 'insufficient_privilege'
+          ? "Your database login can't delete. Run GRANT DELETE ON support_bot.documents, support_bot.chunks TO support_bot_app; as an admin, then try again."
+          : `Couldn't remove ${doc.filename} (status ${response.status}). Try again.`)
+        return
+      }
+      setUploadNotice(`Removed ${doc.filename}.`)
+      await storage.refreshDocuments()
+    } catch {
+      setUploadError("Couldn't reach the server. Check your connection and try again.")
+    } finally {
+      setRemovingId(null)
     }
   }
 
@@ -569,6 +605,10 @@ export default function HomePage() {
                 />
               </div>
 
+              {uploadNotice && (
+                <p role="status" className="mt-3 text-sm text-ink">{uploadNotice}</p>
+              )}
+
               {hasUploadedFiles && (
                 <div className="mt-6">
                   <h3 id={docsHeadingId} className="text-base font-semibold text-ink">
@@ -583,10 +623,23 @@ export default function HomePage() {
                           <FileIcon className="shrink-0 text-accent" />
                           <span className="min-w-0 truncate text-sm text-ink">{doc.filename}</span>
                         </span>
-                        <span className="shrink-0 text-xs text-ink-muted tabular-nums">
-                          {connectorHost
-                            ? `${doc.chunks} ${doc.chunks === 1 ? 'passage' : 'passages'}`
-                            : `${doc.chunks} ${doc.chunks === 1 ? 'chunk' : 'chunks'}`}
+                        <span className="flex shrink-0 items-center gap-3">
+                          <span className="text-xs text-ink-muted tabular-nums">
+                            {connectorHost
+                              ? `${doc.chunks} ${doc.chunks === 1 ? 'passage' : 'passages'}`
+                              : `${doc.chunks} ${doc.chunks === 1 ? 'chunk' : 'chunks'}`}
+                          </span>
+                          {storage.connected && !connectorHost && doc.id ? (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveDocument(doc)}
+                              disabled={removingId !== null}
+                              aria-label={`Remove ${doc.filename}`}
+                              className="min-h-9 rounded-md px-2 text-xs font-medium text-ink-muted hover:bg-sunken hover:text-ink disabled:opacity-50"
+                            >
+                              {removingId === doc.id ? 'Removing…' : 'Remove'}
+                            </button>
+                          ) : null}
                         </span>
                       </li>
                     ))}

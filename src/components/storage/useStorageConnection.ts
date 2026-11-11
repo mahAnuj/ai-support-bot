@@ -14,7 +14,7 @@ export interface StorageConnection {
   available: boolean
   connected: boolean
   token: string | null
-  documents: { filename: string; chunks: number }[] | null
+  documents: { id?: string; filename: string; chunks: number }[] | null
   connecting: boolean
   error: { code: StorageErrorCode; message: string } | null
   lastMigration: { documents: number; chunks: number } | null
@@ -63,9 +63,9 @@ function parseDocuments(body: unknown): DocumentList {
   const list = typeof body === 'object' && body !== null ? (body as Record<string, unknown>).documents : undefined
   if (!Array.isArray(list)) return []
   return list
-    .filter((d): d is { filename: string; chunks: number } =>
+    .filter((d): d is { id?: unknown; filename: string; chunks: number } =>
       typeof d === 'object' && d !== null && typeof d.filename === 'string' && typeof d.chunks === 'number')
-    .map(d => ({ filename: d.filename, chunks: d.chunks }))
+    .map(d => ({ ...(typeof d.id === 'string' ? { id: d.id } : {}), filename: d.filename, chunks: d.chunks }))
 }
 
 type LoadResult =

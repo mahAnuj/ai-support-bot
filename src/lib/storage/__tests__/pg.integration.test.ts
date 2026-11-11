@@ -204,4 +204,42 @@ run('Postgres knowledge store (integration)', () => {
     }
     expect(await chunkCount(workspaceB)).toBe(QUERY_COUNT)
   })
+
+  it('removes a document and its chunks, only within its own workspace', async () => {
+    const workspace = (await storeA.createWorkspace()).id
+    createdWorkspaces.push(workspace)
+    const store = createPostgresStore(connection, workspace)
+    const { documentId } = await store.storeDocument(workspace, 'remove-me.md', toChunks(queries.slice(0, 2), 0, 'rm'))
+    expect(await chunkCount(workspace)).toBe(2)
+
+    // Another workspace's store cannot remove it, and a malformed id removes nothing.
+    expect(await storeA.deleteDocument(workspaceA, documentId)).toBe(false)
+    expect(await store.deleteDocument(workspace, 'not-a-uuid')).toBe(false)
+    expect(await chunkCount(workspace)).toBe(2)
+
+    expect(await store.deleteDocument(workspace, documentId)).toBe(true)
+    expect(await store.listDocuments(workspace)).toEqual([])
+    expect(await chunkCount(workspace)).toBe(0)
+    expect(await store.deleteDocument(workspace, documentId)).toBe(false)
+  })
+
+  it('replaces a document with the same filename instead of duplicating it', async () => {
+    const workspace = (await storeA.createWorkspace()).id
+    createdWorkspaces.push(workspace)
+    const store = createPostgresStore(connection, workspace)
+    await store.storeDocument(workspace, 'services.md', toChunks(queries.slice(0, 3), 0, 'old'))
+    await store.storeDocument(workspace, 'other.md', toChunks(queries.slice(0, 1), 0, 'keep'))
+
+    const second = await store.storeDocument(workspace, 'services.md', toChunks(queries.slice(0, 2), 0, 'new'), { replace: true })
+    expect(second.replaced).toBe(1)
+    const docs = await store.listDocuments(workspace)
+    expect(docs.map((d) => d.filename).sort()).toEqual(['other.md', 'services.md'])
+    expect(docs.find((d) => d.filename === 'services.md')?.chunkCount).toBe(2)
+    expect(await chunkCount(workspace)).toBe(3)
+
+    // Without replace, a same-name upload still adds a copy (callers choose).
+    const third = await store.storeDocument(workspace, 'services.md', toChunks(queries.slice(0, 1), 0, 'dup'))
+    expect(third.replaced).toBe(0)
+    expect((await store.listDocuments(workspace)).filter((d) => d.filename === 'services.md')).toHaveLength(2)
+  })
 })

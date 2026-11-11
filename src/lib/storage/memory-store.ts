@@ -9,6 +9,7 @@ import {
   getWidgetByKey,
   knowledgeBaseHasDocuments,
   storeDocument,
+  deleteSessionDocument,
   updateSessionAccess,
 } from '../database'
 import type { ChunkInput, KnowledgeStore, WidgetRecord } from './types'
@@ -35,9 +36,19 @@ export const memoryStore: KnowledgeStore = {
     return updateSessionAccess(workspaceId)
   },
 
-  async storeDocument(workspaceId, filename, chunks) {
+  async storeDocument(workspaceId, filename, chunks, options) {
+    let replaced = 0
+    if (options?.replace) {
+      for (const d of await getSessionDocuments(workspaceId)) {
+        if (d.filename === filename && (await deleteSessionDocument(workspaceId, d.id))) replaced++
+      }
+    }
     const { document } = await storeDocument(workspaceId, filename, chunks)
-    return { documentId: document.id, chunkCount: document.chunk_count }
+    return { documentId: document.id, chunkCount: document.chunk_count, replaced }
+  },
+
+  deleteDocument(workspaceId, documentId) {
+    return deleteSessionDocument(workspaceId, documentId)
   },
 
   async listDocuments(workspaceId) {
