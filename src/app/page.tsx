@@ -40,7 +40,7 @@ const SAMPLE_QUESTIONS = [
 const DEFAULT_TITLE = 'AI Support Assistant'
 
 const UNIVERSAL_ASSISTANT = {
-  systemPrompt: "You are a professional business AI assistant. Provide accurate, helpful responses based on the uploaded business documents. If you don't have specific information from the documents, provide general business guidance while noting that more specific answers could be provided with relevant documentation.",
+  systemPrompt: "You are a professional business AI assistant. Provide accurate, helpful responses based on the uploaded business documents. If the documents don't cover a question, say so and suggest uploading a document that does.",
   suggestedQuestions: [
     "What services does our company offer?",
     "What are our business hours?",

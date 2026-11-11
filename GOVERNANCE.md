@@ -40,6 +40,7 @@ controls; it is not a certification.
 | Allowed sites (exact origins) | `src/lib/origins.ts`; `widgetOriginAllowed` and `widgetCorsHeaders` in `src/lib/guard.ts`; `src/app/api/widget/chat/route.ts` and `src/app/api/widget/script/[key]/route.ts` | Sites entered in the builder are normalised to `scheme://host[:port]` and matched exactly: `https://www.example.com`, `http://example.com` and `https://example.com:8443` are all different from `https://example.com`. The chat route refuses a request whose `Origin` is not listed, including a missing or `null` one, with 403 before any retrieval or model call. Its response to an allowed origin echoes that origin with `Vary: Origin`, never `*`; a refused request gets no `Access-Control-Allow-Origin`. The script route refuses with 403 and `Cache-Control: no-store` when the `Origin`, or else the origin of the `Referer`, is not listed. The list travels inside the `sbw2_` embed token. Without `EMBED_TOKEN_KEY` it is kept with the demo widget in server memory. A demo widget issued as `sbw2_` is marked sealed, so its plain `widget-…` key is not found. |
 | Legacy domain allowlist | `originAllowed` in `src/lib/guard.ts`, used by `src/app/api/widget/chat/route.ts` | Applies only to the `allowed_domains` field of widgets that already have one. It matches the hostname and any subdomain and ignores scheme and port. The builder never writes to it, and the script route does not check it. |
 | Documents marked as data | `wrapDocuments` and `DOCUMENTS_RULE` in `src/lib/llm.ts` | Retrieved text is fenced in `<documents>` and the model is told not to follow instructions inside it. |
+| Business facts only from documents | `GROUNDING_RULE` in `src/lib/llm.ts` | Appended last to every system prompt, custom ones included: facts about the business must come from the documents, and silence in them is reported as "not covered", never answered as "no". Added after the live demo invented answers ("No, we don't sell electric scooters") to questions the documents never addressed. Tested in `src/lib/__tests__/llm-grounding.test.ts`. |
 | Loud failures | `generateEmbeddings` in `src/lib/embeddings.ts`, `generateResponse` in `src/lib/llm.ts` | A failed embedding fails the upload instead of storing a zero vector and reporting success. A failed chat call returns an error instead of a canned answer that looks like a working bot. |
 | Calibrated retrieval | `MIN_SIMILARITY` in `src/lib/embeddings.ts` | Passages are used only above a cut-off measured for the embedding model, so an unrelated question gets a general answer instead of loosely related passages. |
 | No unbacked claims | `src/app/page.tsx`, `README.md` | Made-up analytics, a stub audit log, stub SSO and invented customer metrics were removed. |
@@ -295,6 +296,10 @@ field, but API clients could read it. That number is gone.
   the check. Sockets are not reused and redirects are not followed, so there is
   no check-then-connect gap. A rebinding DNS answer is re-checked on the next
   request.
+- **The grounding rule reduces invented answers; it does not prevent them.**
+  It is an instruction to the model, not a check on the answer. A model can
+  still misread a passage or ignore the rule, so an answer stating a business
+  fact the documents do not contain remains possible.
 - **Fencing documents reduces prompt injection; it does not prevent it.** A
   document written to manipulate the model can still influence answers.
 - **No retention control, and no delete-my-data UI.** Demo data lasts until
