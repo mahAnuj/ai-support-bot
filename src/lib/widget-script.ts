@@ -1,4 +1,5 @@
 import type { Widget } from '../types/database'
+import { MAX_STARTER_LENGTH, MAX_STARTER_QUESTIONS } from './starter-questions'
 
 // The script served at /api/widget/script/<key> and loaded by the one-line
 // embed code. It runs on the site owner's pages, draws the chat button and
@@ -16,6 +17,18 @@ export function widgetScript(widget: Widget, baseUrl: string): string {
   // Mount once, even if a single-page app runs this script again
   if (window.__aiSupportWidgetLoaded) return;
   window.__aiSupportWidgetLoaded = true;
+
+  // Starter questions set by the owner, read from this script tag's
+  // data-question-1..4 attributes (src/lib/starter-questions.ts). Read now:
+  // document.currentScript is only set while the script first runs.
+  const scriptEl = document.currentScript
+    || document.querySelector('script[src*="/api/widget/script/"]');
+  const starterQuestions = [];
+  for (let i = 1; scriptEl && i <= ${MAX_STARTER_QUESTIONS}; i++) {
+    const raw = scriptEl.getAttribute('data-question-' + i);
+    const q = typeof raw === 'string' ? raw.replace(/\\s+/g, ' ').trim().slice(0, ${MAX_STARTER_LENGTH}).trim() : '';
+    if (q && starterQuestions.indexOf(q) === -1) starterQuestions.push(q);
+  }
 
   function mount() {
   // Widget configuration
@@ -151,6 +164,14 @@ export function widgetScript(widget: Widget, baseUrl: string): string {
       background: #FEF2F0; color: #13201C; border: 1px solid rgb(180 35 24 / .35);
       border-radius: 14px 14px 14px 6px;
     }
+    .ai-widget-root .ai-widget-starters { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+    .ai-widget-root .ai-widget-starters-label { margin: 4px 0 0; font-size: 13px; color: #4A5A55; }
+    .ai-widget-root .ai-widget-starter {
+      max-width: 88%; padding: 8px 14px; text-align: left; font: inherit; font-size: 14px; line-height: 1.4;
+      color: #13201C; background: #FFFFFF; border: 1px solid #B9C4BF; border-radius: 999px; cursor: pointer;
+    }
+    .ai-widget-root .ai-widget-starter:hover { border-color: var(--aiw-accent); }
+    .ai-widget-root .ai-widget-starter:focus-visible { outline: 2px solid var(--aiw-accent); outline-offset: 2px; }
     .ai-widget-root .ai-widget-message > :first-child { margin-top: 0; }
     .ai-widget-root .ai-widget-message > :last-child { margin-bottom: 0; }
     .ai-widget-root .ai-widget-message p + p { margin-top: 8px; }
@@ -479,6 +500,7 @@ export function widgetScript(widget: Widget, baseUrl: string): string {
 
     isPending = true;
     sendBtn.disabled = true;
+    removeStarters();
     addMessage(message, 'user');
     input.value = '';
     showTyping();
@@ -530,6 +552,34 @@ export function widgetScript(widget: Widget, baseUrl: string): string {
 
   titleEl.textContent = widgetConfig.title;
   if (widgetConfig.welcomeMessage) addMessage(widgetConfig.welcomeMessage, 'ai');
+
+  // Starter questions as buttons, plain text only; they go once the visitor
+  // asks anything.
+  let startersEl = null;
+  function removeStarters() {
+    if (startersEl) { startersEl.remove(); startersEl = null; }
+  }
+  if (starterQuestions.length) {
+    startersEl = document.createElement('div');
+    startersEl.className = 'ai-widget-starters';
+    const label = document.createElement('p');
+    label.className = 'ai-widget-starters-label';
+    label.textContent = 'Try asking';
+    startersEl.appendChild(label);
+    starterQuestions.forEach(function (q) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'ai-widget-starter';
+      b.textContent = q;
+      b.addEventListener('click', function () {
+        if (isPending) return;
+        input.value = q;
+        sendMessage();
+      });
+      startersEl.appendChild(b);
+    });
+    messagesContainer.appendChild(startersEl);
+  }
 
   button.addEventListener('click', toggleWidget);
   closeBtn.addEventListener('click', closeWidget);

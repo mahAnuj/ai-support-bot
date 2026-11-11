@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useId, useRef, useState, type JSX } from 'react'
+import { withStarterQuestions } from '../../lib/starter-questions'
 import AllowedSitesField, { type AllowedSitesHandle } from './AllowedSitesField'
 import InstallGuide from './InstallGuide'
 import { readableTextOn } from './contrast'
@@ -37,6 +38,8 @@ export interface EmbedStepProps {
   ownModel?: { model: string; host: string } | null
   // Documents live on a connected backend; allowed sites are then required
   connectorMode?: boolean
+  // Owner-set "Try asking" questions, added to the embed code as data attributes
+  starterQuestions?: readonly string[]
 }
 
 const ANSWER_PATHS: readonly AnswerPath[] = ['backend', 'owner', 'demo']
@@ -101,10 +104,12 @@ function CloseIcon() {
   )
 }
 
-export default function EmbedStep({ sessionId, documentCount, config, onGenerated, onWorkspaceMissing, storageToken, modelAttached = false, modelToken, ownModel = null, connectorMode = false }: EmbedStepProps): JSX.Element {
+export default function EmbedStep({ sessionId, documentCount, config, onGenerated, onWorkspaceMissing, storageToken, modelAttached = false, modelToken, ownModel = null, connectorMode = false, starterQuestions = [] }: EmbedStepProps): JSX.Element {
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [embedCode, setEmbedCode] = useState('')
+  const [generatedCode, setEmbedCode] = useState('')
+  // The questions live in the embed tag, so editing them updates the code without regenerating.
+  const embedCode = withStarterQuestions(generatedCode, starterQuestions)
   const [scriptUrl, setScriptUrl] = useState('')
   const [isOpen, setIsOpen] = useState(false)
   const [copyStatus, setCopyStatus] = useState('')

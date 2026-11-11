@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useCallback, useEffect, useId, useState } from 'react'
+import { MAX_STARTER_LENGTH, MAX_STARTER_QUESTIONS, normalizeStarterQuestions } from '@/lib/starter-questions'
 import ChatInterface from '@/components/ui/ChatInterface'
 import FileUpload from '@/components/ui/FileUpload'
 import DataDisclosure, { CONNECTOR_ANSWER_COPY } from '@/components/ui/DataDisclosure'
@@ -192,6 +193,8 @@ export default function HomePage() {
   const [hasTried, setHasTried] = useState(false)
   const [hasEmbed, setHasEmbed] = useState(false)
   const [usingSamples, setUsingSamples] = useState(false)
+  const [starterInputs, setStarterInputs] = useState<string[]>(() => Array(MAX_STARTER_QUESTIONS).fill(''))
+  const starterQuestions = normalizeStarterQuestions(starterInputs)
   const [widgetConfig, setWidgetConfig] = useState<WidgetConfig>({
     name: 'Business Support Assistant',
     title: DEFAULT_TITLE,
@@ -228,6 +231,7 @@ export default function HomePage() {
   const titleId = `${fieldId}-title`
   const nameId = `${fieldId}-name`
   const welcomeId = `${fieldId}-welcome`
+  const startersId = `${fieldId}-starters`
   const colorId = `${fieldId}-color`
   const positionId = `${fieldId}-position`
   const docsHeadingId = `${fieldId}-docs`
@@ -436,6 +440,27 @@ export default function HomePage() {
                 <p id={`${welcomeId}-help`} className={HELPER}>The first message visitors see.</p>
               </div>
 
+              <fieldset className="min-w-0 sm:col-span-6" aria-describedby={`${startersId}-help`}>
+                <legend className={LABEL}>Suggested questions (optional)</legend>
+                <div className="mt-1.5 grid gap-2 sm:grid-cols-2">
+                  {starterInputs.map((value, i) => (
+                    <input
+                      key={i}
+                      type="text"
+                      value={value}
+                      maxLength={MAX_STARTER_LENGTH}
+                      aria-label={`Suggested question ${i + 1}`}
+                      placeholder={i === 0 ? 'e.g. What services do you offer?' : ''}
+                      onChange={e => setStarterInputs(prev => prev.map((v, j) => (j === i ? e.target.value : v)))}
+                      className={INPUT}
+                    />
+                  ))}
+                </div>
+                <p id={`${startersId}-help`} className={HELPER}>
+                  Shown under the welcome message as &ldquo;Try asking&rdquo;, in this preview and on your site. They go into the embed code, so you can also edit them there later.
+                </p>
+              </fieldset>
+
               <div className="min-w-0 sm:col-span-3 lg:col-span-6 xl:col-span-3">
                 <label htmlFor={colorId} className={LABEL}>Brand colour</label>
                 <div className="mt-1.5 flex items-center gap-2">
@@ -592,7 +617,7 @@ export default function HomePage() {
               <ChatInterface
                 systemPrompt={UNIVERSAL_ASSISTANT.systemPrompt}
                 roleContext="universal"
-                suggestedQuestions={usingSamples ? SAMPLE_QUESTIONS : UNIVERSAL_ASSISTANT.suggestedQuestions}
+                suggestedQuestions={starterQuestions.length ? starterQuestions : usingSamples ? SAMPLE_QUESTIONS : UNIVERSAL_ASSISTANT.suggestedQuestions}
                 onSessionUpdate={handleSessionUpdate}
                 hasUploadedFiles={hasUploadedFiles}
                 sessionId={sessionId}
@@ -641,6 +666,7 @@ export default function HomePage() {
               modelToken={activeModelToken}
               ownModel={activeModelInfo}
               connectorMode={connector.connected}
+              starterQuestions={starterQuestions}
             />
             <StorageModeLabel storage={storage} place="embed" connectorHost={connectorHost} />
           </section>

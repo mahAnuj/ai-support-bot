@@ -415,6 +415,20 @@ unset on a public deployment.
 example to connect the reference server on `http://127.0.0.1:8080`. Leave it
 unset on a public deployment.
 
+## 💬 Suggested questions
+
+Up to four "Try asking" questions can be set in the builder. They show under
+the welcome message, in the preview and in the widget on your site, and a
+click asks that question. They travel in the embed code as attributes, not in
+storage, so you can change them later by editing the tag on your site:
+
+```html
+<script data-question-1="What services do you offer?" data-question-2="How does pricing work?" src="…" async></script>
+```
+
+Each is trimmed and capped at 120 characters, at most four are used, and they
+are shown as plain text only.
+
 ## 🔒 Allowed sites
 
 The embed step has an **Allowed sites** field. Enter each site as
