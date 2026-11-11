@@ -24,7 +24,7 @@ import {
 import { fingerprint, keyLabel, workspaceLabel } from './log'
 import { memoryStore } from './memory-store'
 import { createPostgresStore } from './pg-store'
-import { checkAutomationKey } from './api-keys'
+import { checkAutomationKey, recordKeyEvent } from './api-keys'
 import {
   MAX_TOKEN_LENGTH,
   MAX_WIDGET_TOKEN_V2_LENGTH,
@@ -169,7 +169,14 @@ export function resolveBuilderStore(request: Request): BuilderResolution {
 // `Authorization: Bearer sbk1_...` grants exactly those, for one workspace,
 // while its row in support_bot.api_keys is active. Without one, this is
 // resolveBuilderStore. No other route accepts a key.
-export async function resolveDocumentAccess(request: Request): Promise<BuilderResolution & { viaKey?: boolean }> {
+// A bearer that does not open names no database, so it cannot go in any
+// owner's audit trail. The server log gets a fingerprint, never the string.
+function refuseUnattributable(bearer: string, why: 'not_a_key' | 'unsealed'): BuilderResolution {
+  console.log(`automation key refused reason=${why} key=${keyLabel(bearer)}`)
+  return builderError('invalid_key')
+}
+
+export async function resolveDocumentAccess(request: Request): Promise<BuilderResolution & { viaKey?: boolean; keyId?: string }> {
   const auth = request.headers.get('authorization')
   const bearer = auth && /^Bearer\s+/i.test(auth) ? auth.replace(/^Bearer\s+/i, '').trim() : null
   if (bearer === null) {
@@ -177,22 +184,30 @@ export async function resolveDocumentAccess(request: Request): Promise<BuilderRe
     return resolved
   }
   if (!isStorageEnabled()) return builderError('storage_unavailable')
-  if (!isAutomationKeyShape(bearer)) return builderError('invalid_key')
+  if (!isAutomationKeyShape(bearer)) return refuseUnattributable(bearer, 'not_a_key')
   if (request.headers.get(STORAGE_TOKEN_HEADER) !== null) return builderError('token_wrong_purpose')
   const payload = openAutomationKey(bearer)
-  if (!payload) return builderError('invalid_key')
+  if (!payload) return refuseUnattributable(bearer, 'unsealed')
   const validated = revalidateNormalizedConnection(payload.conn, { allowPrivate: isPrivateHostAllowed() })
   if (!validated.ok) return builderError(validated.code)
-  let active: boolean
+  let state: Awaited<ReturnType<typeof checkAutomationKey>>
   try {
-    active = await checkAutomationKey(validated.connection, payload.workspaceId, payload.keyId)
+    state = await checkAutomationKey(validated.connection, payload.workspaceId, payload.keyId)
   } catch (e) {
     return { ok: false, error: mapDriverError(e) }
   }
-  if (!active) return builderError('invalid_key')
+  if (state !== 'ok') {
+    // A genuine key that is revoked or expired is recorded against itself; a
+    // key with no row (deleted workspace) has nowhere to be recorded.
+    if (state !== 'unknown') {
+      await recordKeyEvent(validated.connection, payload.workspaceId, payload.keyId, 'refused', null, state)
+    }
+    return builderError(state === 'expired' ? 'key_expired' : 'invalid_key')
+  }
   return {
     ok: true,
     viaKey: true,
+    keyId: payload.keyId,
     ctx: {
       kind: 'postgres',
       store: createPostgresStore(validated.connection, payload.workspaceId),

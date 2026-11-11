@@ -1,6 +1,6 @@
 /** @jest-environment node */
 import { randomBytes, randomUUID } from 'node:crypto'
-import { normalizeKeyLabel } from '../api-keys'
+import { DEFAULT_KEY_LIFETIME, normalizeKeyLabel, normalizeLifetime } from '../api-keys'
 import { STORAGE_TOKEN_HEADER } from '../errors'
 import { resolveDocumentAccess } from '../resolve'
 import {
@@ -33,6 +33,15 @@ describe('automation key token', () => {
     // And a builder token is not a key.
     const b = sealBuilderToken({ conn: CONN, workspaceId: payload.workspaceId }, key)
     expect(openAutomationKey(AUTOMATION_KEY_PREFIX + b.slice(5), key)).toBeNull()
+  })
+
+  it('accepts only the offered lifetimes, defaulting to a year', () => {
+    expect(normalizeLifetime(30)).toBe(30)
+    expect(normalizeLifetime('90')).toBe(90)
+    expect(normalizeLifetime(null)).toBeNull()
+    expect(normalizeLifetime('never')).toBeNull()
+    expect(DEFAULT_KEY_LIFETIME).toBe(365)
+    for (const v of [undefined, 0, -5, 7, 100000, '1e9', {}, 'abc']) expect(normalizeLifetime(v)).toBe(365)
   })
 
   it('normalises labels', () => {

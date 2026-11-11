@@ -49,17 +49,20 @@ export async function POST(request: NextRequest) {
   const c = postgresContext(request)
   if (!c.ok) return c.res
   let label: unknown = ''
+  let lifetime: unknown = undefined
   try {
     const text = await request.text()
     if (text.length > 2048) return NextResponse.json({ error: 'Request too large' }, { status: 413 })
-    label = text ? (JSON.parse(text) as { label?: unknown }).label : ''
+    const body = text ? (JSON.parse(text) as { label?: unknown; expiresInDays?: unknown }) : {}
+    label = body.label ?? ''
+    lifetime = body.expiresInDays
   } catch {
     return NextResponse.json({ error: 'Malformed request' }, { status: 400 })
   }
   try {
     // Databases connected before keys existed gain the api_keys table here.
     await ensureSchema(await getPool(c.ctx.connection))
-    const created = await createAutomationKey(c.ctx.connection, c.ctx.workspaceId, label)
+    const created = await createAutomationKey(c.ctx.connection, c.ctx.workspaceId, label, lifetime)
     if (created === 'too_many') {
       return NextResponse.json(
         { error: `This workspace already has ${MAX_ACTIVE_KEYS} active keys. Revoke one first.`, code: 'too_many_keys' },

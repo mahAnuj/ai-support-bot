@@ -31,7 +31,10 @@ CREATE TABLE IF NOT EXISTS support_bot.chunks (id uuid PRIMARY KEY, document_id 
 CREATE TABLE IF NOT EXISTS support_bot.widgets (id uuid PRIMARY KEY, workspace_id uuid NOT NULL REFERENCES support_bot.workspaces(id) ON DELETE CASCADE, name text NOT NULL, title text NOT NULL, welcome_message text NOT NULL, primary_color text NOT NULL, position text NOT NULL, size text NOT NULL, allowed_domains text[] NOT NULL DEFAULT '{}', system_prompt text, role_context text, is_active boolean NOT NULL DEFAULT true, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now());
 
 -- Automation keys: revocation and last-used time for sbk1_ keys (the key itself is held by the owner).
-CREATE TABLE IF NOT EXISTS support_bot.api_keys (id uuid PRIMARY KEY, workspace_id uuid NOT NULL REFERENCES support_bot.workspaces(id) ON DELETE CASCADE, label text NOT NULL, created_at timestamptz NOT NULL DEFAULT now(), last_used_at timestamptz, revoked_at timestamptz);
+CREATE TABLE IF NOT EXISTS support_bot.api_keys (id uuid PRIMARY KEY, workspace_id uuid NOT NULL REFERENCES support_bot.workspaces(id) ON DELETE CASCADE, label text NOT NULL, created_at timestamptz NOT NULL DEFAULT now(), last_used_at timestamptz, revoked_at timestamptz, expires_at timestamptz);
+-- Audit trail of automation-key actions: filenames and actions, never document content.
+CREATE TABLE IF NOT EXISTS support_bot.key_events (id uuid PRIMARY KEY, key_id uuid NOT NULL REFERENCES support_bot.api_keys(id) ON DELETE CASCADE, workspace_id uuid NOT NULL REFERENCES support_bot.workspaces(id) ON DELETE CASCADE, action text NOT NULL, filename text, detail text, at timestamptz NOT NULL DEFAULT now());
+CREATE INDEX IF NOT EXISTS key_events_key_idx ON support_bot.key_events (key_id, at DESC);
 
 CREATE INDEX IF NOT EXISTS documents_workspace_idx ON support_bot.documents (workspace_id);
 

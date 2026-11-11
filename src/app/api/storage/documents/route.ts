@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { clientIp, isRateLimited } from '../../../../lib/guard'
 import { StorageError, mapDriverError, safeErrorSummary } from '../../../../lib/storage/errors'
 import { builderErrorResponse, resolveDocumentAccess, storageErrorResponse } from '../../../../lib/storage/resolve'
+import { recordKeyEvent } from '../../../../lib/storage/api-keys'
 
 export const dynamic = 'force-dynamic'
 
@@ -47,9 +48,13 @@ export async function DELETE(request: NextRequest) {
 
   const id = request.nextUrl.searchParams.get('id') ?? ''
   try {
+    // The filename is read first so the audit trail can name what was removed.
+    const filename = resolved.keyId ? (await ctx.store.listDocuments(ctx.workspaceId)).find((d) => d.id === id)?.filename ?? null : null
     const removed = await ctx.store.deleteDocument(ctx.workspaceId, id)
     if (!removed) return NextResponse.json({ error: 'Document not found' }, { status: 404 })
-    return NextResponse.json({ status: 'deleted' })
+    let audit = true
+    if (resolved.keyId) audit = await recordKeyEvent(ctx.connection, ctx.workspaceId, resolved.keyId, 'removed', filename)
+    return NextResponse.json({ status: 'deleted', ...(audit ? {} : { audit: 'not_recorded' }) })
   } catch (e) {
     console.error(`storage document delete failed ${ctx.label} ${safeErrorSummary(e)}`)
     return storageErrorResponse(mapDriverError(e))

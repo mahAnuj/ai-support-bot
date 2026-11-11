@@ -6,6 +6,7 @@ import path from 'path'
 import os from 'os'
 import { clientIp, isRateLimited } from '../../../lib/guard'
 import { builderErrorResponse, resolveDocumentAccess, storageErrorResponse } from '../../../lib/storage/resolve'
+import { recordKeyEvent } from '../../../lib/storage/api-keys'
 import { StorageError, isStorageError, safeErrorSummary } from '../../../lib/storage/errors'
 import { buildDocumentPayload, createDocument, type CreatedDocument } from '../../../lib/connector/client'
 import { connectorErrorResponse } from '../../../lib/connector/resolve'
@@ -200,6 +201,7 @@ export async function POST(request: NextRequest) {
       
       // Store each processed document in the RAG system
       const replacedFilenames: string[] = []
+      let auditFailed = false
       for (const doc of processedDocs) {
         try {
           console.log(`🔗 Storing ${doc.filename} in RAG system...`)
@@ -227,6 +229,11 @@ export async function POST(request: NextRequest) {
           // same name replaces the earlier copy instead of duplicating it.
           const stored = await store.storeDocument(session.id, doc.filename, chunksWithEmbeddings, { replace: true, sample: isSample })
           if (stored.replaced > 0) replacedFilenames.push(doc.filename)
+          // Audit trail for automation keys: what this key changed, by filename.
+          if (resolved.keyId && ctx.kind === 'postgres') {
+            const ok = await recordKeyEvent(ctx.connection, ctx.workspaceId, resolved.keyId, stored.replaced > 0 ? 'replaced' : 'uploaded', doc.filename)
+            if (!ok) auditFailed = true
+          }
           console.log(`✅ Stored ${doc.filename} with ${chunksWithEmbeddings.length} chunks in RAG`)
           
         } catch (error) {
@@ -239,6 +246,7 @@ export async function POST(request: NextRequest) {
         success: true,
         sessionId: session.id,
         replaced: replacedFilenames,
+        ...(auditFailed ? { audit: 'not_recorded' } : {}),
         message: `Successfully processed ${processedDocs.length} document(s)`,
         documents: processedDocs.map(doc => ({
           filename: doc.filename,

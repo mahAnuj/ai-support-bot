@@ -6,12 +6,48 @@ import { useCallback, useEffect, useId, useState, type FormEvent, type JSX } fro
 // revoke. A key lets a script or CI job upload, list and remove documents in
 // this workspace and nothing else; see "Automation keys" in the README.
 
-type KeySummary = { id: string; label: string; createdAt: string; lastUsedAt: string | null; revoked: boolean }
+type KeyEvent = { action: 'uploaded' | 'replaced' | 'removed' | 'refused'; filename: string | null; detail: string | null; at: string }
+type KeySummary = {
+  id: string
+  label: string
+  createdAt: string
+  lastUsedAt: string | null
+  expiresAt: string | null
+  expired: boolean
+  revoked: boolean
+  recent?: KeyEvent[]
+}
+
+const LIFETIMES: { value: string; label: string }[] = [
+  { value: '30', label: 'Expires in 30 days' },
+  { value: '90', label: 'Expires in 90 days' },
+  { value: '365', label: 'Expires in 1 year' },
+  { value: 'never', label: 'Never expires' },
+]
+const SOON_DAYS = 14
+const DAY_MS = 86_400_000
 
 const INPUT =
   'h-11 w-full rounded-md border border-line-strong bg-surface px-3 text-sm text-ink placeholder:text-ink-subtle focus:border-accent'
 const BUTTON =
   'inline-flex h-11 shrink-0 items-center justify-center rounded-md border border-line-strong bg-surface px-4 text-sm font-semibold text-ink hover:bg-sunken disabled:cursor-not-allowed disabled:opacity-60'
+
+function eventLine(e: KeyEvent): string {
+  const name = e.filename ? ` ${e.filename}` : ''
+  if (e.action === 'refused') return `Refused (${e.detail === 'expired' ? 'expired' : 'revoked'}) · ${when(e.at)}`
+  const verb = e.action === 'uploaded' ? 'Uploaded' : e.action === 'replaced' ? 'Replaced' : 'Removed'
+  return `${verb}${name} · ${when(e.at)}`
+}
+
+function status(k: KeySummary, now: number): { text: string; warn: boolean } {
+  if (k.revoked) return { text: 'Revoked', warn: false }
+  if (k.expired) return { text: `Expired ${when(k.expiresAt)}. Create a new key and update the secret where it is used.`, warn: true }
+  const used = k.lastUsedAt ? `last used ${when(k.lastUsedAt)}` : 'never used'
+  if (!k.expiresAt) return { text: `Created ${when(k.createdAt)} · ${used} · never expires`, warn: false }
+  const left = new Date(k.expiresAt).getTime() - now
+  const soon = left < SOON_DAYS * DAY_MS
+  return { text: `Created ${when(k.createdAt)} · ${used} · ${soon ? 'expires soon, ' : 'expires '}${when(k.expiresAt)}`, warn: soon }
+}
 
 function when(iso: string | null): string {
   if (!iso) return 'never used'
@@ -22,6 +58,8 @@ function when(iso: string | null): string {
 export default function AutomationKeys({ requestHeaders }: { requestHeaders: Record<string, string> }): JSX.Element {
   const headingId = useId()
   const labelId = useId()
+  const lifetimeId = useId()
+  const [lifetime, setLifetime] = useState('365')
   const [keys, setKeys] = useState<KeySummary[] | null>(null)
   const [label, setLabel] = useState('')
   const [busy, setBusy] = useState(false)
@@ -58,7 +96,7 @@ export default function AutomationKeys({ requestHeaders }: { requestHeaders: Rec
       const res = await fetch('/api/storage/keys', {
         method: 'POST',
         headers: { ...requestHeaders, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ label }),
+        body: JSON.stringify({ label, expiresInDays: lifetime === 'never' ? null : Number(lifetime) }),
       })
       const body = await res.json().catch(() => null)
       if (!res.ok || typeof body?.key !== 'string') {
@@ -108,6 +146,10 @@ export default function AutomationKeys({ requestHeaders }: { requestHeaders: Rec
       <form onSubmit={create} className="mt-3 flex flex-col gap-2 sm:flex-row">
         <label htmlFor={labelId} className="sr-only">Key label</label>
         <input id={labelId} value={label} maxLength={80} onChange={(e) => setLabel(e.target.value)} placeholder="Label, e.g. GitHub sync" className={INPUT} />
+        <label htmlFor={lifetimeId} className="sr-only">Key lifetime</label>
+        <select id={lifetimeId} value={lifetime} onChange={(e) => setLifetime(e.target.value)} className={`${INPUT} sm:w-auto`}>
+          {LIFETIMES.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
+        </select>
         <button type="submit" disabled={busy} className={BUTTON}>{busy ? 'Creating…' : 'Create key'}</button>
       </form>
 
@@ -127,25 +169,33 @@ export default function AutomationKeys({ requestHeaders }: { requestHeaders: Rec
 
       {error && <p role="alert" className="mt-3 text-sm text-ink">{error}</p>}
 
-      {keys && keys.length > 0 && (
+      {keys && keys.length > 0 && (() => { const now = Date.now(); return (
         <ul className="mt-3 flex flex-col gap-2">
-          {keys.map((k) => (
-            <li key={k.id} className="flex min-w-0 items-center justify-between gap-3 rounded-md border border-line px-3 py-2">
+          {keys.map((k) => { const st = status(k, now); return (
+            <li key={k.id} className="rounded-md border border-line px-3 py-2">
+              <div className="flex min-w-0 items-center justify-between gap-3">
               <span className="min-w-0">
-                <span className={`block truncate text-sm ${k.revoked ? 'text-ink-muted line-through' : 'text-ink'}`}>{k.label}</span>
-                <span className="block text-xs text-ink-muted">
-                  {k.revoked ? 'Revoked' : `Created ${when(k.createdAt)} · ${k.lastUsedAt ? `last used ${when(k.lastUsedAt)}` : 'never used'}`}
-                </span>
+                <span className={`block truncate text-sm ${k.revoked || k.expired ? 'text-ink-muted line-through' : 'text-ink'}`}>{k.label}</span>
+                <span className={`block text-xs ${st.warn ? 'font-medium text-danger' : 'text-ink-muted'}`}>{st.text}</span>
               </span>
-              {!k.revoked && (
+              {!k.revoked && !k.expired && (
                 <button type="button" onClick={() => revoke(k)} aria-label={`Revoke ${k.label}`} className="min-h-9 shrink-0 rounded-md px-2 text-xs font-medium text-ink-muted hover:bg-sunken hover:text-ink">
                   Revoke
                 </button>
               )}
+              </div>
+              {k.recent && k.recent.length > 0 && (
+                <details className="mt-1.5 text-xs text-ink-muted">
+                  <summary className="cursor-pointer py-0.5">Recent activity</summary>
+                  <ul className="mt-1 flex flex-col gap-0.5 pl-3">
+                    {k.recent.map((e, i) => <li key={`${e.at}-${i}`} className="[overflow-wrap:anywhere]">{eventLine(e)}</li>)}
+                  </ul>
+                </details>
+              )}
             </li>
-          ))}
+          ) })}
         </ul>
-      )}
+      ) })()}
     </section>
   )
 }

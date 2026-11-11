@@ -433,6 +433,15 @@ for example a GitHub Action on every deploy.
 - A key is **shown once** and never stored by this app. Revoke it in the
   builder and it stops working on the next request. Up to 10 active keys per
   workspace.
+- Every key **expires**: after 30 days, 90 days or a year (the default), or
+  never if you choose so. Expiry is per key, so an expired key stops only the
+  job that uses it; your widget, the builder and every other key keep working.
+  The builder flags a key two weeks before it expires. To replace one, create
+  a new key, update the secret, then revoke the old key.
+- Each key has an **audit trail**: the builder shows its recent activity,
+  which files it uploaded, replaced or removed and when, and any request
+  refused because it was revoked or expired. Filenames only, never document
+  content.
 
 ```bash
 # upload (or replace) documents
@@ -450,9 +459,16 @@ How it works: the key is an encrypted `sbk1_` token, like the builder's other
 tokens, carrying your database link, the workspace and a key id (this server
 stores no connection strings). The key id has a row in
 `support_bot.api_keys` in **your** database, created on first use of the keys
-section; a key works only while its row is unrevoked. A database login made
-with the least-privilege script before this table existed needs
-`scripts/support-bot-schema.sql` and `scripts/support-bot-role.sql` run again.
+section; a key works only while its row is unrevoked and unexpired. What keys
+do is written to `support_bot.key_events`, also in your database, and is gone
+when the key or the workspace is deleted. The log is best-effort: if a write to
+it fails the upload still succeeds and the response says `"audit":
+"not_recorded"`. A string that is not a genuine key cannot be logged, because
+nothing in it says which database it belongs to; the server log notes it
+instead. A database login made with the least-privilege script before these
+tables existed needs `scripts/support-bot-schema.sql` and
+`scripts/support-bot-role.sql` run again. That script grants no `DELETE` on
+`key_events`, so the app's own login cannot erase the trail.
 
 ## 💬 Suggested questions
 

@@ -45,7 +45,17 @@ const SCHEMA_STEPS: readonly SchemaStep[] = [
     // row is what makes it revocable. Added after v1 shipped; additive, so the
     // schema version is unchanged and existing databases gain it on Connect.
     object: 'support_bot.api_keys',
-    sql: 'CREATE TABLE IF NOT EXISTS support_bot.api_keys (id uuid PRIMARY KEY, workspace_id uuid NOT NULL REFERENCES support_bot.workspaces(id) ON DELETE CASCADE, label text NOT NULL, created_at timestamptz NOT NULL DEFAULT now(), last_used_at timestamptz, revoked_at timestamptz)',
+    sql: 'CREATE TABLE IF NOT EXISTS support_bot.api_keys (id uuid PRIMARY KEY, workspace_id uuid NOT NULL REFERENCES support_bot.workspaces(id) ON DELETE CASCADE, label text NOT NULL, created_at timestamptz NOT NULL DEFAULT now(), last_used_at timestamptz, revoked_at timestamptz, expires_at timestamptz)',
+  },
+  {
+    // Audit trail of what each automation key did (uploaded, replaced,
+    // removed, refused): filenames and actions, never document content.
+    object: 'support_bot.key_events',
+    sql: 'CREATE TABLE IF NOT EXISTS support_bot.key_events (id uuid PRIMARY KEY, key_id uuid NOT NULL REFERENCES support_bot.api_keys(id) ON DELETE CASCADE, workspace_id uuid NOT NULL REFERENCES support_bot.workspaces(id) ON DELETE CASCADE, action text NOT NULL, filename text, detail text, at timestamptz NOT NULL DEFAULT now())',
+  },
+  {
+    object: 'support_bot.key_events_key_idx',
+    sql: 'CREATE INDEX IF NOT EXISTS key_events_key_idx ON support_bot.key_events (key_id, at DESC)',
   },
   {
     object: 'support_bot.documents_workspace_idx',
