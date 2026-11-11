@@ -17,14 +17,31 @@ export interface StorageConnection {
   documents: { id?: string; filename: string; chunks: number }[] | null
   connecting: boolean
   error: { code: StorageErrorCode; message: string } | null
-  lastMigration: { documents: number; chunks: number; reopened: boolean; existing: number; skipped: number } | null
+  lastMigration: {
+    documents: number
+    chunks: number
+    reopened: boolean
+    existing: number
+    skipped: number
+    // One-click secure setup outcome; null when it was not requested.
+    setup: { status: 'created'; role: string } | { status: 'already_limited' } | { status: 'not_possible'; reason: string } | null
+  } | null
   requestHeaders: Record<string, string>
-  connect(connectionString: string, sessionId: string | null): Promise<boolean>
+  connect(connectionString: string, sessionId: string | null, options?: { secureSetup?: boolean }): Promise<boolean>
   disconnect(): void
   refreshDocuments(): Promise<void>
 }
 
 type StorageErrorState = StorageConnection['error']
+
+function readSetup(v: unknown): NonNullable<StorageConnection['lastMigration']>['setup'] {
+  if (!v || typeof v !== 'object') return null
+  const o = v as Record<string, unknown>
+  if (o.status === 'created' && typeof o.role === 'string') return { status: 'created', role: o.role }
+  if (o.status === 'already_limited') return { status: 'already_limited' }
+  if (o.status === 'not_possible') return { status: 'not_possible', reason: typeof o.reason === 'string' ? o.reason : '' }
+  return null
+}
 type DocumentList = NonNullable<StorageConnection['documents']>
 
 const NETWORK_ERROR = "Couldn't reach the server. Check your connection and try again."
@@ -149,7 +166,7 @@ export function useStorageConnection(): StorageConnection {
     applyLoad(result)
   }, [available, token, applyLoad])
 
-  const connect = useCallback(async (connectionString: string, sessionId: string | null): Promise<boolean> => {
+  const connect = useCallback(async (connectionString: string, sessionId: string | null, options?: { secureSetup?: boolean }): Promise<boolean> => {
     if (!available) {
       setError({ code: 'storage_unavailable', message: storageErrorMessage('storage_unavailable') })
       return false
@@ -161,7 +178,7 @@ export function useStorageConnection(): StorageConnection {
       const response = await fetch('/api/storage/connect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ connectionString, sessionId }),
+        body: JSON.stringify({ connectionString, sessionId, secureSetup: options?.secureSetup === true }),
       })
       const body = await response.json().catch(() => null)
       if (started !== generation.current) return false
@@ -179,6 +196,7 @@ export function useStorageConnection(): StorageConnection {
         reopened: body.reopened === true,
         existing: num(body.existingDocuments),
         skipped: num(body.skippedDocuments),
+        setup: readSetup(body.setup),
       })
       const result = await loadDocuments(newToken)
       if (started === generation.current) applyLoad(result)

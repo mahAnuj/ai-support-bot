@@ -28,6 +28,7 @@ const SECONDARY_BUTTON =
   'inline-flex h-11 items-center justify-center gap-2 rounded-md border border-line-strong bg-surface px-5 text-sm font-semibold text-ink hover:bg-sunken'
 const CODE = 'rounded bg-sunken px-1 py-0.5 font-mono text-xs text-ink'
 const LINK = 'text-accent underline underline-offset-2'
+const SETUP_DOCS = '/docs/database'
 const REASON = 'mt-3 max-w-[60ch] rounded-md border border-line bg-sunken px-3 py-2 text-sm text-ink'
 
 function Spinner() {
@@ -69,10 +70,13 @@ function ErrorMessage({ message }: { message: string }) {
 export default function ConnectDatabaseStep({ storage, sessionId, sessionDocumentCount = 0, onDisconnect, disabledReason = null }: ConnectDatabaseStepProps): JSX.Element | null {
   const [expectedCopies, setExpectedCopies] = useState(0)
   const [value, setValue] = useState('')
+  const [secure, setSecure] = useState(true)
   const baseId = useId()
   const headingId = `${baseId}-heading`
   const inputId = `${baseId}-input`
   const helpId = `${baseId}-help`
+  const secureId = `${baseId}-secure`
+  const secureHelpId = `${baseId}-secure-help`
   const reasonId = `${baseId}-reason`
 
   if (!storage.ready) return null
@@ -100,6 +104,17 @@ export default function ConnectDatabaseStep({ storage, sessionId, sessionDocumen
         </h3>
         {migration && (
           <div className={BODY} role="status">
+            {migration.setup?.status === 'created' && (
+              <p className="font-medium text-ink">
+                {`Secured: this assistant uses its own login, ${migration.setup.role}, which can reach only its own tables. The login you entered was used once and not saved.`}
+              </p>
+            )}
+            {migration.setup?.status === 'not_possible' && (
+              <p className="font-medium text-ink">
+                Couldn&apos;t create a limited login, so this assistant uses the login you entered. To limit it, follow the{' '}
+                <a href={SETUP_DOCS} className={LINK}>manual setup</a>.
+              </p>
+            )}
             {migration.reopened && (
               <p>{`Reopened the assistant already in this database (${migration.existing} ${migration.existing === 1 ? 'document' : 'documents'}).`}</p>
             )}
@@ -143,7 +158,7 @@ export default function ConnectDatabaseStep({ storage, sessionId, sessionDocumen
     if (disabled || !connectionString || storage.connecting) return
     setValue('')
     setExpectedCopies(sessionDocumentCount)
-    await storage.connect(connectionString, sessionId)
+    await storage.connect(connectionString, sessionId, { secureSetup: secure })
   }
 
   return (
@@ -155,22 +170,21 @@ export default function ConnectDatabaseStep({ storage, sessionId, sessionDocumen
       </p>
 
       <details className="mt-4 rounded-md border border-line bg-sunken px-3 py-2 text-sm text-ink-muted">
-        <summary className="cursor-pointer py-1 font-medium text-ink">Before you connect: run the setup SQL</summary>
-        <ol className="mt-2 flex list-decimal flex-col gap-1.5 pb-1 pl-5">
-          <li>
-            Turn on pgvector once, as an admin: <code className={CODE}>CREATE EXTENSION vector;</code>
-          </li>
-          <li>
-            Run{' '}
-            <a href={SCHEMA_SQL_URL} target="_blank" rel="noreferrer" className={LINK}>scripts/support-bot-schema.sql</a>{' '}
-            to create the <code className={CODE}>support_bot</code> tables. It is safe to run twice.
-          </li>
-          <li>
-            Optional: create a user that can only reach those tables with{' '}
-            <a href={ROLE_SQL_URL} target="_blank" rel="noreferrer" className={LINK}>scripts/support-bot-role.sql</a>, and
-            connect as that user. The README has the details.
-          </li>
-        </ol>
+        <summary className="cursor-pointer py-1 font-medium text-ink">Which login should I use?</summary>
+        <div className="mt-2 flex flex-col gap-2 pb-1">
+          <p>
+            Your admin login, such as <code className={CODE}>neondb_owner</code> on Neon or <code className={CODE}>postgres</code> on
+            Supabase, with the box below ticked. The assistant then sets everything up itself: it turns on pgvector if needed,
+            creates its <code className={CODE}>support_bot</code> tables, and creates its own login that can reach only those
+            tables. Only that login is kept.
+          </p>
+          <p>
+            Prefer to do it yourself, or your login can&apos;t create other logins? Follow the{' '}
+            <a href={SETUP_DOCS} className={LINK}>manual setup</a>{' '}
+            (<a href={SCHEMA_SQL_URL} target="_blank" rel="noreferrer" className={LINK}>schema SQL</a>,{' '}
+            <a href={ROLE_SQL_URL} target="_blank" rel="noreferrer" className={LINK}>role SQL</a>) and connect with the limited login.
+          </p>
+        </div>
       </details>
 
       {disabledReason && <p id={reasonId} className={REASON}>{disabledReason}</p>}
@@ -209,6 +223,23 @@ export default function ConnectDatabaseStep({ storage, sessionId, sessionDocumen
             Sent to this server once to set up the link. The server does not save it; this browser keeps only an encrypted
             link to your database.
           </p>
+          <div className="mt-3 flex items-start gap-2">
+            <input
+              id={secureId}
+              type="checkbox"
+              checked={secure}
+              onChange={e => setSecure(e.target.checked)}
+              aria-describedby={secureHelpId}
+              className="mt-1 h-4 w-4 shrink-0 accent-accent"
+            />
+            <div>
+              <label htmlFor={secureId} className="text-sm font-medium text-ink">Create a limited login for the assistant (recommended)</label>
+              <p id={secureHelpId} className="text-xs text-ink-subtle">
+                Keeps your admin password out of the embed code and automation keys.{' '}
+                <a href={SETUP_DOCS} className={LINK}>How it works</a>
+              </p>
+            </div>
+          </div>
         </fieldset>
       </form>
 

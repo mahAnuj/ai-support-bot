@@ -185,6 +185,38 @@ then. Connecting your own Postgres database with
 The connect step appears in the builder's Documents section only when the
 server has `EMBED_TOKEN_KEY` set (see [below](#embed_token_key)).
 
+### One-click setup (recommended)
+
+Connect with your **admin** login (Neon's `neondb_owner`, Supabase's
+`postgres`) and leave **Create a limited login for the assistant** ticked. The
+server then, using the admin login for that one request only:
+
+1. turns on pgvector if it is off (`CREATE EXTENSION vector`);
+2. creates the `support_bot` tables if they are missing;
+3. creates a login `support_bot_app` with a random 48-character password, or
+   `support_bot_app_<6 hex>` if that name is taken (an existing login is never
+   changed, so nothing using it breaks), with exactly the grants of
+   [`scripts/support-bot-role.sql`](scripts/support-bot-role.sql) plus default
+   privileges for tables a later version adds;
+4. connects as the new login to check it works, then seals **only that login**
+   into the builder token, and from then on into embed codes and automation
+   keys. The admin login is not saved and its connection pool is closed.
+
+If the login cannot create logins it is used as it is (right for a login that
+is already limited). If anything fails part-way, the new login's grants are
+revoked and it is dropped, and the builder says it is using the login you
+entered. Rollback revokes explicitly rather than using `DROP OWNED BY`, which an
+admin that is not a superuser (Neon's owner) is not allowed to run. Through a
+pooler that routes by user name (Supabase's `postgres.<project>`), the new login
+gets the same suffix.
+
+API callers opt in with `"secureSetup": true` on `POST /api/storage/connect`;
+the response then carries `setup: { status: "created", role }`,
+`{ status: "already_limited" }` or `{ status: "not_possible", reason }`.
+
+The in-app guide at **`/docs/database`** covers one-click and manual setup,
+managing logins, and troubleshooting. The manual steps follow.
+
 **What happens when you press Connect**
 
 1. The server checks the connection string, resolves the host, connects,
@@ -261,7 +293,7 @@ any missing `support_bot` objects itself when you press Connect. It never runs
 made for another schema version or embedding size, Connect fails with "made for
 a different version or embedding size" and nothing is changed.
 
-### Step 2 (recommended): a least-privilege role
+### Step 2 (recommended, or use one-click setup): a least-privilege role
 
 Connecting as the owner gives the app, and anyone who can decrypt a token, the
 owner's rights. Instead, run

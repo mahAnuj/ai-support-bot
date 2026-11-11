@@ -26,5 +26,7 @@ DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'support_bot_a
 GRANT USAGE ON SCHEMA support_bot TO support_bot_app;
 GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA support_bot TO support_bot_app;
 GRANT DELETE ON support_bot.documents, support_bot.chunks TO support_bot_app;
+-- Tables a later version adds are created by the admin running this, so grant them in advance.
+ALTER DEFAULT PRIVILEGES IN SCHEMA support_bot GRANT SELECT, INSERT, UPDATE ON TABLES TO support_bot_app;
 ALTER ROLE support_bot_app SET search_path = support_bot, public, extensions;
 DO $$ BEGIN IF EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'extensions') THEN GRANT USAGE ON SCHEMA extensions TO support_bot_app; END IF; END $$;
