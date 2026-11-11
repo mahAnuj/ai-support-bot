@@ -6,6 +6,7 @@ import MarkdownRenderer from './MarkdownRenderer'
 import { ChatMessage, ChatInterfaceProps } from '@/types'
 import { MODEL_ERROR_MESSAGES, MODEL_TOKEN_HEADER, isModelErrorCode, modelErrorMessage, providerStatus } from '@/lib/model/shared'
 import { connectorErrorMessage, connectorStatus, isConnectorErrorCode } from '@/lib/connector/shared'
+import { waitingMessage } from '@/lib/waiting-messages'
 
 interface ChatResponse {
   message: unknown
@@ -169,6 +170,17 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, P
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [inputValue, setInputValue] = useState('')
   const [isTyping, setIsTyping] = useState(false)
+  // Seconds since the current question was sent, to change the waiting message.
+  const [waitedSeconds, setWaitedSeconds] = useState(0)
+  useEffect(() => {
+    if (!isTyping) return
+    const started = Date.now()
+    const id = setInterval(() => setWaitedSeconds(Math.floor((Date.now() - started) / 1000)), 1000)
+    return () => {
+      clearInterval(id)
+      setWaitedSeconds(0)
+    }
+  }, [isTyping])
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [expanded, setExpanded] = useState(false)
   const logRef = useRef<HTMLDivElement>(null)
@@ -494,7 +506,7 @@ const ChatInterface = forwardRef<{ sendQuestion: (question: string) => void }, P
                   <span className="size-1.5 rounded-full bg-ink-muted motion-safe:animate-typing [animation-delay:120ms]" />
                   <span className="size-1.5 rounded-full bg-ink-muted motion-safe:animate-typing [animation-delay:240ms]" />
                 </span>
-                <span className="text-sm text-ink-muted">Writing an answer</span>
+                <span role="status" aria-live="polite" className="text-sm text-ink-muted">{waitingMessage(waitedSeconds)}</span>
               </div>
             </div>
           )}

@@ -1,5 +1,6 @@
 import type { Widget } from '../types/database'
 import { MAX_STARTER_LENGTH, MAX_STARTER_QUESTIONS } from './starter-questions'
+import { WAITING_MESSAGES } from './waiting-messages'
 
 // The script served at /api/widget/script/<key> and loaded by the one-line
 // embed code. It runs on the site owner's pages, draws the chat button and
@@ -423,6 +424,9 @@ export function widgetScript(widget: Widget, baseUrl: string): string {
     scrollToEnd();
   }
 
+  const waitingMessages = ${jsLiteral(WAITING_MESSAGES)};
+  const waitingTimers = [];
+
   function showTyping() {
     const typingDiv = document.createElement('div');
     typingDiv.className = 'ai-widget-typing';
@@ -436,14 +440,24 @@ export function widgetScript(widget: Widget, baseUrl: string): string {
       dots.appendChild(dot);
     }
     const label = document.createElement('span');
-    label.textContent = 'Writing an answer';
+    // Announced to screen readers as it changes; see src/lib/waiting-messages.ts.
+    label.setAttribute('role', 'status');
+    label.setAttribute('aria-live', 'polite');
+    label.textContent = waitingMessages[0].text;
     typingDiv.appendChild(dots);
     typingDiv.appendChild(label);
     messagesContainer.appendChild(typingDiv);
     scrollToEnd();
+    for (let i = 1; i < waitingMessages.length; i++) {
+      waitingTimers.push(setTimeout(function () {
+        label.textContent = waitingMessages[i].text;
+        scrollToEnd();
+      }, waitingMessages[i].after * 1000));
+    }
   }
 
   function hideTyping() {
+    while (waitingTimers.length) clearTimeout(waitingTimers.pop());
     const typing = document.getElementById('typing-indicator');
     if (typing) {
       typing.remove();
