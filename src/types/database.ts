@@ -214,6 +214,8 @@ export interface SessionDocument {
   content_preview?: string
   chunk_count: number
   created_at: Date
+  /** Loaded by "Try it with sample documents"; never copied into an owner's database. */
+  is_sample?: boolean
 }
 
 // Legacy storage type

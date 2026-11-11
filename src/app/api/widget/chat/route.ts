@@ -19,7 +19,18 @@ const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Headers': 'Content-Type',
 }
 
+// Visitors get the answer, not the retrieval internals: source file names
+// (a client's could be "pricing-internal-2026.md") and the match score are
+// computed and logged here but never sent to the widget, which never showed
+// them. The builder preview, which the owner uses, still gets both.
+function forVisitor(body: unknown): unknown {
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) return body
+  const { sources, confidence, ...rest } = body as Record<string, unknown>
+  return rest
+}
+
 function corsJson(body: unknown, status: number, headers: Record<string, string> = CORS_HEADERS) {
+  body = forVisitor(body)
   return new NextResponse(JSON.stringify(body), { status, headers })
 }
 
@@ -30,8 +41,6 @@ const DEFAULT_WIDGET_SYSTEM_PROMPT =
 const UNAVAILABLE_BODY = {
   error: 'Widget unavailable',
   message: 'Sorry, I encountered an error. Please try again.',
-  confidence: 0,
-  sources: [],
   isEnhanced: false,
   sessionId: 'error-session',
 }
@@ -251,8 +260,6 @@ export async function POST(request: NextRequest) {
     console.error(`Widget chat error code=${chatErrorCode(error)} type=${error instanceof Error ? error.name : typeof error}`)
     return new NextResponse(JSON.stringify({ 
       message: 'Sorry, I encountered an error. Please try again.',
-      confidence: 0,
-      sources: [],
       isEnhanced: false,
       sessionId: 'error-session'
     }), {

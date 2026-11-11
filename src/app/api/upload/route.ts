@@ -24,6 +24,11 @@ export async function POST(request: NextRequest) {
     const ctx = resolved.ctx
     const formData = await request.formData()
     const files = formData.getAll('files') as File[]
+    // Sample documents are a demo aid: kept out of owners' databases and backends.
+    const isSample = formData.get('sample') === '1'
+    if (isSample && ctx.kind !== 'memory') {
+      return NextResponse.json({ error: "Sample documents can't be added to your database." }, { status: 400 })
+    }
     
     console.log(`📂 Received ${files.length} files`)
     
@@ -220,7 +225,7 @@ export async function POST(request: NextRequest) {
           
           // Store document with embeddings in RAG database. A file with the
           // same name replaces the earlier copy instead of duplicating it.
-          const stored = await store.storeDocument(session.id, doc.filename, chunksWithEmbeddings, { replace: true })
+          const stored = await store.storeDocument(session.id, doc.filename, chunksWithEmbeddings, { replace: true, sample: isSample })
           if (stored.replaced > 0) replacedFilenames.push(doc.filename)
           console.log(`✅ Stored ${doc.filename} with ${chunksWithEmbeddings.length} chunks in RAG`)
           

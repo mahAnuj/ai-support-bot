@@ -530,10 +530,9 @@ describe('C2/C3: widget chat in connector mode', () => {
     const res = await widgetChat(jsonRequest('http://localhost/api/widget/chat', { message: QUESTION, widgetKey: key }, { origin: ALLOWED }))
     expect(res.status).toBe(200)
     expect(res.headers.get('access-control-allow-origin')).toBe(ALLOWED)
+    // Visitors get the answer only: no source file names and no match score.
     expect(await res.json()).toEqual({
       message: 'Backend answer.',
-      confidence: matchScore([0.82, 0.31]),
-      sources: ['faq.md'],
       isEnhanced: true,
       sessionId: 'widget-session',
       widgetKey: key,
@@ -574,8 +573,6 @@ describe('C2/C3: widget chat in connector mode', () => {
     expect(body).toEqual({
       error: 'Widget unavailable',
       message: 'Sorry, I encountered an error. Please try again.',
-      confidence: 0,
-      sources: [],
       isEnhanced: false,
       sessionId: 'error-session',
     })

@@ -44,6 +44,7 @@ export const memoryStore: KnowledgeStore = {
       }
     }
     const { document } = await storeDocument(workspaceId, filename, chunks)
+    if (options?.sample) document.is_sample = true
     return { documentId: document.id, chunkCount: document.chunk_count, replaced }
   },
 
@@ -114,7 +115,8 @@ export function exportMemorySession(sessionId: string): ExportedDocument[] {
   const exported: ExportedDocument[] = []
   for (const documentId of documentIds) {
     const document = db.documents.get(documentId)
-    if (!document) continue
+    // Sample documents (a fictional shop's policies) must never reach an owner's database.
+    if (!document || document.is_sample) continue
     const chunks: ChunkInput[] = []
     for (const chunkId of db.documentChunks.get(documentId) ?? []) {
       const chunk = db.chunks.get(chunkId)

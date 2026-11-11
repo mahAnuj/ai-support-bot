@@ -263,13 +263,14 @@ export default function HomePage() {
     setWidgetConfig(prev => ({ ...prev, [key]: value }))
   }
 
-  const handleFileUpload = async (files: File[]) => {
+  const handleFileUpload = async (files: File[], options?: { sample?: boolean }) => {
     setIsUploading(true)
     setUploadComplete(false)
     setUploadError(null)
 
     const formData = new FormData()
     files.forEach(file => formData.append('files', file))
+    if (options?.sample) formData.append('sample', '1')
 
     const toBackend = connector.connected
     if (sessionId && !toBackend) {
@@ -354,7 +355,7 @@ export default function HomePage() {
           return new File([await res.text()], name, { type: 'text/markdown' })
         })
       )
-      await handleFileUpload(files)
+      await handleFileUpload(files, { sample: true })
       setUsingSamples(true)
       // Only rename the assistant if the visitor has not already named it.
       setWidgetConfig(prev =>
@@ -578,7 +579,7 @@ export default function HomePage() {
                 connector={answerPath && connectorHost ? { host: connectorHost, answerPath } : null}
               />
               <StorageModeLabel storage={storage} place="documents" connectorHost={connectorHost} />
-              {!hasUploadedFiles && !connector.connected && (
+              {!hasUploadedFiles && !connector.connected && !storage.connected && (
                 <div className="mt-5 rounded-md border border-dashed border-line-strong px-4 py-3">
                   <p className="text-sm text-ink">No documents to hand?</p>
                   <p className="mt-1 text-sm text-ink-muted">
