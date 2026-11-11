@@ -5,6 +5,7 @@ import { randomBytes } from 'node:crypto'
 import { NextRequest } from 'next/server'
 import { POST as connect } from '../../../app/api/storage/connect/route'
 import { GET as listDocuments } from '../../../app/api/storage/documents/route'
+import { GET as whichLogin } from '../../../app/api/storage/login/route'
 import { validateConnectionString, type ParsedConnection } from '../connection'
 import { STORAGE_TOKEN_HEADER } from '../errors'
 import { discardPool, getPool } from '../pg-pool'
@@ -74,6 +75,10 @@ run('one-click secure setup against Postgres', () => {
     expect(limited.password).not.toBe(owner.password)
     expect(limited.password).toMatch(/^[0-9a-f]{48}$/)
 
+    // The builder reports it as a limited login.
+    const login = await whichLogin(new NextRequest(new URL('/api/storage/login', 'http://localhost'), { headers: { [STORAGE_TOKEN_HEADER]: body.token } }))
+    expect(await login.json()).toEqual({ user: body.setup.role, admin: false })
+
     // The builder works with it.
     const docs = await listDocuments(new NextRequest(new URL('/api/storage/documents', 'http://localhost'), { headers: { [STORAGE_TOKEN_HEADER]: body.token } }))
     expect(docs.status).toBe(200)
@@ -115,6 +120,9 @@ run('one-click secure setup against Postgres', () => {
     const body = await res.json()
     expect(body.setup).toBeUndefined()
     expect(connOf(body.token).user).toBe(owner.user)
+    // And the builder warns that this one is an admin login.
+    const login = await whichLogin(new NextRequest(new URL('/api/storage/login', 'http://localhost'), { headers: { [STORAGE_TOKEN_HEADER]: body.token } }))
+    expect(await login.json()).toEqual({ user: owner.user, admin: true })
   })
 
   it('rolls back completely when the new login cannot be used', async () => {

@@ -3,6 +3,7 @@
 import { useId, useState, type FormEvent, type JSX } from 'react'
 import type { StorageConnection } from './useStorageConnection'
 import AutomationKeys from './AutomationKeys'
+import DatabaseLogin from './DatabaseLogin'
 
 export interface ConnectDatabaseStepProps {
   storage: StorageConnection
@@ -102,6 +103,7 @@ export default function ConnectDatabaseStep({ storage, sessionId, sessionDocumen
           <DatabaseIcon />
           Stored in your database.
         </h3>
+        <DatabaseLogin requestHeaders={storage.requestHeaders} onReconnect={disconnect} />
         {migration && (
           <div className={BODY} role="status">
             {migration.setup?.status === 'created' && (
