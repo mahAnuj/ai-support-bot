@@ -51,7 +51,7 @@ echo "GROQ_API_KEY=your_groq_key" > .env.local
 npm run dev
 ```
 
-Visit [http://localhost:3000](http://localhost:3000) and start building your AI assistant!
+Visit [http://localhost:3000](http://localhost:3000) and start building your AI assistant. No documents to hand? Click **Try it with sample documents** to load three short policies from a fictional bike shop (`public/samples/`) and ask about them.
 
 ## Four ways to run it
 

@@ -16,6 +16,24 @@ import { useConnector } from '@/components/connector/useConnector'
 import { connectorErrorMessage, connectorStatus, isConnectorErrorCode, type AnswerPath } from '@/lib/connector/shared'
 
 // Assistant configurations
+// A fictional shop's documents, served from public/samples/, so a visitor can
+// try the assistant without having files to hand. They go through the normal
+// upload path, so nothing about answering is special-cased for the demo.
+const SAMPLE_DOCUMENTS = [
+  'juniper-lane-returns.md',
+  'juniper-lane-shipping.md',
+  'juniper-lane-warranty.md',
+]
+// The last question is deliberately not answered by the documents, so the
+// demo also shows the assistant declining rather than inventing.
+const SAMPLE_QUESTIONS = [
+  "Can I return a bike I've already ridden?",
+  'Do you deliver to France?',
+  'Is the frame covered by warranty?',
+  'Do you sell electric scooters?',
+]
+const DEFAULT_TITLE = 'AI Support Assistant'
+
 const UNIVERSAL_ASSISTANT = {
   systemPrompt: "You are a professional business AI assistant. Provide accurate, helpful responses based on the uploaded business documents. If you don't have specific information from the documents, provide general business guidance while noting that more specific answers could be provided with relevant documentation.",
   suggestedQuestions: [
@@ -168,9 +186,10 @@ export default function HomePage() {
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [hasTried, setHasTried] = useState(false)
   const [hasEmbed, setHasEmbed] = useState(false)
+  const [usingSamples, setUsingSamples] = useState(false)
   const [widgetConfig, setWidgetConfig] = useState<WidgetConfig>({
     name: 'Business Support Assistant',
-    title: 'AI Support Assistant',
+    title: DEFAULT_TITLE,
     welcome_message: 'Hi! I\'m your AI assistant. I can help answer questions about our business. How can I assist you today?',
     primary_color: DEFAULT_PRIMARY_COLOR,
     position: 'bottom-right',
@@ -291,6 +310,28 @@ export default function HomePage() {
       setUploadError('Couldn\'t reach the server. Check your connection and try again.')
     } finally {
       setIsUploading(false)
+    }
+  }
+
+  const handleLoadSamples = async () => {
+    try {
+      const files = await Promise.all(
+        SAMPLE_DOCUMENTS.map(async name => {
+          const res = await fetch(`/samples/${name}`)
+          if (!res.ok) throw new Error(name)
+          return new File([await res.text()], name, { type: 'text/markdown' })
+        })
+      )
+      await handleFileUpload(files)
+      setUsingSamples(true)
+      // Only rename the assistant if the visitor has not already named it.
+      setWidgetConfig(prev =>
+        prev.title === DEFAULT_TITLE
+          ? { ...prev, title: 'Juniper Lane Bikes help', welcome_message: 'Hi! Ask me about returns, delivery or warranty.' }
+          : prev
+      )
+    } catch {
+      setUploadError("Couldn't load the sample documents. Try again, or upload your own.")
     }
   }
 
@@ -457,6 +498,22 @@ export default function HomePage() {
                 connector={answerPath && connectorHost ? { host: connectorHost, answerPath } : null}
               />
               <StorageModeLabel storage={storage} place="documents" connectorHost={connectorHost} />
+              {!hasUploadedFiles && !connector.connected && (
+                <div className="mt-5 rounded-md border border-dashed border-line-strong px-4 py-3">
+                  <p className="text-sm text-ink">No documents to hand?</p>
+                  <p className="mt-1 text-sm text-ink-muted">
+                    Load three short policy documents from a fictional bike shop, then ask the assistant about them.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleLoadSamples}
+                    disabled={isUploading}
+                    className="mt-3 min-h-11 rounded-md border border-line-strong bg-surface px-4 text-sm font-medium text-ink hover:bg-sunken disabled:opacity-50"
+                  >
+                    {isUploading ? 'Loading samples…' : 'Try it with sample documents'}
+                  </button>
+                </div>
+              )}
               <div className="mt-5">
                 <FileUpload
                   onUpload={handleFileUpload}
@@ -530,7 +587,7 @@ export default function HomePage() {
               <ChatInterface
                 systemPrompt={UNIVERSAL_ASSISTANT.systemPrompt}
                 roleContext="universal"
-                suggestedQuestions={UNIVERSAL_ASSISTANT.suggestedQuestions}
+                suggestedQuestions={usingSamples ? SAMPLE_QUESTIONS : UNIVERSAL_ASSISTANT.suggestedQuestions}
                 onSessionUpdate={handleSessionUpdate}
                 hasUploadedFiles={hasUploadedFiles}
                 sessionId={sessionId}
