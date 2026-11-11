@@ -2,13 +2,14 @@
 import { NextRequest } from 'next/server'
 import { POST } from '../chat/route'
 import { GET } from '../script/[key]/route'
-import { generateResponse } from '../../../../lib/llm'
+import { VISITOR_RULE, generateResponse } from '../../../../lib/llm'
 import { getCachedEmbedding } from '../../../../lib/rag'
 import { memoryStore } from '../../../../lib/storage/memory-store'
 import type { WidgetSettings } from '../../../../lib/storage/types'
 
 jest.mock('../../../../lib/llm', () => ({
   chatErrorCode: jest.requireActual('../../../../lib/llm').chatErrorCode,
+  VISITOR_RULE: jest.requireActual('../../../../lib/llm').VISITOR_RULE,
   generateResponse: jest.fn(async () => ({ message: 'Answer from the model' })),
 }))
 
@@ -141,6 +142,10 @@ describe('widget chat route', () => {
         expect(body.message).toBe('Answer from the model')
         expect(body.isEnhanced).toBe(true)
         expect(mockedGenerate).toHaveBeenCalledTimes(1)
+        // The model is told it is talking to a visitor, not the document owner.
+        const prompt = mockedGenerate.mock.calls[0][0].systemPrompt ?? ''
+        expect(VISITOR_RULE).toContain('talking to a visitor')
+        expect(prompt.endsWith(VISITOR_RULE)).toBe(true)
       },
     )
 

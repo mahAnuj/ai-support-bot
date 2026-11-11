@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { chatErrorCode, generateResponse } from '../../../../lib/llm'
+import { VISITOR_RULE, chatErrorCode, generateResponse } from '../../../../lib/llm'
 import { demoProvider, ownerProvider } from '../../../../lib/model/provider'
 import { isModelError } from '../../../../lib/model/shared'
 import { getCachedEmbedding } from '../../../../lib/rag'
@@ -125,6 +125,7 @@ export async function POST(request: NextRequest) {
           systemPrompt: ctx.settings.systemPrompt,
           roleContext: ctx.settings.roleContext,
           defaultSystemPrompt: DEFAULT_WIDGET_SYSTEM_PROMPT,
+          promptSuffix: VISITOR_RULE,
         })
         return corsJson({
           message: result.message,
@@ -224,7 +225,7 @@ export async function POST(request: NextRequest) {
     const context = ragResult && isEnhanced ? ragResult.context : undefined
     
     // Generate the answer with the widget's own prompts
-    const systemPrompt = widget.system_prompt || DEFAULT_WIDGET_SYSTEM_PROMPT
+    const systemPrompt = (widget.system_prompt || DEFAULT_WIDGET_SYSTEM_PROMPT) + VISITOR_RULE
     
     // An owner model answers alone: a failure is an error, never a Groq answer (D8)
     const provider = model ? ownerProvider(model) : demoProvider()

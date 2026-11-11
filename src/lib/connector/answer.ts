@@ -19,6 +19,9 @@ export interface ConnectorAnswerInput {
   roleContext?: string
   // Used on this server's answer paths when systemPrompt is empty (the widget's default prompt).
   defaultSystemPrompt?: string
+  // Appended on this server's answer paths only (the widget's VISITOR_RULE). Never
+  // sent to the owner's backend, whose prompt is its own business.
+  promptSuffix?: string
 }
 
 export interface ConnectorAnswerResult {
@@ -50,7 +53,7 @@ function buildContext(passages: ConnectorPassage[]): { context: string; sources:
 // Errors propagate unchanged: ConnectorError, ModelError, or the demo provider's missing-key Error.
 // Nothing here logs; the client writes its own fixed per-call line.
 export async function answerWithConnector(input: ConnectorAnswerInput): Promise<ConnectorAnswerResult> {
-  const { connector, answer, model, question, systemPrompt, roleContext, defaultSystemPrompt } = input
+  const { connector, answer, model, question, systemPrompt, roleContext, defaultSystemPrompt, promptSuffix } = input
 
   const passages = await searchPassages(connector, question, CONNECTOR_LIMITS.searchTopK)
   const filtered = passages.filter((p) => p.score >= MIN_SIMILARITY)
@@ -71,7 +74,7 @@ export async function answerWithConnector(input: ConnectorAnswerInput): Promise<
       query: question,
       context: isEnhanced ? context : undefined,
       isEnhanced,
-      systemPrompt: systemPrompt || defaultSystemPrompt,
+      systemPrompt: (systemPrompt || defaultSystemPrompt || '') + (promptSuffix ?? ''),
       roleContext,
     },
     provider,

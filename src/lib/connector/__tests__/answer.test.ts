@@ -112,6 +112,12 @@ describe('answerWithConnector with the backend answering', () => {
     })
   })
 
+  it('never sends the widget prompt suffix to the backend', async () => {
+    answerCall.mockResolvedValue({ message: 'ok', sources: [] })
+    await answerWithConnector({ connector: CONNECTOR, answer: true, model: null, question: QUESTION, systemPrompt: 'Be brief.', promptSuffix: ' VISITOR' })
+    expect(answerCall.mock.calls[0][1].systemPrompt).toBe('Be brief.')
+  })
+
   it('sends a null system prompt when none is set', async () => {
     answerCall.mockResolvedValue({ message: 'ok', sources: [] })
     await answerWithConnector({ connector: CONNECTOR, answer: true, model: null, question: QUESTION })
@@ -194,6 +200,15 @@ describe('answerWithConnector with this server answering', () => {
     expect(owner).not.toHaveBeenCalled()
     expect(provider.complete.mock.calls[0][0].messages[0].content).toMatch(/^CUSTOM/)
     expect(result.path).toBe('demo')
+  })
+
+  it('appends the prompt suffix on this server, to the owner prompt or the default', async () => {
+    const provider = fakeProvider('demo')
+    demo.mockReturnValue(provider)
+    await answerWithConnector({ connector: CONNECTOR, answer: false, model: null, question: QUESTION, systemPrompt: 'CUSTOM', promptSuffix: ' VISITOR' })
+    await answerWithConnector({ connector: CONNECTOR, answer: false, model: null, question: QUESTION, defaultSystemPrompt: 'DEFAULT', promptSuffix: ' VISITOR' })
+    expect(provider.complete.mock.calls[0][0].messages[0].content).toMatch(/^CUSTOM VISITOR/)
+    expect(provider.complete.mock.calls[1][0].messages[0].content).toMatch(/^DEFAULT VISITOR/)
   })
 
   it('keeps the context to 2,000 characters and lists only the files it used', async () => {
