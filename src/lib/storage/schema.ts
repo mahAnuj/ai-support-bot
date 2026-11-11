@@ -41,6 +41,13 @@ const SCHEMA_STEPS: readonly SchemaStep[] = [
     sql: "CREATE TABLE IF NOT EXISTS support_bot.widgets (id uuid PRIMARY KEY, workspace_id uuid NOT NULL REFERENCES support_bot.workspaces(id) ON DELETE CASCADE, name text NOT NULL, title text NOT NULL, welcome_message text NOT NULL, primary_color text NOT NULL, position text NOT NULL, size text NOT NULL, allowed_domains text[] NOT NULL DEFAULT '{}', system_prompt text, role_context text, is_active boolean NOT NULL DEFAULT true, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now())",
   },
   {
+    // Automation keys: the key itself is an sbk1_ token held by the owner; this
+    // row is what makes it revocable. Added after v1 shipped; additive, so the
+    // schema version is unchanged and existing databases gain it on Connect.
+    object: 'support_bot.api_keys',
+    sql: 'CREATE TABLE IF NOT EXISTS support_bot.api_keys (id uuid PRIMARY KEY, workspace_id uuid NOT NULL REFERENCES support_bot.workspaces(id) ON DELETE CASCADE, label text NOT NULL, created_at timestamptz NOT NULL DEFAULT now(), last_used_at timestamptz, revoked_at timestamptz)',
+  },
+  {
     object: 'support_bot.documents_workspace_idx',
     sql: 'CREATE INDEX IF NOT EXISTS documents_workspace_idx ON support_bot.documents (workspace_id)',
   },

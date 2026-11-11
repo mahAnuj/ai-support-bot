@@ -420,6 +420,40 @@ unset on a public deployment.
 example to connect the reference server on `http://127.0.0.1:8080`. Leave it
 unset on a public deployment.
 
+## 🔑 Automation keys (keep documents in sync)
+
+With a database connected, the builder can create **automation keys**, for a
+script or CI job that keeps the assistant's documents in step with your site,
+for example a GitHub Action on every deploy.
+
+- A key can **upload, list and remove documents** in its workspace, and
+  nothing else: it cannot create widgets, change settings or manage keys.
+- Uploading a file with an existing name **replaces** it, so a sync job just
+  uploads its files every time.
+- A key is **shown once** and never stored by this app. Revoke it in the
+  builder and it stops working on the next request. Up to 10 active keys per
+  workspace.
+
+```bash
+# upload (or replace) documents
+curl -H "Authorization: Bearer $SUPPORT_BOT_KEY" \
+  -F files=@services.md -F files=@faq.md https://<this app>/api/upload
+
+# list documents (with ids)
+curl -H "Authorization: Bearer $SUPPORT_BOT_KEY" https://<this app>/api/storage/documents
+
+# remove one
+curl -X DELETE -H "Authorization: Bearer $SUPPORT_BOT_KEY" "https://<this app>/api/storage/documents?id=<id>"
+```
+
+How it works: the key is an encrypted `sbk1_` token, like the builder's other
+tokens, carrying your database link, the workspace and a key id (this server
+stores no connection strings). The key id has a row in
+`support_bot.api_keys` in **your** database, created on first use of the keys
+section; a key works only while its row is unrevoked. A database login made
+with the least-privilege script before this table existed needs
+`scripts/support-bot-schema.sql` and `scripts/support-bot-role.sql` run again.
+
 ## 💬 Suggested questions
 
 Up to four "Try asking" questions can be set in the builder. They show under

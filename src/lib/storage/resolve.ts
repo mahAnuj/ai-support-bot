@@ -24,6 +24,7 @@ import {
 import { fingerprint, keyLabel, workspaceLabel } from './log'
 import { memoryStore } from './memory-store'
 import { createPostgresStore } from './pg-store'
+import { checkAutomationKey } from './api-keys'
 import {
   MAX_TOKEN_LENGTH,
   MAX_WIDGET_TOKEN_V2_LENGTH,
@@ -35,6 +36,8 @@ import {
   isModelTokenShape,
   isStorageEnabled,
   isWidgetTokenShape,
+  isAutomationKeyShape,
+  openAutomationKey,
   openBuilderToken,
   openWidgetToken,
   openWidgetTokenV2,
@@ -158,6 +161,44 @@ export function resolveBuilderStore(request: Request): BuilderResolution {
       workspaceId,
       connection,
       label: workspaceLabel(workspaceId),
+    },
+  }
+}
+
+// For the document routes only (upload, list, remove): an automation key in
+// `Authorization: Bearer sbk1_...` grants exactly those, for one workspace,
+// while its row in support_bot.api_keys is active. Without one, this is
+// resolveBuilderStore. No other route accepts a key.
+export async function resolveDocumentAccess(request: Request): Promise<BuilderResolution & { viaKey?: boolean }> {
+  const auth = request.headers.get('authorization')
+  const bearer = auth && /^Bearer\s+/i.test(auth) ? auth.replace(/^Bearer\s+/i, '').trim() : null
+  if (bearer === null) {
+    const resolved = resolveBuilderStore(request)
+    return resolved
+  }
+  if (!isStorageEnabled()) return builderError('storage_unavailable')
+  if (!isAutomationKeyShape(bearer)) return builderError('invalid_key')
+  if (request.headers.get(STORAGE_TOKEN_HEADER) !== null) return builderError('token_wrong_purpose')
+  const payload = openAutomationKey(bearer)
+  if (!payload) return builderError('invalid_key')
+  const validated = revalidateNormalizedConnection(payload.conn, { allowPrivate: isPrivateHostAllowed() })
+  if (!validated.ok) return builderError(validated.code)
+  let active: boolean
+  try {
+    active = await checkAutomationKey(validated.connection, payload.workspaceId, payload.keyId)
+  } catch (e) {
+    return { ok: false, error: mapDriverError(e) }
+  }
+  if (!active) return builderError('invalid_key')
+  return {
+    ok: true,
+    viaKey: true,
+    ctx: {
+      kind: 'postgres',
+      store: createPostgresStore(validated.connection, payload.workspaceId),
+      workspaceId: payload.workspaceId,
+      connection: validated.connection,
+      label: workspaceLabel(payload.workspaceId),
     },
   }
 }

@@ -8,7 +8,7 @@ export const STORAGE_ERROR_CODES = [
   'tls_required', 'private_host_not_allowed', 'host_not_found', 'db_unreachable', 'db_timeout', 'tls_failed',
   'auth_failed', 'database_not_found', 'pgvector_missing', 'insufficient_privilege', 'schema_mismatch',
   'schema_missing', 'pooler_unsupported', 'rate_limited', 'invalid_token', 'token_wrong_purpose',
-  'workspace_not_found', 'embed_too_large', 'storage_error',
+  'workspace_not_found', 'embed_too_large', 'storage_error', 'invalid_key',
 ] as const
 
 export type StorageErrorCode = typeof STORAGE_ERROR_CODES[number]
@@ -32,6 +32,7 @@ export const STORAGE_ERROR_STATUS: Record<StorageErrorCode, number> = {
   pooler_unsupported: 422,
   rate_limited: 429,
   invalid_token: 401,
+  invalid_key: 401,
   token_wrong_purpose: 403,
   workspace_not_found: 404,
   embed_too_large: 400,
@@ -58,7 +59,8 @@ export const STORAGE_ERROR_MESSAGES: Record<StorageErrorCode, string> = {
   pooler_unsupported: "The connection pooler rejected this app's connection settings. Use the direct or session-mode connection string (usually port 5432).",
   rate_limited: 'Too many connection attempts from this network. Wait a minute and try again.',
   storage_unavailable: "Connecting a database isn't available on this deployment.",
-  invalid_token: "This browser's link to your database is no longer valid. Connecting again may start a new, empty workspace; your earlier documents stay in your database.",
+  invalid_token: "This browser's link to your database is no longer valid. Connect your database again: it reopens the assistant and documents already there.",
+  invalid_key: 'This automation key is not valid, or it has been revoked. Create a new one in the builder.',
   token_wrong_purpose: "This key can't be used here.",
   workspace_not_found: 'The workspace for this link is no longer in your database. Connect again to start a new one.',
   embed_too_large: 'This embed has too much to fit in its script address. Shorten the longest settings, such as the allowed sites, the prompts, the connection string, the backend address or the model details, and try again.',

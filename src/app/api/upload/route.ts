@@ -5,7 +5,7 @@ import fs from 'fs'
 import path from 'path'
 import os from 'os'
 import { clientIp, isRateLimited } from '../../../lib/guard'
-import { builderErrorResponse, resolveBuilderStore, storageErrorResponse } from '../../../lib/storage/resolve'
+import { builderErrorResponse, resolveDocumentAccess, storageErrorResponse } from '../../../lib/storage/resolve'
 import { StorageError, isStorageError, safeErrorSummary } from '../../../lib/storage/errors'
 import { buildDocumentPayload, createDocument, type CreatedDocument } from '../../../lib/connector/client'
 import { connectorErrorResponse } from '../../../lib/connector/resolve'
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     }
     console.log('📤 Upload API called')
     // Resolved before the body is read, so a bad or wrong-purpose token reads and writes nothing
-    const resolved = resolveBuilderStore(request)
+    const resolved = await resolveDocumentAccess(request)
     if (!resolved.ok) return builderErrorResponse(resolved.error)
     const ctx = resolved.ctx
     const formData = await request.formData()

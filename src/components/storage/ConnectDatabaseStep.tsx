@@ -2,6 +2,7 @@
 
 import { useId, useState, type FormEvent, type JSX } from 'react'
 import type { StorageConnection } from './useStorageConnection'
+import AutomationKeys from './AutomationKeys'
 
 export interface ConnectDatabaseStepProps {
   storage: StorageConnection
@@ -119,15 +120,15 @@ export default function ConnectDatabaseStep({ storage, sessionId, sessionDocumen
           Generate new embed code below. Embed code made before connecting keeps working only until this server restarts.
         </p>
         {storage.error && <ErrorMessage message={storage.error.message} />}
+        <AutomationKeys requestHeaders={storage.requestHeaders} />
         <div className="mt-4 flex flex-col items-start gap-2">
           <button type="button" onClick={disconnect} className={SECONDARY_BUTTON}>
             Disconnect this browser
           </button>
           <p className="max-w-[60ch] text-xs text-ink-muted">
-            This forgets the link in this browser only. Nothing is deleted from your database. Connecting again from this
-            browser may start a new, empty workspace; your earlier documents stay in your database. To keep adding to this
-            one, stay connected. To cut off access, change the database user&apos;s password; that
-            also stops every embed made with it.
+            This forgets the link in this browser only. Nothing is deleted from your database, and connecting it again,
+            here or in another browser, reopens this assistant with its documents. To cut off access, change the
+            database user&apos;s password; that also stops every embed and automation key made with it.
           </p>
         </div>
       </section>

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { clientIp, isRateLimited } from '../../../../lib/guard'
 import { StorageError, mapDriverError, safeErrorSummary } from '../../../../lib/storage/errors'
-import { builderErrorResponse, resolveBuilderStore, storageErrorResponse } from '../../../../lib/storage/resolve'
+import { builderErrorResponse, resolveDocumentAccess, storageErrorResponse } from '../../../../lib/storage/resolve'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     return storageErrorResponse(new StorageError('rate_limited'))
   }
 
-  const resolved = resolveBuilderStore(request)
+  const resolved = await resolveDocumentAccess(request)
   if (!resolved.ok) return builderErrorResponse(resolved.error)
   const ctx = resolved.ctx
   // A backend's documents are listed by /api/connector/documents.
@@ -39,7 +39,7 @@ export async function DELETE(request: NextRequest) {
   if (isRateLimited(`storage-docs-delete:${clientIp(request)}`, 30)) {
     return storageErrorResponse(new StorageError('rate_limited'))
   }
-  const resolved = resolveBuilderStore(request)
+  const resolved = await resolveDocumentAccess(request)
   if (!resolved.ok) return builderErrorResponse(resolved.error)
   const ctx = resolved.ctx
   if (ctx.kind === 'connector') return storageErrorResponse(new StorageError('token_wrong_purpose'))

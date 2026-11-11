@@ -30,6 +30,9 @@ CREATE TABLE IF NOT EXISTS support_bot.chunks (id uuid PRIMARY KEY, document_id 
 
 CREATE TABLE IF NOT EXISTS support_bot.widgets (id uuid PRIMARY KEY, workspace_id uuid NOT NULL REFERENCES support_bot.workspaces(id) ON DELETE CASCADE, name text NOT NULL, title text NOT NULL, welcome_message text NOT NULL, primary_color text NOT NULL, position text NOT NULL, size text NOT NULL, allowed_domains text[] NOT NULL DEFAULT '{}', system_prompt text, role_context text, is_active boolean NOT NULL DEFAULT true, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now());
 
+-- Automation keys: revocation and last-used time for sbk1_ keys (the key itself is held by the owner).
+CREATE TABLE IF NOT EXISTS support_bot.api_keys (id uuid PRIMARY KEY, workspace_id uuid NOT NULL REFERENCES support_bot.workspaces(id) ON DELETE CASCADE, label text NOT NULL, created_at timestamptz NOT NULL DEFAULT now(), last_used_at timestamptz, revoked_at timestamptz);
+
 CREATE INDEX IF NOT EXISTS documents_workspace_idx ON support_bot.documents (workspace_id);
 
 CREATE INDEX IF NOT EXISTS chunks_workspace_idx ON support_bot.chunks (workspace_id);

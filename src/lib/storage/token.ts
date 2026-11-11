@@ -12,6 +12,9 @@ export const WIDGET_TOKEN_V2_PREFIX = 'sbw2_'
 export const MODEL_TOKEN_PREFIX = 'sbm1_'
 export const CONNECTOR_TOKEN_PREFIX = 'sbc1_'
 export const WIDGET_TOKEN_V3_PREFIX = 'sbw3_'
+// Automation key: lets a script or CI job upload, list and remove documents in
+// one workspace, and nothing else. Revocable through support_bot.api_keys.
+export const AUTOMATION_KEY_PREFIX = 'sbk1_'
 // Fits a widget token for the longest normalised connection string (3000 chars -> 4187-char token).
 export const MAX_TOKEN_LENGTH = 4200
 // sbw2_ is compressed. The seeded worst case (3000-char connection string, 10 x 255-char origins and a
@@ -40,6 +43,7 @@ export function isStorageEnabled(): boolean {
 }
 
 export interface BuilderTokenPayload { conn: string; workspaceId: string }
+export interface AutomationKeyPayload { conn: string; workspaceId: string; keyId: string }
 export interface WidgetTokenPayload { conn: string; workspaceId: string; widgetId: string }
 
 export type WidgetSource =
@@ -55,6 +59,7 @@ export type TokenPrefix =
   | typeof MODEL_TOKEN_PREFIX
   | typeof CONNECTOR_TOKEN_PREFIX
   | typeof WIDGET_TOKEN_V3_PREFIX
+  | typeof AUTOMATION_KEY_PREFIX
 
 // The one AES-256-GCM sealer for every token type; the prefix is the AAD, so a relabelled token never opens.
 export function sealPrefixed(prefix: TokenPrefix, plaintext: string, key: Buffer | null | undefined, compress = false): string {
@@ -238,4 +243,22 @@ export function isModelTokenShape(s: unknown): boolean {
 
 export function isConnectorTokenShape(s: unknown): boolean {
   return typeof s === 'string' && s.startsWith(CONNECTOR_TOKEN_PREFIX)
+}
+
+export function sealAutomationKey(p: AutomationKeyPayload, key?: Buffer): string {
+  return seal(AUTOMATION_KEY_PREFIX, JSON.stringify({ v: 1, p: 'k', c: p.conn, w: p.workspaceId, i: p.keyId }), key)
+}
+
+// Shape and seal only: whether the key is still active is checked against
+// support_bot.api_keys on every request (src/lib/storage/api-keys.ts).
+export function openAutomationKey(token: unknown, key?: Buffer): AutomationKeyPayload | null {
+  const obj = openObject(AUTOMATION_KEY_PREFIX, token, key, MAX_TOKEN_LENGTH, false)
+  if (!obj || obj.v !== 1 || obj.p !== 'k' || typeof obj.c !== 'string' || obj.c.length === 0) return null
+  if (typeof obj.w !== 'string' || !UUID_PATTERN.test(obj.w)) return null
+  if (typeof obj.i !== 'string' || !UUID_PATTERN.test(obj.i)) return null
+  return { conn: obj.c, workspaceId: obj.w, keyId: obj.i }
+}
+
+export function isAutomationKeyShape(s: unknown): boolean {
+  return typeof s === 'string' && s.startsWith(AUTOMATION_KEY_PREFIX)
 }
