@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useId, useState } from 'react'
 import { MAX_STARTER_LENGTH, MAX_STARTER_QUESTIONS, normalizeStarterQuestions } from '@/lib/starter-questions'
+import { loadBuilderSettings, saveBuilderSettings } from '@/lib/builder-settings'
 import ChatInterface from '@/components/ui/ChatInterface'
 import FileUpload from '@/components/ui/FileUpload'
 import DataDisclosure, { CONNECTOR_ANSWER_COPY } from '@/components/ui/DataDisclosure'
@@ -203,6 +204,19 @@ export default function HomePage() {
     position: 'bottom-right',
     size: 'medium',
   })
+  // Restore the form saved in this browser, then keep saving it. Loaded after
+  // mount so server and client render the same defaults first.
+  const [settingsLoaded, setSettingsLoaded] = useState(false)
+  useEffect(() => {
+    const saved = loadBuilderSettings()
+    const { starterInputs: savedStarters, ...savedConfig } = saved
+    if (Object.keys(savedConfig).length) setWidgetConfig(prev => ({ ...prev, ...savedConfig }))
+    if (savedStarters) setStarterInputs(Array.from({ length: MAX_STARTER_QUESTIONS }, (_, i) => savedStarters[i] ?? ''))
+    setSettingsLoaded(true)
+  }, [])
+  useEffect(() => {
+    if (settingsLoaded) saveBuilderSettings({ ...widgetConfig, starterInputs })
+  }, [settingsLoaded, widgetConfig, starterInputs])
   const storage = useStorageConnection()
   useEffect(() => { if (storage.documents) setUploadedDocuments(storage.documents) }, [storage.documents])
   const ownModel = useOwnModel(storage.available)
