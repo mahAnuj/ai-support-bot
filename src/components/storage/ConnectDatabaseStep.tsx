@@ -16,6 +16,8 @@ export interface ConnectDatabaseStepProps {
   disabledReason?: string | null
   // The model connected under "Use your own model", if any, for "Your assistants".
   ownModel?: { token: string; model: string; host: string } | null
+  // The suggested questions set in the builder, to pre-fill "Your assistants".
+  builderStarters?: readonly string[]
 }
 
 const SCHEMA_SQL_URL = 'https://github.com/mahAnuj/ai-support-bot/blob/main/scripts/support-bot-schema.sql'
@@ -71,7 +73,7 @@ function ErrorMessage({ message }: { message: string }) {
   )
 }
 
-export default function ConnectDatabaseStep({ storage, sessionId, sessionDocumentCount = 0, onDisconnect, disabledReason = null, ownModel = null }: ConnectDatabaseStepProps): JSX.Element | null {
+export default function ConnectDatabaseStep({ storage, sessionId, sessionDocumentCount = 0, onDisconnect, disabledReason = null, ownModel = null, builderStarters = [] }: ConnectDatabaseStepProps): JSX.Element | null {
   const [expectedCopies, setExpectedCopies] = useState(0)
   const [value, setValue] = useState('')
   const [secure, setSecure] = useState(true)
@@ -140,7 +142,7 @@ export default function ConnectDatabaseStep({ storage, sessionId, sessionDocumen
           Generate new embed code below. Embed code made before connecting keeps working only until this server restarts.
         </p>
         {storage.error && <ErrorMessage message={storage.error.message} />}
-        <YourAssistants requestHeaders={storage.requestHeaders} ownModel={ownModel} />
+        <YourAssistants requestHeaders={storage.requestHeaders} ownModel={ownModel} builderStarters={builderStarters} />
         <AutomationKeys requestHeaders={storage.requestHeaders} />
         <div className="mt-4 flex flex-col items-start gap-2">
           <button type="button" onClick={disconnect} className={SECONDARY_BUTTON}>
