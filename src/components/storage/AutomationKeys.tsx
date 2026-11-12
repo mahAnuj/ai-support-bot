@@ -34,19 +34,28 @@ const BUTTON =
 
 function eventLine(e: KeyEvent): string {
   const name = e.filename ? ` ${e.filename}` : ''
-  if (e.action === 'refused') return `Refused (${e.detail === 'expired' ? 'expired' : 'revoked'}) · ${when(e.at)}`
+  if (e.action === 'refused') return `Refused (${e.detail === 'expired' ? 'expired' : 'revoked'}) · ${whenTime(e.at)}`
   const verb = e.action === 'uploaded' ? 'Uploaded' : e.action === 'replaced' ? 'Replaced' : 'Removed'
-  return `${verb}${name} · ${when(e.at)}`
+  return `${verb}${name} · ${whenTime(e.at)}`
 }
 
 function status(k: KeySummary, now: number): { text: string; warn: boolean } {
   if (k.revoked) return { text: 'Revoked', warn: false }
   if (k.expired) return { text: `Expired ${when(k.expiresAt)}. Create a new key and update the secret where it is used.`, warn: true }
-  const used = k.lastUsedAt ? `last used ${when(k.lastUsedAt)}` : 'never used'
+  const used = k.lastUsedAt ? `last used ${whenTime(k.lastUsedAt)}` : 'never used'
   if (!k.expiresAt) return { text: `Created ${when(k.createdAt)} · ${used} · never expires`, warn: false }
   const left = new Date(k.expiresAt).getTime() - now
   const soon = left < SOON_DAYS * DAY_MS
   return { text: `Created ${when(k.createdAt)} · ${used} · ${soon ? 'expires soon, ' : 'expires '}${when(k.expiresAt)}`, warn: soon }
+}
+
+// Activity and "last used" carry the time too: a sync job runs several times a
+// day, and the date alone cannot tell this morning's run from tonight's.
+function whenTime(iso: string): string {
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime())
+    ? ''
+    : d.toLocaleString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
 function when(iso: string | null): string {
