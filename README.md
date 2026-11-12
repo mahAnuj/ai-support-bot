@@ -901,9 +901,22 @@ preview chat and generate routes, plus the upload route in connector mode
 They need no database, no network and no env vars. A Postgres integration test (`pg.integration.test.ts`) is skipped
 unless `TEST_DATABASE_URL` points at a database with pgvector installed.
 The reference server has its own suite: `cd connector && npm ci && npm test`.
-Chunking, the upload route outside connector mode, the storage routes and
-the UI have no tests yet; adding
+The storage routes (keys, Your assistants, the conversation log, daily
+stats, one-click setup) have route-level integration tests that run with
+`TEST_DATABASE_URL`. Chunking and most of the UI have no tests yet; adding
 some is a good first contribution, see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+### **Dependency audit**
+
+`npm audit` reports only one advisory, at low severity:
+`deepmerge` (GHSA prototype poisoning in `mergeObject()`, range 4.2.0-4.3.1),
+pulled in by Jest's config loader. No fixed release exists (4.3.1 is the
+latest), and it runs only inside the test runner to merge Jest's own config,
+never in the app. npm's suggested fix is downgrading Jest to 25, which is not
+taken. Two overrides in `package.json` pin patched versions where a parent
+lags: `postcss` ^8.5.32 inside `next` (Next 15.5.29 pins 8.4.31, affected by
+the PostCSS stringify XSS advisories) and `minimatch` ^11.0.1 inside
+`@typescript-eslint/typescript-estree` (lint-time only).
 
 ## 🤝 Contributing
 
