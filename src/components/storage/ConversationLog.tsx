@@ -134,7 +134,7 @@ export default function ConversationLog({ requestHeaders }: { requestHeaders: Re
   }
 
   return (
-    <section aria-labelledby={headingId} className="mt-6 border-t border-line pt-5">
+    <section id="conversation-log" aria-labelledby={headingId} className="mt-6 scroll-mt-6 border-t border-line pt-5">
       <h4 id={headingId} className="text-sm font-semibold text-ink">Conversation log</h4>
       <p className="mt-1 max-w-[60ch] text-sm text-ink-muted">
         Keep what visitors ask and what the assistant answers, to check the answers and see what your documents are missing.

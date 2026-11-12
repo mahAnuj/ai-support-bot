@@ -303,6 +303,11 @@ export default function YourAssistants({
                   </label>
                 </fieldset>
 
+                <p className={HELP}>
+                  The conversation log and the daily numbers are set once for every assistant in this database:{' '}
+                  <a href="#conversation-log" className="text-accent underline underline-offset-2">Conversation log</a>.
+                </p>
+
                 {message && (
                   <p role={message.ok ? 'status' : 'alert'} className={`text-sm ${message.ok ? 'text-ink' : 'text-danger'}`}>{message.text}</p>
                 )}
