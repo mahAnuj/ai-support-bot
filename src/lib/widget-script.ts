@@ -192,6 +192,11 @@ export function widgetScript(widget: Widget, baseUrl: string, savedStarters: rea
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .875em;
       background: #F6F8F7; border: 1px solid #DCE2DF; border-radius: 6px; padding: 0 4px;
     }
+    .ai-widget-root .ai-widget-message a.ai-widget-link {
+      color: inherit; text-decoration: underline; text-underline-offset: 2px; overflow-wrap: anywhere;
+    }
+    .ai-widget-root .ai-widget-message a.ai-widget-link:hover { text-decoration-thickness: 2px; }
+    .ai-widget-root .ai-widget-message a.ai-widget-link:focus-visible { outline: 2px solid var(--aiw-accent); outline-offset: 2px; }
     .ai-widget-root .ai-widget-error-title { display: block; font-weight: 600; color: #B42318; }
     .ai-widget-root .ai-widget-error-reason { display: block; }
 
@@ -336,9 +341,65 @@ export function widgetScript(widget: Widget, baseUrl: string, savedStarters: rea
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
   }
 
+  // Links: [label](https://...), <https://...> and bare https://... addresses.
+  // Only http and https become links (a javascript: or data: address stays
+  // text), the label is set through textContent, and links open in a new tab
+  // so a visitor does not lose the chat.
+  const LINK_RE = /(\\[[^\\]\\n]+\\]\\(https?:\\/\\/[^\\s)]+\\)|<https?:\\/\\/[^\\s>]+>|https?:\\/\\/[^\\s<>()\\[\\]]+)/;
+  function safeHref(raw) {
+    try {
+      const url = new URL(raw);
+      return url.protocol === 'https:' || url.protocol === 'http:' ? url.href : null;
+    } catch (e) {
+      return null;
+    }
+  }
+  function appendLink(parent, raw, label) {
+    const href = safeHref(raw);
+    if (!href) {
+      parent.appendChild(document.createTextNode(label));
+      return;
+    }
+    const a = document.createElement('a');
+    a.className = 'ai-widget-link';
+    a.href = href;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer nofollow';
+    a.textContent = label;
+    parent.appendChild(a);
+  }
+  function shortUrl(u) {
+    return u.replace(/^https?:\\/\\//, '').replace(/\\/$/, '');
+  }
+
+  function appendInline(parent, line) {
+    String(line).split(LINK_RE).forEach(function (part, i) {
+      if (!part) return;
+      if (i % 2 === 0) {
+        appendFormatted(parent, part);
+        return;
+      }
+      const md = part.match(/^\\[([^\\]]+)\\]\\((.+)\\)$/);
+      if (md) {
+        appendLink(parent, md[2], md[1]);
+        return;
+      }
+      if (part.charAt(0) === '<') {
+        const u = part.slice(1, -1);
+        appendLink(parent, u, shortUrl(u));
+        return;
+      }
+      // A bare address: sentence punctuation after it is not part of it.
+      const trail = (part.match(/[.,;:!?'"]+$/) || [''])[0];
+      const u = trail ? part.slice(0, part.length - trail.length) : part;
+      appendLink(parent, u, shortUrl(u));
+      if (trail) parent.appendChild(document.createTextNode(trail));
+    });
+  }
+
   // Inline formatting: **bold** and \`code\`. Every piece is set through
   // textContent, so HTML in an answer shows as literal text.
-  function appendInline(parent, line) {
+  function appendFormatted(parent, line) {
     const parts = line.split(/(\\*\\*[^*]+\\*\\*|\`[^\`]+\`)/);
     parts.forEach(function (part, i) {
       if (!part) return;
