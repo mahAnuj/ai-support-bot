@@ -37,18 +37,25 @@ describe('widget starter questions', () => {
     size: 'medium', allowed_domains: [], is_active: true, created_at: new Date(), updated_at: new Date(),
   } as Widget
 
-  function run(attrs: Record<string, string>) {
+  function run(attrs: Record<string, string>, saved: string[] | null = null) {
     document.body.innerHTML = ''
     delete (window as unknown as Record<string, unknown>).__aiSupportWidgetLoaded
     const tag = document.createElement('script')
     tag.setAttribute('src', 'https://bot.example/api/widget/script/widget-abc')
     for (const [k, v] of Object.entries(attrs)) tag.setAttribute(k, v)
     document.head.appendChild(tag) // found through the src fallback; jsdom sets no currentScript here
-    new Function(widgetScript(widget, 'https://bot.example'))()
+    new Function(widgetScript(widget, 'https://bot.example', saved))()
     return document.querySelectorAll<HTMLButtonElement>('.ai-widget-starter')
   }
 
   afterEach(() => { document.head.innerHTML = ''; jest.restoreAllMocks() })
+
+  it('saved questions (Your assistants) win over the tag, even an empty list', () => {
+    const tag = { 'data-question-1': 'From the tag' }
+    expect(Array.from(run(tag, ['Saved one', 'Saved two'])).map(b => b.textContent)).toEqual(['Saved one', 'Saved two'])
+    expect(run(tag, [])).toHaveLength(0)
+    expect(Array.from(run(tag, null)).map(b => b.textContent)).toEqual(['From the tag'])
+  })
 
   it('shows no starters when the tag has none', () => {
     expect(run({})).toHaveLength(0)

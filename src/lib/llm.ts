@@ -70,6 +70,18 @@ export const GROUNDING_RULE = `\n\nFacts about this business (its products, serv
 export const VISITOR_RULE =
   '\n\nYou are talking to a visitor to this website. The visitor did not write or upload the documents and cannot add any: never ask them to upload, share or provide documents, and never call the documents theirs. Do not mention "documents" at all; when something is not covered, say you don\'t have that information and suggest contacting the business. Refer to the business the way the documents do: if they describe a person or business in the third person, do the same, and do not speak as that person.'
 
+// The widget's base prompt. Owner instructions (support_bot.widgets.system_prompt,
+// edited under "Your assistants") are added to it, not swapped for it, and the
+// grounding and visitor rules still come after both: an instruction can set the
+// tone or forbid a topic, but cannot make the assistant invent facts.
+export const DEFAULT_WIDGET_SYSTEM_PROMPT =
+  'You are a helpful AI assistant embedded in a website widget. Provide helpful and accurate information formatted with proper markdown for easy reading.'
+
+export function widgetSystemPrompt(instructions: string | null | undefined): string {
+  const own = typeof instructions === 'string' ? instructions.trim() : ''
+  return own ? `${DEFAULT_WIDGET_SYSTEM_PROMPT}\n\nInstructions from the owner of this website. Follow them:\n${own}` : DEFAULT_WIDGET_SYSTEM_PROMPT
+}
+
 // The same rule for a widget visitor, who never saw any documents: "you don't
 // have that information" instead of "the documents don't cover it".
 export const GROUNDING_RULE_VISITOR = GROUNDING_RULE.replace(

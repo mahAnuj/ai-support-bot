@@ -83,6 +83,16 @@ const SCHEMA_STEPS: readonly SchemaStep[] = [
     sql: 'CREATE TABLE IF NOT EXISTS support_bot.log_settings (workspace_id uuid PRIMARY KEY REFERENCES support_bot.workspaces(id) ON DELETE CASCADE, enabled boolean NOT NULL DEFAULT false, retention_days integer NOT NULL DEFAULT 90, updated_at timestamptz NOT NULL DEFAULT now())',
   },
   {
+    // Settings edited under "Your assistants" that the embed code used to carry:
+    // suggested questions, allowed sites and the model. A row here wins over
+    // the embed token, so existing embed code picks up an edit with no change
+    // on the owner's site. model_token is the builder's sealed sbm1_ model link,
+    // readable only by this server.
+    object: 'support_bot.widget_prefs',
+    optional: true,
+    sql: "CREATE TABLE IF NOT EXISTS support_bot.widget_prefs (widget_id uuid PRIMARY KEY REFERENCES support_bot.widgets(id) ON DELETE CASCADE, workspace_id uuid NOT NULL REFERENCES support_bot.workspaces(id) ON DELETE CASCADE, starter_questions text[], allowed_origins text[], model_mode text CHECK (model_mode IN ('demo', 'owner')), model_token text, updated_at timestamptz NOT NULL DEFAULT now())",
+  },
+  {
     object: 'support_bot.documents_workspace_idx',
     sql: 'CREATE INDEX IF NOT EXISTS documents_workspace_idx ON support_bot.documents (workspace_id)',
   },

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { chatErrorCode, generateResponse } from '../../../../lib/llm'
+import { DEFAULT_WIDGET_SYSTEM_PROMPT, chatErrorCode, generateResponse, widgetSystemPrompt } from '../../../../lib/llm'
 import { demoProvider, ownerProvider } from '../../../../lib/model/provider'
 import { isModelError } from '../../../../lib/model/shared'
 import { getCachedEmbedding } from '../../../../lib/rag'
@@ -34,8 +34,6 @@ function corsJson(body: unknown, status: number, headers: Record<string, string>
   return new NextResponse(JSON.stringify(body), { status, headers })
 }
 
-const DEFAULT_WIDGET_SYSTEM_PROMPT =
-  'You are a helpful AI assistant embedded in a website widget. Provide helpful and accurate information formatted with proper markdown for easy reading.'
 
 // A persistent widget whose database cannot be read must not answer without its documents.
 const UNAVAILABLE_BODY = {
@@ -225,7 +223,7 @@ export async function POST(request: NextRequest) {
     const context = ragResult && isEnhanced ? ragResult.context : undefined
     
     // Generate the answer with the widget's own prompts
-    const systemPrompt = widget.system_prompt || DEFAULT_WIDGET_SYSTEM_PROMPT
+    const systemPrompt = widgetSystemPrompt(widget.system_prompt)
     
     // An owner model answers alone: a failure is an error, never a Groq answer (D8)
     const provider = model ? ownerProvider(model) : demoProvider()

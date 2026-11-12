@@ -88,6 +88,7 @@ export default function DatabaseSetupGuide(): JSX.Element {
           <li><a className={LINK} href="#one-click">One-click setup (recommended)</a></li>
           <li><a className={LINK} href="#what-it-does">What one-click setup does</a></li>
           <li><a className={LINK} href="#manual">Manual setup</a></li>
+          <li><a className={LINK} href="#edit">Changing an assistant after it&apos;s live</a></li>
           <li><a className={LINK} href="#keys">Keeping documents in sync</a></li>
           <li><a className={LINK} href="#access">Managing access</a></li>
           <li><a className={LINK} href="#trouble">Troubleshooting</a></li>
@@ -182,6 +183,37 @@ export default function DatabaseSetupGuide(): JSX.Element {
       <p className={P}>
         Paste it into the builder and click <em>Connect</em>. The checkbox does not matter here: a login that cannot
         create logins is used as it is.
+      </p>
+
+      <h2 id="edit" className={H2}>Changing an assistant after it&apos;s live</h2>
+      <p className={P}>
+        Once connected, <em>Your assistants</em> in the builder lists every assistant in your database. <em>Edit</em> changes
+        one in place: the embed code on your site stays the same, and visitors see the change on their next page load.
+      </p>
+      <ul className={LIST}>
+        <li>Title, welcome message, colour, position and size.</li>
+        <li>Suggested questions. Saved here, they replace any written in the script tag on your site.</li>
+        <li>Allowed sites. Saved here, they replace the sites set when the embed code was made.</li>
+        <li>The model: the shared demo model, or the model you connected under <em>Use your own model</em>.</li>
+        <li>
+          <strong className="text-ink">Instructions</strong>: how the assistant should talk and what to avoid, for example
+          &ldquo;You are the assistant on our website; say <em>we</em>. Never quote prices.&rdquo; They are added to the
+          assistant&apos;s own rules, never instead of them, so an instruction cannot make it state facts your documents
+          don&apos;t contain.
+        </li>
+        <li>Documents are shared by every assistant in the database; upload or remove them in the builder at any time.</li>
+      </ul>
+      <p className={NOTE}>
+        <strong>Two limits.</strong> An assistant that uses your own model (your API credits) always keeps at least the sites
+        it was made for, even if you empty the list. And settings saved here can be changed by anyone who can write to the{' '}
+        <C>support_bot</C> tables, the same people who could already change your documents.
+      </p>
+      <h3 className={H3}>Who counts as the owner</h3>
+      <p className={P}>
+        There are no accounts on this service: owning the database is what counts. Connecting needs a connection string that
+        logs in, which your database checks. A successful connect gives this browser an encrypted link, and every change
+        (editing assistants, managing keys) requires it, for this database only. Automation keys and embed code cannot make
+        changes. To use another browser, connect again. Use <em>Disconnect</em> on shared computers.
       </p>
 
       <h2 id="keys" className={H2}>Keeping documents in sync</h2>

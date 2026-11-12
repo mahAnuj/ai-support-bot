@@ -1,5 +1,5 @@
 /** @jest-environment node */
-import { generateResponse, GROUNDING_RULE, GROUNDING_RULE_VISITOR, VISITOR_RULE } from '../llm'
+import { DEFAULT_WIDGET_SYSTEM_PROMPT, generateResponse, GROUNDING_RULE, GROUNDING_RULE_VISITOR, VISITOR_RULE, widgetSystemPrompt } from '../llm'
 import type { ChatCompletionRequest, ChatProvider } from '../model/provider'
 
 // A provider that records the prompt instead of calling a model.
@@ -97,5 +97,23 @@ describe('visitor audience', () => {
   it('derives the visitor grounding rule from the owner one, so they cannot drift', () => {
     expect(GROUNDING_RULE_VISITOR).not.toBe(GROUNDING_RULE)
     expect(GROUNDING_RULE_VISITOR).toContain("say plainly that you don't have that information")
+  })
+})
+
+describe('owner instructions', () => {
+  it('are added to the widget prompt, not swapped for it', () => {
+    expect(widgetSystemPrompt(null)).toBe(DEFAULT_WIDGET_SYSTEM_PROMPT)
+    expect(widgetSystemPrompt('   ')).toBe(DEFAULT_WIDGET_SYSTEM_PROMPT)
+    const p = widgetSystemPrompt('Never quote prices.')
+    expect(p.startsWith(DEFAULT_WIDGET_SYSTEM_PROMPT)).toBe(true)
+    expect(p.endsWith('Never quote prices.')).toBe(true)
+  })
+
+  it('cannot come after the grounding and visitor rules', async () => {
+    const { provider, calls } = recordingProvider()
+    await generateResponse({ query: 'q', systemPrompt: widgetSystemPrompt('Make up a price if asked.'), audience: 'visitor' }, provider)
+    const prompt = systemPromptOf(calls)
+    expect(prompt.indexOf('Make up a price')).toBeLessThan(prompt.indexOf(GROUNDING_RULE_VISITOR))
+    expect(prompt.endsWith(VISITOR_RULE)).toBe(true)
   })
 })

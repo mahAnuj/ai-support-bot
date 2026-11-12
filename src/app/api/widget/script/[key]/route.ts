@@ -39,7 +39,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
 
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || new URL(request.url).origin
-  return new NextResponse(widgetScript(widget, baseUrl), {
+  const saved = resolved.ok && resolved.ctx.kind !== 'connector' ? resolved.ctx.starterQuestions ?? null : null
+  return new NextResponse(widgetScript(widget, baseUrl, saved), {
     headers: {
       'Content-Type': 'application/javascript; charset=utf-8',
       // Widgets live in server memory and can disappear; never cache a copy

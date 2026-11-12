@@ -4,6 +4,7 @@ import { useId, useState, type FormEvent, type JSX } from 'react'
 import type { StorageConnection } from './useStorageConnection'
 import AutomationKeys from './AutomationKeys'
 import DatabaseLogin from './DatabaseLogin'
+import YourAssistants from './YourAssistants'
 
 export interface ConnectDatabaseStepProps {
   storage: StorageConnection
@@ -13,6 +14,8 @@ export interface ConnectDatabaseStepProps {
   onDisconnect?: () => void
   // When set, the form is shown disabled with this one-line reason.
   disabledReason?: string | null
+  // The model connected under "Use your own model", if any, for "Your assistants".
+  ownModel?: { token: string; model: string; host: string } | null
 }
 
 const SCHEMA_SQL_URL = 'https://github.com/mahAnuj/ai-support-bot/blob/main/scripts/support-bot-schema.sql'
@@ -68,7 +71,7 @@ function ErrorMessage({ message }: { message: string }) {
   )
 }
 
-export default function ConnectDatabaseStep({ storage, sessionId, sessionDocumentCount = 0, onDisconnect, disabledReason = null }: ConnectDatabaseStepProps): JSX.Element | null {
+export default function ConnectDatabaseStep({ storage, sessionId, sessionDocumentCount = 0, onDisconnect, disabledReason = null, ownModel = null }: ConnectDatabaseStepProps): JSX.Element | null {
   const [expectedCopies, setExpectedCopies] = useState(0)
   const [value, setValue] = useState('')
   const [secure, setSecure] = useState(true)
@@ -137,6 +140,7 @@ export default function ConnectDatabaseStep({ storage, sessionId, sessionDocumen
           Generate new embed code below. Embed code made before connecting keeps working only until this server restarts.
         </p>
         {storage.error && <ErrorMessage message={storage.error.message} />}
+        <YourAssistants requestHeaders={storage.requestHeaders} ownModel={ownModel} />
         <AutomationKeys requestHeaders={storage.requestHeaders} />
         <div className="mt-4 flex flex-col items-start gap-2">
           <button type="button" onClick={disconnect} className={SECONDARY_BUTTON}>

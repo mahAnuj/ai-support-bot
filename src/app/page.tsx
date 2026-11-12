@@ -654,6 +654,7 @@ export default function HomePage() {
               sessionDocumentCount={storage.connected ? 0 : uploadedDocuments.length}
               onDisconnect={handleDisconnect}
               disabledReason={!storage.connected && (connector.connected || connector.pending) ? ONE_PLACE_FROM_BACKEND : null}
+              ownModel={savedModel}
             />
             <ConnectBackendStep
               connector={connector}

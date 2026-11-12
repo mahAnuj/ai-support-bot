@@ -35,6 +35,9 @@ jest.mock('../pg-store', () => {
   return { createPostgresStore: jest.fn(actual.createPostgresStore) }
 })
 
+// The widget's saved settings (Your assistants) are read from the database; these tests have none.
+jest.mock('../widget-edit', () => ({ ...jest.requireActual('../widget-edit'), getAssistantPrefs: jest.fn(async () => null) }))
+
 const KEY = randomBytes(32).toString('base64')
 const CONN = 'postgresql://user:pw@db.example.com:5432/app?sslmode=verify-full'
 const PRIVATE_CONN = 'postgresql://user:pw@10.0.0.5:5432/app'

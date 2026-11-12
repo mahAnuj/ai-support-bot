@@ -9,6 +9,8 @@ import type { WidgetSettings } from '../../../../lib/storage/types'
 
 jest.mock('../../../../lib/llm', () => ({
   chatErrorCode: jest.requireActual('../../../../lib/llm').chatErrorCode,
+  widgetSystemPrompt: jest.requireActual('../../../../lib/llm').widgetSystemPrompt,
+  DEFAULT_WIDGET_SYSTEM_PROMPT: jest.requireActual('../../../../lib/llm').DEFAULT_WIDGET_SYSTEM_PROMPT,
   generateResponse: jest.fn(async () => ({ message: 'Answer from the model' })),
 }))
 

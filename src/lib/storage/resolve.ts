@@ -40,8 +40,10 @@ import {
   openAutomationKey,
   openBuilderToken,
   openWidgetToken,
+  openModelToken,
   openWidgetTokenV2,
 } from './token'
+import { getAssistantPrefs, type AssistantPrefs } from './widget-edit'
 import type { KnowledgeStore, StoreKind, WidgetRecord } from './types'
 
 export type BuilderContext =
@@ -65,6 +67,8 @@ export interface WidgetContext {
   model: OwnerModelConfig | null
   // Set for a widget backed by the owner's database: where its conversation log lives.
   database?: { connection: ParsedConnection; workspaceId: string }
+  // Suggested questions saved under "Your assistants"; null means the script tag's attributes apply.
+  starterQuestions?: string[] | null
 }
 
 // An sbw3_ widget: the token is the whole record, and documents live on the owner's backend.
@@ -103,7 +107,7 @@ function originsAreNormalized(origins: readonly string[]): boolean {
   })
 }
 
-type LoadResult = { ok: true; store: KnowledgeStore; widget: WidgetRecord; connection: ParsedConnection; workspaceId: string } | Extract<WidgetResolution, { ok: false }>
+type LoadResult = { ok: true; store: KnowledgeStore; widget: WidgetRecord; connection: ParsedConnection; workspaceId: string; prefs: AssistantPrefs | null } | Extract<WidgetResolution, { ok: false }>
 
 async function loadPostgresWidget(conn: string, workspaceId: string, widgetId: string): Promise<LoadResult> {
   // Re-validate so the current private-host policy applies to tokens issued under an older one.
@@ -118,7 +122,39 @@ async function loadPostgresWidget(conn: string, workspaceId: string, widgetId: s
     return { ok: false, status: 503, code: mapDriverError(e).code }
   }
   if (!widget) return WIDGET_NOT_FOUND
-  return { ok: true, store, widget, connection: validated.connection, workspaceId }
+  let prefs: AssistantPrefs | null
+  try {
+    prefs = await getAssistantPrefs(validated.connection, workspaceId, widgetId)
+  } catch (e) {
+    return { ok: false, status: 503, code: mapDriverError(e).code }
+  }
+  return { ok: true, store, widget, connection: validated.connection, workspaceId, prefs }
+}
+
+// Settings saved under "Your assistants" win over what the embed token carries,
+// so existing embed code picks up an edit without any change on the owner's
+// site. One rule is never relaxed: an assistant answering with the owner's own
+// model (their API credits) is never opened to every site; an empty saved list
+// falls back to the sites sealed in the token.
+function applyPrefs(
+  prefs: AssistantPrefs | null,
+  tokenAccess: OriginPolicy,
+  tokenModel: OwnerModelConfig | null,
+): { ok: true; access: OriginPolicy; model: OwnerModelConfig | null; starterQuestions: string[] | null } | { ok: false } {
+  if (!prefs) return { ok: true, access: tokenAccess, model: tokenModel, starterQuestions: null }
+  let model = tokenModel
+  if (prefs.modelMode === 'demo') model = null
+  if (prefs.modelMode === 'owner') {
+    model = openModelToken(prefs.modelToken)
+    // A saved model link this server cannot open must not quietly become the demo model.
+    if (!model) return { ok: false }
+  }
+  let access = tokenAccess
+  if (prefs.allowedOrigins !== null) {
+    access = prefs.allowedOrigins.length > 0 ? { kind: 'exact', origins: [...prefs.allowedOrigins] } : { kind: 'any' }
+  }
+  if (model && access.kind === 'any') access = tokenAccess
+  return { ok: true, access, model, starterQuestions: prefs.starterQuestions }
 }
 
 function builderError(code: StorageErrorCode): BuilderResolution {
@@ -329,6 +365,8 @@ export async function resolveWidget(key: unknown): Promise<WidgetResolution> {
 
     const loaded = await loadPostgresWidget(source.conn, source.workspaceId, source.widgetId)
     if (!loaded.ok) return loaded
+    const applied = applyPrefs(loaded.prefs, widgetAccessPolicy(loaded.widget, origins), model)
+    if (!applied.ok) return { ok: false, status: 503, code: 'storage_error' }
     return {
       ok: true,
       ctx: {
@@ -336,8 +374,9 @@ export async function resolveWidget(key: unknown): Promise<WidgetResolution> {
         widget: { ...loaded.widget, widget_key: key },
         kind: 'postgres',
         label: keyLabel(key),
-        access: widgetAccessPolicy(loaded.widget, origins),
-        model,
+        access: applied.access,
+        model: applied.model,
+        starterQuestions: applied.starterQuestions,
         database: { connection: loaded.connection, workspaceId: loaded.workspaceId },
       },
     }
@@ -348,6 +387,8 @@ export async function resolveWidget(key: unknown): Promise<WidgetResolution> {
 
   const loaded = await loadPostgresWidget(payload.conn, payload.workspaceId, payload.widgetId)
   if (!loaded.ok) return loaded
+  const applied = applyPrefs(loaded.prefs, widgetAccessPolicy(loaded.widget), null)
+  if (!applied.ok) return { ok: false, status: 503, code: 'storage_error' }
   return {
     ok: true,
     ctx: {
@@ -355,8 +396,9 @@ export async function resolveWidget(key: unknown): Promise<WidgetResolution> {
       widget: { ...loaded.widget, widget_key: key },
       kind: 'postgres',
       label: keyLabel(key),
-      access: widgetAccessPolicy(loaded.widget),
-      model: null,
+      access: applied.access,
+      model: applied.model,
+      starterQuestions: applied.starterQuestions,
       database: { connection: loaded.connection, workspaceId: loaded.workspaceId },
     },
   }
