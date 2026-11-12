@@ -33,6 +33,8 @@ type Draft = {
   sites: string
   // Allowed sites left as sealed in the embed code until the owner edits them.
   sitesFromEmbed: boolean
+  // No questions saved here yet: the fields were pre-filled from the builder setup.
+  startersPrefilled: boolean
   model: 'keep' | 'demo' | 'builder'
 }
 
@@ -48,8 +50,11 @@ function day(iso: string): string {
   return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-function toDraft(a: Assistant): Draft {
-  const starters = [...(a.starterQuestions ?? [])]
+function toDraft(a: Assistant, builderStarters: readonly string[]): Draft {
+  // Until questions are saved here, the site shows the ones in its script tag.
+  // The builder's own questions are the best guess at those, so start from them.
+  const prefilled = a.starterQuestions === null
+  const starters = [...(prefilled ? builderStarters : (a.starterQuestions ?? []))].slice(0, 4)
   while (starters.length < 4) starters.push('')
   return {
     title: a.title,
@@ -61,6 +66,7 @@ function toDraft(a: Assistant): Draft {
     starters,
     sites: (a.allowedOrigins ?? []).join('\n'),
     sitesFromEmbed: a.allowedOrigins === null,
+    startersPrefilled: prefilled,
     model: 'keep',
   }
 }
@@ -74,9 +80,12 @@ const MODEL_LABEL: Record<Assistant['model'], string> = {
 export default function YourAssistants({
   requestHeaders,
   ownModel,
+  builderStarters = [],
 }: {
   requestHeaders: Record<string, string>
   ownModel: { token: string; model: string; host: string } | null
+  // The suggested questions set in the builder's Set up step.
+  builderStarters?: readonly string[]
 }): JSX.Element | null {
   const headingId = useId()
   const [assistants, setAssistants] = useState<Assistant[] | null>(null)
@@ -85,6 +94,8 @@ export default function YourAssistants({
   const [draft, setDraft] = useState<Draft | null>(null)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
+  // The assistant whose save just finished: its form closes and its row says so.
+  const [savedId, setSavedId] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -105,8 +116,9 @@ export default function YourAssistants({
 
   const start = (a: Assistant) => {
     setEditing(a.id)
-    setDraft(toDraft(a))
+    setDraft(toDraft(a, builderStarters))
     setMessage(null)
+    setSavedId(null)
   }
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft((d) => (d ? { ...d, [key]: value } : d))
@@ -143,8 +155,10 @@ export default function YourAssistants({
         return
       }
       setAssistants((list) => (list ?? []).map((x) => (x.id === a.id ? body.assistant : x)))
-      setDraft(toDraft(body.assistant))
-      setMessage({ ok: true, text: 'Saved. It is live on your site from the next page load, with the same embed code.' })
+      setEditing(null)
+      setDraft(null)
+      setMessage(null)
+      setSavedId(a.id)
     } catch {
       setMessage({ ok: false, text: "Couldn't reach the server." })
     } finally {
@@ -176,6 +190,12 @@ export default function YourAssistants({
                 <span aria-hidden="true" className="size-3 shrink-0 rounded-full border border-line" style={{ background: a.primaryColor }} />
                 <span className="min-w-0">
                   <span className="block truncate text-sm text-ink">{a.title}</span>
+                  {savedId === a.id && (
+                    <span role="status" className="mt-0.5 flex items-center gap-1 text-xs font-medium text-accent">
+                      <svg aria-hidden="true" width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+                      Saved. Live on your site from the next page load, with the same embed code.
+                    </span>
+                  )}
                   <span className="block text-xs text-ink-muted">
                     {`Created ${day(a.createdAt)}`}{a.updatedAt !== a.createdAt ? ` · edited ${day(a.updatedAt)}` : ''}
                   </span>
@@ -229,7 +249,13 @@ export default function YourAssistants({
                   {draft.starters.map((q, i) => (
                     <input key={i} aria-label={`Suggested question ${i + 1}`} className={INPUT} value={q} maxLength={120} onChange={(e) => set('starters', draft.starters.map((x, j) => (j === i ? e.target.value : x)))} />
                   ))}
-                  <p className={HELP}>Saved here, these replace any questions written in the script tag on your site.</p>
+                  <p className={HELP}>
+                    {draft.startersPrefilled
+                      ? builderStarters.length
+                        ? 'Not saved here yet, so your site shows the questions written in its script tag. These are the questions from your builder setup; save to manage them here from now on.'
+                        : 'Not saved here yet, so your site shows any questions written in its script tag. Add them here to manage them from the builder.'
+                      : 'Saved here, these replace any questions written in the script tag on your site.'}
+                  </p>
                 </fieldset>
 
                 <label className="flex flex-col gap-1.5">

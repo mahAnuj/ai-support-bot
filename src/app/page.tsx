@@ -655,6 +655,7 @@ export default function HomePage() {
               onDisconnect={handleDisconnect}
               disabledReason={!storage.connected && (connector.connected || connector.pending) ? ONE_PLACE_FROM_BACKEND : null}
               ownModel={savedModel}
+              builderStarters={starterQuestions}
             />
             <ConnectBackendStep
               connector={connector}
