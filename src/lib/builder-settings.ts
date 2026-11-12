@@ -40,7 +40,7 @@ export function parseBuilderSettings(raw: string | null): SavedBuilderSettings {
   return out
 }
 
-// With a project, settings are kept per project, so starting a new project
+// Kept per workspace (one per bot), so starting a new bot
 // (another site) does not begin from the previous one's title and questions.
 export function builderSettingsKey(projectId?: string | null): string {
   return projectId ? `${BUILDER_SETTINGS_KEY}:${projectId}` : BUILDER_SETTINGS_KEY

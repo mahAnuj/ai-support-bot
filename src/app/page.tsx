@@ -229,7 +229,7 @@ export default function HomePage() {
   // Which project the form on screen belongs to; null while it is an unattached
   // draft (filled in before connecting).
   const formProject = useRef<string | null>(null)
-  // A project opened: on connect (any database) or from the project picker.
+  // A project opened: on connect (any database) or from Your bots.
   // It gets what was saved for it in this browser. Without that, a draft is
   // adopted, but a form that belongs to another project or database is not:
   // the new one starts from the defaults, never from the last site's values.
