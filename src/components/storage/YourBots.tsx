@@ -22,6 +22,7 @@ export default function YourBots({
   switchTo,
   onProjectChange,
   onNewBot,
+  title,
 }: {
   connected: boolean
   token: string | null
@@ -31,6 +32,8 @@ export default function YourBots({
   onProjectChange?: (id: string, isNew: boolean) => void
   /** Start a new bot from a blank builder; the open one stays in the list. */
   onNewBot?: () => void
+  /** The open bot's display title and the workspace it belongs to: names a bot nobody named. */
+  title?: { projectId: string | null; text: string } | null
 }): JSX.Element | null {
   const headingId = useId()
   const nameId = useId()
@@ -68,6 +71,27 @@ export default function YourBots({
     })()
     return () => { cancelled = true }
   }, [connected, token, requestHeaders, onProjectChange])
+
+  // A bot nobody named takes its display title ("Ask about Anuj's work"), so the
+  // list never fills with "Unnamed bot". Only when the title is known to belong
+  // to the open workspace, so one bot is never named after another's form.
+  // Saved in this browser, and in the database when it has the names table.
+  const autoName = title && current && title.projectId === current.projectId ? title.text.replace(/\s+/g, ' ').trim().slice(0, 60) : ''
+  useEffect(() => {
+    if (!current || !autoName) return
+    // Waits for typing to pause, so a title being typed is not taken half-way.
+    const timer = window.setTimeout(() => {
+      const bot = loadBotList().find((b) => b.key === current.key)
+      if (!bot || bot.name) return
+      setBots(rememberBot({ ...bot, name: autoName }))
+      fetch('/api/storage/projects', {
+        method: 'POST',
+        headers: { ...requestHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'rename', id: current.projectId, name: autoName }),
+      }).catch(() => { /* kept in this browser either way */ })
+    }, 2000)
+    return () => window.clearTimeout(timer)
+  }, [current, autoName, requestHeaders])
 
   // A message is about the bot it was written for; another bot clears it.
   useEffect(() => { setNote(null); setRenaming(false) }, [connected, current?.key])

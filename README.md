@@ -586,8 +586,9 @@ assistants, automation keys, and disconnecting this browser).
 Managing several sites? Give each its own bot, with its own database and its
 own settings, and manage them all from the builder.
 
-1. Connect the first site's database and set the bot up. **Rename** it in
-   **Your bots** (for example `shubhagya.com`).
+1. Connect the first site's database and set the bot up. A bot nobody has
+   named takes its display title as its name; **Rename** it in **Your bots**
+   to choose another (for example `shubhagya.com`).
 2. Click **+ New bot** at the top of the builder. The current bot stays listed, and the new one gets the same guided start as the first: a blank form at step 1, empty documents and preview, and its own database to connect in step 2.
 3. Repeat for each site. **Your bots** lists them all; **Open** switches to
    one, bringing back its documents, assistants, keys, log, stats and the

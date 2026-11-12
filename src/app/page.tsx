@@ -527,6 +527,7 @@ export default function HomePage() {
             switchTo={openBot}
             onProjectChange={handleProjectChange}
             onNewBot={storage.available ? handleNewBot : undefined}
+            title={widgetConfig.title.trim() && widgetConfig.title !== DEFAULT_TITLE ? { projectId, text: widgetConfig.title } : null}
           />
           {storage.connected && (
             <div role="tablist" aria-label="This bot" className="flex gap-1 border-b border-line">
