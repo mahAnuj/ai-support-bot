@@ -8,9 +8,12 @@ Upload your documents, preview the assistant, and paste one `<script>` tag into 
 - **Local embeddings.** Indexing runs on the server with an open-source model, so no document text goes to a third party just to be searched.
 - **Bring your own model or database.** Point it at any OpenAI-compatible model, or your own Postgres with pgvector, through encrypted, scope-separated tokens.
 - **Guarded by default.** The server refuses to call localhost or private-network addresses for model, database or backend URLs (unless the operator opts in); widgets answer only on the sites you list; per-IP rate limits and size caps bound abuse and spend.
+- **Your database, set up safely in one click.** Connect with your admin login and the app creates its own limited login that can reach only its own tables, then keeps only that one. See [One-click setup](#one-click-setup-recommended).
+- **Change it after it's live, with the same embed code.** Title, welcome message, colours, suggested questions, allowed sites, the model and your own instructions are edited in the builder and reach your site on the next page load. See [Change an assistant after it's live](#-change-an-assistant-after-its-live).
+- **Answers written for visitors.** Visitors never see source file names or match scores, are never asked to upload anything, and see honest waiting messages while an answer is on its way.
 - **Honest about what it protects.** [GOVERNANCE.md](GOVERNANCE.md) lists what is enforced, where data goes, and what is still open. It describes controls; it is not a certification.
 
-~390 tests across the app and the connector, needing no database, network or API keys. MIT licensed.
+About 790 tests across the app and the connector. About 20 of them need a disposable Postgres (`TEST_DATABASE_URL`); the rest need no database, network or API keys. MIT licensed.
 
 ## ✨ What It Does
 
@@ -19,13 +22,16 @@ Upload your documents, preview the assistant, and paste one `<script>` tag into 
 - **Your Documents**: Upload business documents (PDF, TXT, MD, DOCX) for the assistant to answer from
 - **Live Preview**: See exactly how your assistant will look and behave
 - **One-line embed**: Generate embeddable JavaScript code for your website
+- **Your assistants**: Edit an assistant that is already on your site, including your own instructions ("never quote prices"), without new embed code
+- **Automation keys**: Let a script or CI job keep the documents in sync, with per-key expiry and an activity log
+- **One-click database setup**: The app creates a limited database login for itself, and shows which login it is using
 - **Professional UI**: Clean, mobile-responsive design that works on any website
 
 ### 📚 **Intelligent Document Processing**
 - **Chunking**: Splits each document into fixed-size passages of about 1,000 characters
 - **Local Embeddings**: Passages are embedded on the server with an open-source model (`all-MiniLM-L6-v2`), so indexing needs no API key and sends no document text to a third party
-- **Source Attribution**: Shows which documents were used in each response
-- **Retrieval Match Score**: Shows how closely the retrieved passages match the question (a similarity score, not a probability that the answer is correct)
+- **Source Attribution** (builder preview only): Shows which documents were used in each response
+- **Retrieval Match Score** (builder preview only): Shows how closely the retrieved passages match the question (a similarity score, not a probability that the answer is correct)
 
 ### 🌐 **On Your Website**
 - **Embeddable Widget**: Copy-paste JavaScript code to add to any website
@@ -34,6 +40,8 @@ Upload your documents, preview the assistant, and paste one `<script>` tag into 
 - **Allowed sites**: List up to 10 exact sites (such as `https://example.com`) and the widget refuses to answer anywhere else in a browser
 - **Your own model (optional)**: Answer with your own OpenAI-compatible model and API key instead of the shared demo model on Groq. See [Use your own model](#-use-your-own-model)
 - **Your own backend (optional)**: Keep documents on a server you run, which this app reaches with signed requests, so the app holds no database credentials. See [Connect your backend](#connect-your-backend)
+- **Answers for visitors**: Source file names and match scores never reach the widget. The widget is told it is talking to a visitor, so it never asks them for documents and says "I don't have that information" when the documents are silent
+- **Waiting messages**: While an answer is on its way the widget moves from "Looking through the documents" to "Writing an answer", and explains a slow first answer instead of sitting silent
 - **Bounded by default**: Per-IP rate limits and input size caps. See [GOVERNANCE.md](GOVERNANCE.md) for what is and is not protected
 
 ## 🚀 Quick Start
@@ -502,12 +510,60 @@ tables existed needs `scripts/support-bot-schema.sql` and
 `scripts/support-bot-role.sql` run again. That script grants no `DELETE` on
 `key_events`, so the app's own login cannot erase the trail.
 
+## ✏️ Change an assistant after it's live
+
+With a database connected, **Your assistants** in the builder lists every
+assistant stored there. **Edit** changes one in place: the embed code on your
+site stays exactly the same, and visitors see the change on their next page
+load (the widget script is served `no-store`, and every answer reads the
+current settings).
+
+| Setting | Where it is kept | Changed in place? |
+|---|---|---|
+| Title, welcome message, colour, position, size | `support_bot.widgets` | Yes |
+| Instructions (new) | `support_bot.widgets.system_prompt` | Yes |
+| Suggested questions | `support_bot.widget_prefs`, over the tag's attributes | Yes |
+| Allowed sites | `support_bot.widget_prefs`, over the sites sealed in the embed code | Yes |
+| Model: shared demo model or your own | `support_bot.widget_prefs`; your model as its sealed `sbm1_` link, readable only by this server | Yes |
+| Documents | `support_bot.documents`, shared by every assistant in the workspace | Yes, upload or remove in the builder |
+
+**Instructions** are added to the widget's prompt, not swapped for it, and the
+grounding and visitor rules always come after them. An instruction can set the
+tone ("call him Anuj, never I"), forbid a topic or ask for a contact line; it
+cannot make the assistant state facts your documents do not contain.
+
+**Two rules that are never relaxed.** An assistant answering with your own
+model (your API credits) is never opened to every site: an empty saved list
+falls back to the sites sealed in the embed code. And a saved model link this
+server cannot open fails closed, never quietly becoming the demo model.
+
+**The trade-off.** Allowed sites and the model used to be sealed only in the
+embed code, so nobody who could write to the database could widen them. Now a
+saved row wins, so anyone who can write to the `support_bot` tables can change
+them; that is the same set of people who could already rewrite the documents
+and instructions. The settings table is created with the others; a limited
+login made before it existed needs `scripts/support-bot-schema.sql` and
+`scripts/support-bot-role.sql` run again by an admin.
+
+A backend-connected assistant (`sbw3_`) keeps its settings in the embed code
+and is not editable here; generate new embed code for it.
+
+### Who counts as the owner
+
+There are no accounts on this service; owning the database is what counts.
+Connecting needs a connection string that logs in, which Postgres checks. A
+successful connect gives this browser an encrypted builder link (`sbb1_…`),
+and every owner action (editing assistants, managing keys) requires that link,
+for its own workspace only. Automation keys and embed codes are refused. To
+use another browser, connect again; to revoke everything made with a login,
+change that login's password. The builder link sits in browser storage, so
+use **Disconnect** on shared computers.
+
 ## 💬 Suggested questions
 
 Up to four "Try asking" questions can be set in the builder. They show under
 the welcome message, in the preview and in the widget on your site, and a
-click asks that question. They travel in the embed code as attributes, not in
-storage, so you can change them later by editing the tag on your site:
+click asks that question. They travel in the embed code as attributes:
 
 ```html
 <script data-question-1="What services do you offer?" data-question-2="How does pricing work?" src="…" async></script>
@@ -515,6 +571,10 @@ storage, so you can change them later by editing the tag on your site:
 
 Each is trimmed and capped at 120 characters, at most four are used, and they
 are shown as plain text only.
+
+With a database connected, you can also change them under **Your assistants**
+without touching your site. Questions saved there replace the tag's attributes
+(an empty saved list shows none).
 
 ## 🔒 Allowed sites
 
@@ -695,7 +755,8 @@ const widgetConfig = {
 ```
 
 ### **Advanced Customization**
-- **System Prompts**: Modify `UNIVERSAL_ASSISTANT.systemPrompt` in `src/app/page.tsx`
+- **Instructions per assistant**: Under **Your assistants** (database-backed assistants). They are added to the widget prompt in `widgetSystemPrompt()` in `src/lib/llm.ts`
+- **Preview prompt**: `UNIVERSAL_ASSISTANT.systemPrompt` in `src/app/page.tsx` is the builder preview's, for the owner; widget answers use `audience: 'visitor'`
 - **Styling**: Built with Tailwind CSS v4
 - **Branding**: Professional blue/gray color scheme, fully customizable
 - **Responsive**: Mobile-first design that works on all devices
@@ -784,10 +845,10 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide.
 ## 🚀 Roadmap
 
 - [ ] **Multi-language Support**: Support for non-English documents
-- [ ] **Analytics**: Track widget performance and user engagement (not built yet)
+- [ ] **Conversation log** (in progress): Questions and answers kept in your own database, off by default, with a visitor notice and a retention period
 - [ ] **Custom Domains**: White-label deployment options
 - [ ] **Team Collaboration**: Multi-user workspace management
-- [ ] **API Access**: RESTful API for programmatic assistant management
+- [x] **API access for documents**: Automation keys upload, list and remove documents (`/api/upload`, `/api/storage/documents`)
 - [ ] **Advanced Theming**: Full CSS customization options
 
 ## 📝 License

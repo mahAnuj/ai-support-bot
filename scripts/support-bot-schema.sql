@@ -35,6 +35,8 @@ CREATE TABLE IF NOT EXISTS support_bot.api_keys (id uuid PRIMARY KEY, workspace_
 -- Audit trail of automation-key actions: filenames and actions, never document content.
 CREATE TABLE IF NOT EXISTS support_bot.key_events (id uuid PRIMARY KEY, key_id uuid NOT NULL REFERENCES support_bot.api_keys(id) ON DELETE CASCADE, workspace_id uuid NOT NULL REFERENCES support_bot.workspaces(id) ON DELETE CASCADE, action text NOT NULL, filename text, detail text, at timestamptz NOT NULL DEFAULT now());
 CREATE INDEX IF NOT EXISTS key_events_key_idx ON support_bot.key_events (key_id, at DESC);
+-- Settings edited under "Your assistants" (suggested questions, allowed sites, model); a row wins over the embed code.
+CREATE TABLE IF NOT EXISTS support_bot.widget_prefs (widget_id uuid PRIMARY KEY REFERENCES support_bot.widgets(id) ON DELETE CASCADE, workspace_id uuid NOT NULL REFERENCES support_bot.workspaces(id) ON DELETE CASCADE, starter_questions text[], allowed_origins text[], model_mode text CHECK (model_mode IN ('demo', 'owner')), model_token text, updated_at timestamptz NOT NULL DEFAULT now());
 
 CREATE INDEX IF NOT EXISTS documents_workspace_idx ON support_bot.documents (workspace_id);
 

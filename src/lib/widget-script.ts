@@ -12,7 +12,11 @@ function jsLiteral(value: unknown): string {
   return JSON.stringify(value ?? '').replace(/</g, '\\u003c')
 }
 
-export function widgetScript(widget: Widget, baseUrl: string): string {
+// savedStarters: suggested questions saved under "Your assistants". When set
+// (even to an empty list) they win over the script tag's data-question
+// attributes, so the owner can change them without touching their site.
+export function widgetScript(widget: Widget, baseUrl: string, savedStarters: readonly string[] | null = null): string {
+  const saved = savedStarters === null ? 'null' : jsLiteral(savedStarters.slice(0, MAX_STARTER_QUESTIONS))
   return `
 (function() {
   // Mount once, even if a single-page app runs this script again
@@ -24,8 +28,9 @@ export function widgetScript(widget: Widget, baseUrl: string): string {
   // document.currentScript is only set while the script first runs.
   const scriptEl = document.currentScript
     || document.querySelector('script[src*="/api/widget/script/"]');
-  const starterQuestions = [];
-  for (let i = 1; scriptEl && i <= ${MAX_STARTER_QUESTIONS}; i++) {
+  const savedStarters = ${saved};
+  const starterQuestions = Array.isArray(savedStarters) ? savedStarters.slice() : [];
+  for (let i = 1; !Array.isArray(savedStarters) && scriptEl && i <= ${MAX_STARTER_QUESTIONS}; i++) {
     const raw = scriptEl.getAttribute('data-question-' + i);
     const q = typeof raw === 'string' ? raw.replace(/\\s+/g, ' ').trim().slice(0, ${MAX_STARTER_LENGTH}).trim() : '';
     if (q && starterQuestions.indexOf(q) === -1) starterQuestions.push(q);
