@@ -226,9 +226,20 @@ export default function DatabaseSetupGuide(): JSX.Element {
         <li>Off by default. While it is on, visitors see &ldquo;Questions and answers are saved to improve this assistant.&rdquo; under the chat box, and only questions sent with that notice showing are kept.</li>
         <li>Kept: the question, the answer, whether any document matched, the documents used and the time. No IP address, browser details or cookies.</li>
         <li>Kept for 1 to 730 days, 90 by default; older entries are deleted automatically, and <em>Delete all</em> empties the log.</li>
-        <li>Filter to the questions no document matched, and download everything as a CSV file.</li>
+        <li>Filter to the questions no document matched, or to answers with a low match score, and download everything as a CSV file.</li>
         <li>Questions you ask in the builder&apos;s preview are never logged.</li>
       </ul>
+      <h3 className={H3}>Daily numbers</h3>
+      <p className={P}>
+        The <em>Questions and answers</em> panel counts, per day: questions, answers from your documents, questions no document
+        matched, &ldquo;I don&apos;t have that information&rdquo; answers, failures, and the mean and lowest match score. Counts
+        hold no question text, so they are kept even with the log off; you can turn counting off.
+      </p>
+      <p className={P}>
+        The match score (0&ndash;100) says how closely the best passage in your documents matched the question. It is not a
+        measure of whether the answer is right, but low scores are where weak answers come from: filter the log to them, read
+        the answers, and add what your documents are missing.
+      </p>
       <p className={NOTE}>
         <strong>Tell your visitors in your own privacy notice too.</strong> The widget&apos;s notice says the questions are
         saved; depending on where you and your visitors are, you may also need to mention it in your site&apos;s privacy policy.

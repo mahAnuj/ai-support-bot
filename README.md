@@ -26,7 +26,8 @@ About 790 tests across the app and the connector. About 20 of them need a dispos
 - **Your assistants**: Edit an assistant that is already on your site, including your own instructions ("never quote prices"), without new embed code
 - **Automation keys**: Let a script or CI job keep the documents in sync, with per-key expiry and an activity log
 - **One-click database setup**: The app creates a limited database login for itself, and shows which login it is using
-- **Conversation log** (optional): Questions and answers from your widget, kept in your database, filterable to the ones your documents could not answer, and downloadable as CSV
+- **Conversation log** (optional): Questions and answers from your widget, kept in your database, with each answer's match score, filterable to unanswered or low-match answers, and downloadable as CSV
+- **Daily stats**: Questions per day, answered from documents, "don't know" answers, failures, and the mean and lowest match score, as numbers only in your database
 - **Professional UI**: Clean, mobile-responsive design that works on any website
 
 ### 📚 **Intelligent Document Processing**
@@ -575,7 +576,8 @@ backend-connected modes keep no log.
   question only with that flag and the log switched on. A failed or slow check
   means "not logged", never "logged without notice".
 - **What is kept:** the question, the answer, whether any document matched,
-  the documents used, the time, and a random per-page-view chat id. No IP
+  its match score, the documents used, the time, and a random per-page-view
+  chat id. No IP
   address, user agent or cookie. Builder-preview questions are never logged.
 - **Where:** `support_bot.conversations` and `support_bot.log_settings`, in
   your database. This server keeps nothing; the write happens after the reply
@@ -584,9 +586,10 @@ backend-connected modes keep no log.
 - **How long:** 1 to 730 days, 90 by default. Older entries are deleted on
   every write, and at once when you shorten the period. **Delete all** empties
   it.
-- **Reading it:** newest first, with a filter for questions no document
-  matched (the list of what your documents are missing), and **Download CSV**
-  (cells a spreadsheet would run as a formula are quoted).
+- **Reading it:** newest first, with filters for questions no document
+  matched (the list of what your documents are missing) and for low-match
+  answers (score below 40), and **Download CSV** (cells a spreadsheet would run
+  as a formula are quoted).
 - **Owner only:** the builder link is required; automation keys and embed
   codes are refused.
 
@@ -595,6 +598,34 @@ granted by an admin: run `scripts/support-bot-schema.sql` and
 `scripts/support-bot-role.sql` again (the role needs `DELETE` on
 `conversations` for the retention clean-up), or connect once with your admin
 login and one-click setup.
+
+## 📊 Daily stats
+
+The **Questions and answers** panel shows the last 7, 30 or 90 days from
+`support_bot.daily_stats`, one row per day (UTC) updated with a single upsert
+after each widget reply:
+
+| Count | Meaning |
+|---|---|
+| Questions | Every widget question, answered or failed |
+| Answered from documents | At least one passage matched |
+| No matching documents | Nothing in the documents matched |
+| "Don't know" answers | The answer used the phrasing the visitor rule asks for ("I don't have that information"); a pattern match, so a reworded refusal can be missed |
+| Failures | The visitor got an error instead of an answer (model error, or a database error while searching). A failure while the database is unreachable cannot be counted in it |
+| Mean / lowest match score | Over answers that used documents |
+| Low-match answers | Answers whose match score was below 40 |
+
+**The match score is not a confidence that the answer is right.** It is the
+retrieval match score (0-100, `matchScore` in `src/lib/embeddings.ts`): where
+the best passage's similarity falls between 0.15 and 0.5. Low scores are where
+weak answers come from, which is why they are counted and filterable in the log.
+
+Counts hold no visitor text, so they are kept even with the conversation log
+off, unless the owner turns counting off (**Count questions** in the panel,
+`log_settings.stats_enabled`). Reading them and the switch need the builder
+link. When the builder's login may alter tables, connect adds columns that
+newer versions need (`conversations.match_score`, `log_settings.stats_enabled`)
+to tables made from an older script; a limited login carries on without them.
 
 ## 💬 Suggested questions
 

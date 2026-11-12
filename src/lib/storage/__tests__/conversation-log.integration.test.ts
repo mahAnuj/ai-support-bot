@@ -90,7 +90,7 @@ run('conversation log', () => {
     const unmatched = await (await listLog(req('/api/storage/conversations?unmatched=1', { headers: owner() }))).json()
     expect(unmatched.turns).toHaveLength(1)
     const csv = await (await listLog(req('/api/storage/conversations?format=csv', { headers: owner() }))).text()
-    expect(csv.split('\r\n')[0]).toBe('time,chat,question,answer,matched_documents,sources')
+    expect(csv.split('\r\n')[0]).toBe('time,chat,question,answer,matched_documents,match_score,sources')
     expect(csv).toContain(`"'=HYPERLINK(""x"")"`)
     expect(csv).not.toMatch(/(^|,)=HYPERLINK/m)
   })

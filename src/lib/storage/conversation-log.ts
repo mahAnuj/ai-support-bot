@@ -11,6 +11,7 @@ import { randomUUID } from 'node:crypto'
 import type { ParsedConnection } from './connection'
 import { mapDriverError, safeErrorSummary } from './errors'
 import { getPool } from './pg-pool'
+import { LOW_MATCH } from './daily-stats'
 
 export const DEFAULT_RETENTION_DAYS = 90
 export const MIN_RETENTION_DAYS = 1
@@ -34,6 +35,8 @@ export interface LoggedTurn {
   question: string
   answer: string
   matched: boolean
+  // Retrieval match score 0-100 (not answer correctness); null before it was recorded.
+  matchScore: number | null
   sources: string[]
   at: string
 }
@@ -90,17 +93,21 @@ export async function setLogSettings(connection: ParsedConnection, workspaceId: 
 export async function recordTurn(
   connection: ParsedConnection,
   workspaceId: string,
-  turn: { chatId: unknown; question: string; answer: string; matched: boolean; sources: string[] },
+  turn: { chatId: unknown; question: string; answer: string; matched: boolean; matchScore?: number | null; sources: string[] },
 ): Promise<boolean> {
   try {
     const settings = await getLogSettings(connection, workspaceId)
     if (!settings.available || !settings.enabled) return false
     const chatId = typeof turn.chatId === 'string' && UUID.test(turn.chatId) ? turn.chatId : null
-    await q(
-      connection,
-      'INSERT INTO support_bot.conversations (id, workspace_id, chat_id, question, answer, matched, sources) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-      [randomUUID(), workspaceId, chatId, turn.question, turn.answer.slice(0, MAX_ANSWER_CHARS), turn.matched, turn.sources.slice(0, 20)],
-    )
+    const base = [randomUUID(), workspaceId, chatId, turn.question, turn.answer.slice(0, MAX_ANSWER_CHARS), turn.matched, turn.sources.slice(0, 20)]
+    const score = turn.matched && typeof turn.matchScore === 'number' ? Math.max(0, Math.min(100, Math.round(turn.matchScore))) : null
+    try {
+      await q(connection, 'INSERT INTO support_bot.conversations (id, workspace_id, chat_id, question, answer, matched, sources, match_score) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)', [...base, score])
+    } catch (e) {
+      // A log table created before match_score existed: keep logging without it.
+      if ((e as { code?: unknown })?.code !== '42703') throw e
+      await q(connection, 'INSERT INTO support_bot.conversations (id, workspace_id, chat_id, question, answer, matched, sources) VALUES ($1, $2, $3, $4, $5, $6, $7)', base)
+    }
     await q(connection, 'DELETE FROM support_bot.conversations WHERE workspace_id = $1 AND created_at < now() - make_interval(days => $2)', [workspaceId, settings.retentionDays])
     return true
   } catch (e) {
@@ -109,26 +116,37 @@ export async function recordTurn(
   }
 }
 
-function toTurn(r: { id: string; chat_id: string | null; question: string; answer: string; matched: boolean; sources: string[]; created_at: Date }): LoggedTurn {
-  return { id: r.id, chatId: r.chat_id, question: r.question, answer: r.answer, matched: r.matched, sources: r.sources ?? [], at: r.created_at.toISOString() }
+type TurnRow = { id: string; chat_id: string | null; question: string; answer: string; matched: boolean; match_score?: number | null; sources: string[]; created_at: Date }
+
+function toTurn(r: TurnRow): LoggedTurn {
+  return { id: r.id, chatId: r.chat_id, question: r.question, answer: r.answer, matched: r.matched, matchScore: r.match_score ?? null, sources: r.sources ?? [], at: r.created_at.toISOString() }
 }
 
 export async function listTurns(
   connection: ParsedConnection,
   workspaceId: string,
-  opts: { unmatchedOnly?: boolean; before?: string | null; limit?: number } = {},
+  opts: { unmatchedOnly?: boolean; lowMatchOnly?: boolean; before?: string | null; limit?: number } = {},
 ): Promise<LoggedTurn[]> {
   const limit = Math.min(opts.limit ?? LIST_PAGE_SIZE, CSV_MAX_ROWS)
   const before = opts.before && !Number.isNaN(Date.parse(opts.before)) ? new Date(opts.before) : null
+  const where = `workspace_id = $1 AND ($2::boolean IS NOT TRUE OR matched = false) AND ($3::timestamptz IS NULL OR created_at < $3)`
+  const params = [workspaceId, opts.unmatchedOnly === true, before, limit]
   try {
-    const r = await q<{ id: string; chat_id: string | null; question: string; answer: string; matched: boolean; sources: string[]; created_at: Date }>(
-      connection,
-      `SELECT id, chat_id, question, answer, matched, sources, created_at FROM support_bot.conversations
-       WHERE workspace_id = $1 AND ($2::boolean IS NOT TRUE OR matched = false) AND ($3::timestamptz IS NULL OR created_at < $3)
-       ORDER BY created_at DESC, id LIMIT $4`,
-      [workspaceId, opts.unmatchedOnly === true, before, limit],
-    )
-    return r.rows.map(toTurn)
+    try {
+      const r = await q<TurnRow>(
+        connection,
+        `SELECT id, chat_id, question, answer, matched, match_score, sources, created_at FROM support_bot.conversations
+         WHERE ${where} AND ($5::boolean IS NOT TRUE OR (matched AND match_score < $6)) ORDER BY created_at DESC, id LIMIT $4`,
+        [...params, opts.lowMatchOnly === true, LOW_MATCH],
+      )
+      return r.rows.map(toTurn)
+    } catch (e) {
+      // A log table created before match_score existed.
+      if ((e as { code?: unknown })?.code !== '42703') throw e
+      if (opts.lowMatchOnly) return []
+      const r = await q<TurnRow>(connection, `SELECT id, chat_id, question, answer, matched, sources, created_at FROM support_bot.conversations WHERE ${where} ORDER BY created_at DESC, id LIMIT $4`, params)
+      return r.rows.map(toTurn)
+    }
   } catch (e) {
     if (missingTable(e)) return []
     throw mapDriverError(e)
@@ -153,7 +171,7 @@ function csvCell(value: string): string {
 }
 
 export function turnsToCsv(turns: LoggedTurn[]): string {
-  const header = ['time', 'chat', 'question', 'answer', 'matched_documents', 'sources']
-  const lines = turns.map((t) => [t.at, t.chatId ?? '', t.question, t.answer, t.matched ? 'yes' : 'no', t.sources.join('; ')].map(csvCell).join(','))
+  const header = ['time', 'chat', 'question', 'answer', 'matched_documents', 'match_score', 'sources']
+  const lines = turns.map((t) => [t.at, t.chatId ?? '', t.question, t.answer, t.matched ? 'yes' : 'no', t.matchScore === null ? '' : String(t.matchScore), t.sources.join('; ')].map(csvCell).join(','))
   return [header.join(','), ...lines].join('\r\n') + '\r\n'
 }

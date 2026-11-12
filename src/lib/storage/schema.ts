@@ -69,7 +69,7 @@ const SCHEMA_STEPS: readonly SchemaStep[] = [
     // visitor the notice; no IP, user agent or cookie, only a random chat id.
     object: 'support_bot.conversations',
     optional: true,
-    sql: 'CREATE TABLE IF NOT EXISTS support_bot.conversations (id uuid PRIMARY KEY, workspace_id uuid NOT NULL REFERENCES support_bot.workspaces(id) ON DELETE CASCADE, chat_id uuid, question text NOT NULL, answer text NOT NULL, matched boolean NOT NULL, sources text[] NOT NULL DEFAULT \'{}\', created_at timestamptz NOT NULL DEFAULT now())',
+    sql: 'CREATE TABLE IF NOT EXISTS support_bot.conversations (id uuid PRIMARY KEY, workspace_id uuid NOT NULL REFERENCES support_bot.workspaces(id) ON DELETE CASCADE, chat_id uuid, question text NOT NULL, answer text NOT NULL, matched boolean NOT NULL, match_score smallint, sources text[] NOT NULL DEFAULT \'{}\', created_at timestamptz NOT NULL DEFAULT now())',
   },
   {
     object: 'support_bot.conversations_workspace_idx',
@@ -80,7 +80,15 @@ const SCHEMA_STEPS: readonly SchemaStep[] = [
     // One row per workspace: whether the log is on, and how long it keeps entries.
     object: 'support_bot.log_settings',
     optional: true,
-    sql: 'CREATE TABLE IF NOT EXISTS support_bot.log_settings (workspace_id uuid PRIMARY KEY REFERENCES support_bot.workspaces(id) ON DELETE CASCADE, enabled boolean NOT NULL DEFAULT false, retention_days integer NOT NULL DEFAULT 90, updated_at timestamptz NOT NULL DEFAULT now())',
+    sql: 'CREATE TABLE IF NOT EXISTS support_bot.log_settings (workspace_id uuid PRIMARY KEY REFERENCES support_bot.workspaces(id) ON DELETE CASCADE, enabled boolean NOT NULL DEFAULT false, retention_days integer NOT NULL DEFAULT 90, stats_enabled boolean NOT NULL DEFAULT true, updated_at timestamptz NOT NULL DEFAULT now())',
+  },
+  {
+    // Daily counts for the analytics panel: numbers only, no visitor text, so
+    // they are kept even when the conversation log is off (unless the owner
+    // turns counting off). One row per workspace per day (UTC).
+    object: 'support_bot.daily_stats',
+    optional: true,
+    sql: 'CREATE TABLE IF NOT EXISTS support_bot.daily_stats (workspace_id uuid NOT NULL REFERENCES support_bot.workspaces(id) ON DELETE CASCADE, day date NOT NULL, questions integer NOT NULL DEFAULT 0, matched integer NOT NULL DEFAULT 0, no_match integer NOT NULL DEFAULT 0, dont_know integer NOT NULL DEFAULT 0, failures integer NOT NULL DEFAULT 0, score_sum integer NOT NULL DEFAULT 0, score_count integer NOT NULL DEFAULT 0, score_min smallint, low_score integer NOT NULL DEFAULT 0, PRIMARY KEY (workspace_id, day))',
   },
   {
     // Settings edited under "Your assistants" that the embed code used to carry:
@@ -107,6 +115,34 @@ const SCHEMA_STEPS: readonly SchemaStep[] = [
 ]
 
 export const SCHEMA_STATEMENTS: readonly string[] = Object.freeze(SCHEMA_STEPS.map((step) => step.sql))
+
+// Columns added to optional tables after they first shipped. A table created
+// from an older script lacks them; a login allowed to alter the table gets
+// them added here, and a limited one carries on (each feature degrades: the
+// log stores no score, the counting switch says what to run).
+const ADDED_COLUMNS: readonly { table: string; column: string; sql: string }[] = [
+  { table: 'conversations', column: 'match_score', sql: 'ALTER TABLE support_bot.conversations ADD COLUMN IF NOT EXISTS match_score smallint' },
+  { table: 'log_settings', column: 'stats_enabled', sql: 'ALTER TABLE support_bot.log_settings ADD COLUMN IF NOT EXISTS stats_enabled boolean NOT NULL DEFAULT true' },
+]
+
+async function addMissingColumns(client: PoolClient): Promise<void> {
+  const r = await client.query<{ table_name: string; column_name: string }>(
+    "SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = 'support_bot' AND table_name = ANY($1::text[])",
+    [ADDED_COLUMNS.map((c) => c.table)],
+  )
+  const tables = new Set(r.rows.map((x) => x.table_name))
+  const have = new Set(r.rows.map((x) => `${x.table_name}.${x.column_name}`))
+  for (const c of ADDED_COLUMNS) {
+    // Only for a table that exists without the column; never DDL when nothing is missing.
+    if (!tables.has(c.table) || have.has(`${c.table}.${c.column}`)) continue
+    try {
+      await client.query(c.sql)
+    } catch (err) {
+      if ((err as { code?: unknown })?.code !== '42501') throw err
+      console.log(`schema: ${c.table}.${c.column} is missing and this login cannot add it`)
+    }
+  }
+}
 
 // Reads pg_namespace/pg_class directly rather than via to_regclass(): the
 // syscache can hold stale negative entries after waiting on the advisory lock,
@@ -200,6 +236,7 @@ export async function ensureSchema(pool: Pool): Promise<void> {
       }
       await createMissingObjects(client)
     }
+    await addMissingColumns(client)
 
     await verifySchema(client)
   } catch (err) {

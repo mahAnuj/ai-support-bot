@@ -7,7 +7,7 @@ import { resolveOwnerDatabase, storageErrorResponse } from '../../../../lib/stor
 export const dynamic = 'force-dynamic'
 
 // The conversation log, for the owner only (builder token, never a key).
-//   GET  ?unmatched=1&before=<iso>   a page of entries, newest first
+//   GET  ?unmatched=1|low=1&before=<iso>   a page of entries, newest first
 //   GET  ?format=csv[&unmatched=1]   every entry kept, as a CSV download
 //   DELETE                           delete every entry
 export async function GET(request: NextRequest) {
@@ -16,9 +16,10 @@ export async function GET(request: NextRequest) {
   if (!c.ok) return c.res
   const params = request.nextUrl.searchParams
   const unmatchedOnly = params.get('unmatched') === '1'
+  const lowMatchOnly = params.get('low') === '1'
   try {
     if (params.get('format') === 'csv') {
-      const turns = await listTurns(c.ctx.connection, c.ctx.workspaceId, { unmatchedOnly, limit: CSV_MAX_ROWS })
+      const turns = await listTurns(c.ctx.connection, c.ctx.workspaceId, { unmatchedOnly, lowMatchOnly, limit: CSV_MAX_ROWS })
       return new NextResponse(turnsToCsv(turns), {
         headers: {
           'Content-Type': 'text/csv; charset=utf-8',
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
         },
       })
     }
-    const turns = await listTurns(c.ctx.connection, c.ctx.workspaceId, { unmatchedOnly, before: params.get('before') })
+    const turns = await listTurns(c.ctx.connection, c.ctx.workspaceId, { unmatchedOnly, lowMatchOnly, before: params.get('before') })
     return NextResponse.json({ turns }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (e) {
     console.error(`conversation log list failed ${c.ctx.label} ${safeErrorSummary(e)}`)

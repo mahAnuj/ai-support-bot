@@ -6,7 +6,9 @@ import { useCallback, useEffect, useId, useState, type JSX } from 'react'
 // and what the assistant answered, to check the answers. Off by default.
 // While it is on, the widget tells visitors their questions are saved.
 
-type Turn = { id: string; chatId: string | null; question: string; answer: string; matched: boolean; sources: string[]; at: string }
+type Turn = { id: string; chatId: string | null; question: string; answer: string; matched: boolean; matchScore: number | null; sources: string[]; at: string }
+
+const LOW_MATCH = 40
 type Settings = { enabled: boolean; retentionDays: number; available: boolean }
 
 const PRESETS = [30, 90, 180, 365]
@@ -27,12 +29,14 @@ export default function ConversationLog({ requestHeaders }: { requestHeaders: Re
   const [turns, setTurns] = useState<Turn[]>([])
   const [more, setMore] = useState(false)
   const [unmatchedOnly, setUnmatchedOnly] = useState(false)
+  const [lowOnly, setLowOnly] = useState(false)
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null)
 
-  const loadTurns = useCallback(async (before: string | null, onlyUnmatched: boolean) => {
+  const loadTurns = useCallback(async (before: string | null, onlyUnmatched: boolean, onlyLow = false) => {
     const q = new URLSearchParams()
     if (onlyUnmatched) q.set('unmatched', '1')
+    if (onlyLow) q.set('low', '1')
     if (before) q.set('before', before)
     const res = await fetch(`/api/storage/conversations?${q}`, { headers: requestHeaders, cache: 'no-store' })
     const body = await res.json().catch(() => null)
@@ -86,7 +90,7 @@ export default function ConversationLog({ requestHeaders }: { requestHeaders: Re
           ? `Saved. Questions are logged from now on and kept for ${body.retentionDays} days. Visitors see a notice under the chat box.`
           : 'Saved. Logging is off; entries already kept stay until they expire or you delete them.',
       })
-      await loadTurns(null, unmatchedOnly)
+      await loadTurns(null, unmatchedOnly, lowOnly)
     } catch {
       setSettings(before)
       setNote({ ok: false, text: "Couldn't reach the server." })
@@ -98,6 +102,7 @@ export default function ConversationLog({ requestHeaders }: { requestHeaders: Re
   const download = async () => {
     const q = new URLSearchParams({ format: 'csv' })
     if (unmatchedOnly) q.set('unmatched', '1')
+    if (lowOnly) q.set('low', '1')
     const res = await fetch(`/api/storage/conversations?${q}`, { headers: requestHeaders, cache: 'no-store' })
     if (!res.ok) { setNote({ ok: false, text: `Couldn't download (status ${res.status}).` }); return }
     const url = URL.createObjectURL(await res.blob())
@@ -113,12 +118,19 @@ export default function ConversationLog({ requestHeaders }: { requestHeaders: Re
     const res = await fetch('/api/storage/conversations', { method: 'DELETE', headers: requestHeaders })
     const body = await res.json().catch(() => null)
     setNote(res.ok ? { ok: true, text: `Deleted ${body?.deleted ?? 0} entries.` } : { ok: false, text: body?.error ?? `Couldn't delete (status ${res.status}).` })
-    await loadTurns(null, unmatchedOnly)
+    await loadTurns(null, unmatchedOnly, lowOnly)
   }
 
   const filter = async (on: boolean) => {
     setUnmatchedOnly(on)
-    await loadTurns(null, on)
+    if (on) setLowOnly(false)
+    await loadTurns(null, on, false)
+  }
+
+  const filterLow = async (on: boolean) => {
+    setLowOnly(on)
+    if (on) setUnmatchedOnly(false)
+    await loadTurns(null, false, on)
   }
 
   return (
@@ -162,6 +174,10 @@ export default function ConversationLog({ requestHeaders }: { requestHeaders: Re
               <input type="checkbox" className="h-4 w-4 accent-accent" checked={unmatchedOnly} onChange={(e) => filter(e.target.checked)} />
               Only questions with no matching documents
             </label>
+            <label className="flex items-center gap-2 text-sm text-ink">
+              <input type="checkbox" className="h-4 w-4 accent-accent" checked={lowOnly} onChange={(e) => filterLow(e.target.checked)} />
+              {`Only low-match answers (score below ${LOW_MATCH})`}
+            </label>
             <button type="button" className={BUTTON} onClick={download} disabled={turns.length === 0}>Download CSV</button>
             <button type="button" className="min-h-9 rounded-md px-2 text-xs font-medium text-ink-muted hover:bg-sunken hover:text-ink" onClick={removeAll} disabled={turns.length === 0}>
               Delete all
@@ -178,7 +194,7 @@ export default function ConversationLog({ requestHeaders }: { requestHeaders: Re
                     <summary className="cursor-pointer list-none">
                       <span className="block text-sm font-medium text-ink [overflow-wrap:anywhere]">{t.question}</span>
                       <span className="mt-0.5 block text-xs text-ink-muted">
-                        {when(t.at)}{t.matched ? '' : ' · no matching documents'}
+                        {when(t.at)}{t.matched ? (t.matchScore !== null ? ` · match ${t.matchScore}${t.matchScore < LOW_MATCH ? ' (low)' : ''}` : '') : ' · no matching documents'}
                       </span>
                     </summary>
                     <div className="mt-2 border-t border-line pt-2 text-sm text-ink-muted">
@@ -191,7 +207,7 @@ export default function ConversationLog({ requestHeaders }: { requestHeaders: Re
             </ul>
           )}
           {more && (
-            <button type="button" className={`${BUTTON} mt-3`} onClick={() => loadTurns(turns[turns.length - 1]?.at ?? null, unmatchedOnly)}>Show older</button>
+            <button type="button" className={`${BUTTON} mt-3`} onClick={() => loadTurns(turns[turns.length - 1]?.at ?? null, unmatchedOnly, lowOnly)}>Show older</button>
           )}
         </>
       )}

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse, after } from 'next/server'
 import { recordTurn } from '../../../../lib/storage/conversation-log'
+import { recordDailyStat, type StatEvent } from '../../../../lib/storage/daily-stats'
+import type { ParsedConnection } from '../../../../lib/storage/connection'
 import { DEFAULT_WIDGET_SYSTEM_PROMPT, chatErrorCode, generateResponse, widgetSystemPrompt } from '../../../../lib/llm'
 import { demoProvider, ownerProvider } from '../../../../lib/model/provider'
 import { isModelError } from '../../../../lib/model/shared'
@@ -44,9 +46,21 @@ const UNAVAILABLE_BODY = {
   sessionId: 'error-session',
 }
 
+// Runs after the reply is sent; outside a request scope (tests, scripts) it runs at once.
+function later(task: () => Promise<unknown>) {
+  const run = () => task().then(() => undefined)
+  try { after(run) } catch { void run() }
+}
+
 export async function POST(request: NextRequest) {
   // Before the widget is resolved its policy is unknown, so early errors keep `*`.
   let cors = CORS_HEADERS
+  // A database-backed widget's daily counts (src/lib/storage/daily-stats.ts).
+  let statsDb: { connection: ParsedConnection; workspaceId: string } | undefined
+  const countReply = (event: StatEvent) => {
+    const db = statsDb
+    if (db) later(() => recordDailyStat(db.connection, db.workspaceId, event))
+  }
   try {
     console.log('🔥 WIDGET CHAT API CALLED')
     if (isRateLimited(`widget:${clientIp(request)}`, 20)) {
@@ -104,6 +118,7 @@ export async function POST(request: NextRequest) {
     }
 
     const ctx = resolved.ctx
+    if (ctx.kind !== 'connector' && ctx.database) statsDb = ctx.database
     const origin = request.headers.get('origin')
     cors = widgetCorsHeaders(ctx.access, origin)
 
@@ -153,6 +168,7 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       if (kind === 'memory') throw error
       console.error('Widget chat storage error:', safeErrorSummary(error))
+      countReply({ failure: true })
       return corsJson(UNAVAILABLE_BODY, 503, cors)
     }
 
@@ -211,6 +227,7 @@ export async function POST(request: NextRequest) {
       } catch (error) {
         if (kind === 'postgres') {
           console.error('Widget chat storage error:', safeErrorSummary(error))
+          countReply({ failure: true })
           return corsJson(UNAVAILABLE_BODY, 503, cors)
         }
         console.error('Widget RAG query error:', error)
@@ -243,6 +260,7 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       if (!isModelError(error)) throw error
       console.error(`Widget chat model error code=${error.code}`)
+      countReply({ failure: true })
       return corsJson(UNAVAILABLE_BODY, 503, cors)
     }
     
@@ -251,11 +269,10 @@ export async function POST(request: NextRequest) {
     // showed the visitor the notice. Written after the reply is sent.
     if (ctx.database && logNotice === true && typeof message === 'string') {
       const { connection, workspaceId } = ctx.database
-      const turn = { chatId, question: message, answer: response.message, matched: isEnhanced, sources: ragResult?.sources || [] }
-      const write = () => recordTurn(connection, workspaceId, turn).then(() => undefined)
-      // after() needs a request scope; outside one (tests, scripts) write directly.
-      try { after(write) } catch { void write() }
+      const turn = { chatId, question: message, answer: response.message, matched: isEnhanced, matchScore: confidence, sources: ragResult?.sources || [] }
+      later(() => recordTurn(connection, workspaceId, turn))
     }
+    countReply({ failure: false, matched: isEnhanced, score: confidence, answer: response.message })
 
     const responseData: any = {
       message: response.message,
@@ -269,6 +286,7 @@ export async function POST(request: NextRequest) {
     return corsJson(responseData, 200, cors)
       
   } catch (error) {
+    countReply({ failure: true })
     // Raw errors on the provider path can carry hostnames or provider text: log the code only
     console.error(`Widget chat error code=${chatErrorCode(error)} type=${error instanceof Error ? error.name : typeof error}`)
     return new NextResponse(JSON.stringify({ 
