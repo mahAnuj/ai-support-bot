@@ -205,8 +205,8 @@ export default function DatabaseSetupGuide(): JSX.Element {
         remembered in this browser and come back when you connect it again.
       </p>
       <p className={P}>
-        To keep several sites in one database instead, choose <em>add it as a separate project in this one</em> once
-        connected. With two or more, a <em>Project</em> picker shows each with its document and assistant counts.
+        Or keep several bots in one database: once connected, the <em>Project</em> picker shows each project with its
+        document and assistant counts, and <em>+ New project</em> starts an empty one with default settings for the next site.
       </p>
       <ul className={LIST}>
         <li>Each project has its own documents, assistants, automation keys, conversation log and daily stats.</li>

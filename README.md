@@ -23,7 +23,7 @@ About 810 tests across the app and the connector. About 40 of them need a dispos
 - **Your Documents**: Upload business documents (PDF, TXT, MD, DOCX) for the assistant to answer from
 - **Live Preview**: See exactly how your assistant will look and behave
 - **One-line embed**: Generate embeddable JavaScript code for your website
-- **Several sites**: Give each site its own database (the builder keeps each one's settings apart), or keep several sites in one database as separate projects
+- **Several sites**: Give each site its own database (the builder keeps each one's settings apart), or create a project per site in one database
 - **Your assistants**: Edit an assistant that is already on your site, including your own instructions ("never quote prices"), without new embed code
 - **Automation keys**: Let a script or CI job keep the documents in sync, with per-key expiry and an activity log
 - **One-click database setup**: The app creates a limited database login for itself, and shows which login it is using
@@ -582,10 +582,10 @@ previous site's title and questions. Each database's form is remembered in
 this browser and comes back when you connect it again; a form filled in
 before connecting is kept for the database you connect.
 
-**Or several sites in one database, as projects.** With a database connected,
-choose *add it as a separate project in this one*. Once there are two, a
-**Project** picker lists them with their document and assistant counts;
-**New project** starts an empty one with default settings, **Rename** names it.
+**Or several bots in one database, as projects.** With a database connected,
+the **Project** picker lists your projects with their document and assistant
+counts. **+ New project** starts an empty one (no documents, default
+settings) for the next site; **Rename** names it.
 
 Each project keeps its own documents, assistants, automation keys,
 conversation log and daily stats. Switching swaps this browser's builder link
