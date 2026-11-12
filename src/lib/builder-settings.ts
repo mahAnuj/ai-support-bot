@@ -40,10 +40,22 @@ export function parseBuilderSettings(raw: string | null): SavedBuilderSettings {
   return out
 }
 
-export function loadBuilderSettings(): SavedBuilderSettings {
-  try { return parseBuilderSettings(window.localStorage.getItem(BUILDER_SETTINGS_KEY)) } catch { return {} }
+// With a project, settings are kept per project, so starting a new project
+// (another site) does not begin from the previous one's title and questions.
+export function builderSettingsKey(projectId?: string | null): string {
+  return projectId ? `${BUILDER_SETTINGS_KEY}:${projectId}` : BUILDER_SETTINGS_KEY
 }
 
-export function saveBuilderSettings(settings: SavedBuilderSettings): void {
-  try { window.localStorage.setItem(BUILDER_SETTINGS_KEY, JSON.stringify(settings)) } catch { /* storage full or blocked: settings simply are not kept */ }
+/** Saved settings, or null when nothing was saved under that key. */
+export function loadBuilderSettings(projectId?: string | null): SavedBuilderSettings | null {
+  try {
+    const raw = window.localStorage.getItem(builderSettingsKey(projectId))
+    return raw === null ? null : parseBuilderSettings(raw)
+  } catch {
+    return null
+  }
+}
+
+export function saveBuilderSettings(settings: SavedBuilderSettings, projectId?: string | null): void {
+  try { window.localStorage.setItem(builderSettingsKey(projectId), JSON.stringify(settings)) } catch { /* storage full or blocked: settings simply are not kept */ }
 }

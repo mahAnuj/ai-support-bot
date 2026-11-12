@@ -23,6 +23,7 @@ About 810 tests across the app and the connector. About 40 of them need a dispos
 - **Your Documents**: Upload business documents (PDF, TXT, MD, DOCX) for the assistant to answer from
 - **Live Preview**: See exactly how your assistant will look and behave
 - **One-line embed**: Generate embeddable JavaScript code for your website
+- **Projects**: One database, one project per site, each with its own documents, assistants, keys, log and stats; switch between them without reconnecting
 - **Your assistants**: Edit an assistant that is already on your site, including your own instructions ("never quote prices"), without new embed code
 - **Automation keys**: Let a script or CI job keep the documents in sync, with per-key expiry and an activity log
 - **One-click database setup**: The app creates a limited database login for itself, and shows which login it is using
@@ -539,7 +540,7 @@ current settings).
 | Suggested questions | `support_bot.widget_prefs`, over the tag's attributes | Yes |
 | Allowed sites | `support_bot.widget_prefs`, over the sites sealed in the embed code | Yes |
 | Model: shared demo model or your own | `support_bot.widget_prefs`; your model as its sealed `sbm1_` link, readable only by this server | Yes |
-| Documents | `support_bot.documents`, shared by every assistant in the workspace | Yes, upload or remove in the builder |
+| Documents | `support_bot.documents`, shared by every assistant in the project (workspace) | Yes, upload or remove in the builder |
 
 **Instructions** are added to the widget's prompt, not swapped for it, and the
 grounding and visitor rules always come after them. An instruction can set the
@@ -572,6 +573,28 @@ for its own workspace only. Automation keys and embed codes are refused. To
 use another browser, connect again; to revoke everything made with a login,
 change that login's password. The builder link sits in browser storage, so
 use **Disconnect** on shared computers.
+
+## 🗂 Projects: one per site
+
+One database can serve several sites. With a database connected, the
+**Project** picker in the builder's connected panel lists your projects with
+their document and assistant counts. **New project** starts an empty one (no
+documents, default settings), so a second site never begins from the first
+site's title and questions; **Rename** names it.
+
+Each project keeps its own documents, assistants, automation keys,
+conversation log and daily stats. Switching swaps this browser's builder link
+for that project's and reloads everything below it; embed code already on a
+site keeps working, whichever project is open. The builder form (title,
+welcome message, questions) is remembered per project in this browser.
+
+Projects are workspaces (`support_bot.workspaces`); names live in the optional
+`support_bot.projects` table. One-click setup creates it; on an older database
+run the upgrade script (`scripts/support-bot-upgrade.sql`). Without it,
+projects still work and show as "Unnamed project (date)". Reconnecting reopens
+the most recently used project that has documents; pick any other from the
+list. Only the builder link can list, create, rename or switch projects, and
+only within the database it was made for.
 
 ## 📝 Conversation log
 

@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useId, useState } from 'react'
 import { MAX_STARTER_LENGTH, MAX_STARTER_QUESTIONS, normalizeStarterQuestions } from '@/lib/starter-questions'
-import { loadBuilderSettings, saveBuilderSettings } from '@/lib/builder-settings'
+import { loadBuilderSettings, saveBuilderSettings, type SavedBuilderSettings } from '@/lib/builder-settings'
 import ChatInterface from '@/components/ui/ChatInterface'
 import FileUpload from '@/components/ui/FileUpload'
 import DataDisclosure, { CONNECTOR_ANSWER_COPY } from '@/components/ui/DataDisclosure'
@@ -49,6 +49,15 @@ const UNIVERSAL_ASSISTANT = {
     "How can customers contact support?",
     "What is our return policy?"
   ]
+}
+
+const DEFAULT_WIDGET_CONFIG: WidgetConfig = {
+  name: 'Business Support Assistant',
+  title: DEFAULT_TITLE,
+  welcome_message: "Hi! I'm your AI assistant. I can help answer questions about our business. How can I assist you today?",
+  primary_color: DEFAULT_PRIMARY_COLOR,
+  position: 'bottom-right',
+  size: 'medium',
 }
 
 const LABEL = 'text-sm font-medium text-ink'
@@ -198,33 +207,40 @@ export default function HomePage() {
   const [usingSamples, setUsingSamples] = useState(false)
   const [starterInputs, setStarterInputs] = useState<string[]>(() => Array(MAX_STARTER_QUESTIONS).fill(''))
   const starterQuestions = normalizeStarterQuestions(starterInputs)
-  const [widgetConfig, setWidgetConfig] = useState<WidgetConfig>({
-    name: 'Business Support Assistant',
-    title: DEFAULT_TITLE,
-    welcome_message: 'Hi! I\'m your AI assistant. I can help answer questions about our business. How can I assist you today?',
-    primary_color: DEFAULT_PRIMARY_COLOR,
-    position: 'bottom-right',
-    size: 'medium',
-  })
+  const [widgetConfig, setWidgetConfig] = useState<WidgetConfig>(DEFAULT_WIDGET_CONFIG)
+  // The project (workspace) open in the connected database; settings are kept per project.
+  const [projectId, setProjectId] = useState<string | null>(null)
   // Restore the form saved in this browser, then keep saving it. Loaded after
   // mount so server and client render the same defaults first.
   const [settingsLoaded, setSettingsLoaded] = useState(false)
-  useEffect(() => {
-    const saved = loadBuilderSettings()
+  const applySettings = useCallback((saved: SavedBuilderSettings) => {
     const { starterInputs: savedStarters, ...savedConfig } = saved
-    if (Object.keys(savedConfig).length) setWidgetConfig(prev => ({ ...prev, ...savedConfig }))
-    if (savedStarters) setStarterInputs(Array.from({ length: MAX_STARTER_QUESTIONS }, (_, i) => savedStarters[i] ?? ''))
-    setSettingsLoaded(true)
+    setWidgetConfig({ ...DEFAULT_WIDGET_CONFIG, ...savedConfig })
+    setStarterInputs(Array.from({ length: MAX_STARTER_QUESTIONS }, (_, i) => savedStarters?.[i] ?? ''))
   }, [])
   useEffect(() => {
-    if (settingsLoaded) saveBuilderSettings({ ...widgetConfig, starterInputs })
-  }, [settingsLoaded, widgetConfig, starterInputs])
+    const saved = loadBuilderSettings()
+    if (saved) applySettings(saved)
+    setSettingsLoaded(true)
+  }, [applySettings])
+  useEffect(() => {
+    if (settingsLoaded) saveBuilderSettings({ ...widgetConfig, starterInputs }, projectId)
+  }, [settingsLoaded, widgetConfig, starterInputs, projectId])
+  // Another project opened (Your projects). A new one starts from the defaults;
+  // an existing one gets what was saved for it, or keeps the current form,
+  // which becomes its own (the first time a project is seen in this browser).
+  const handleProjectChange = useCallback((id: string, isNew: boolean) => {
+    setProjectId(id)
+    const saved = loadBuilderSettings(id)
+    if (saved) applySettings(saved)
+    else if (isNew) applySettings({})
+  }, [applySettings])
   const storage = useStorageConnection()
   useEffect(() => { if (storage.documents) setUploadedDocuments(storage.documents) }, [storage.documents])
   const ownModel = useOwnModel(storage.available)
   const savedModel = ownModel.model
   const modelInfo = savedModel ? { model: savedModel.model, host: savedModel.host } : null
-  const handleDisconnect = useCallback(() => { setUploadedDocuments([]); setSessionId(null) }, [])
+  const handleDisconnect = useCallback(() => { setUploadedDocuments([]); setSessionId(null); setProjectId(null) }, [])
   const connector = useConnector(storage.available, storage.ready)
   const connectorDocuments = connector.connected ? connector.documents : null
   useEffect(() => {
@@ -656,6 +672,7 @@ export default function HomePage() {
               disabledReason={!storage.connected && (connector.connected || connector.pending) ? ONE_PLACE_FROM_BACKEND : null}
               ownModel={savedModel}
               builderStarters={starterQuestions}
+              onProjectChange={handleProjectChange}
             />
             <ConnectBackendStep
               connector={connector}

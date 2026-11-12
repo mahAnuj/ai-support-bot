@@ -1,4 +1,4 @@
-import { parseBuilderSettings } from '../builder-settings'
+import { loadBuilderSettings, parseBuilderSettings, saveBuilderSettings } from '../builder-settings'
 
 describe('parseBuilderSettings', () => {
   it('returns nothing for missing, malformed or non-object input', () => {
@@ -23,5 +23,22 @@ describe('parseBuilderSettings', () => {
     expect(out.position).toBeUndefined()
     expect(out.size).toBeUndefined()
     expect(out.starterInputs).toEqual(['ok', '', 'y'.repeat(120), 'd'])
+  })
+})
+
+describe('builder settings per project', () => {
+  beforeEach(() => window.localStorage.clear())
+
+  it('keeps each project separate from the others and from the demo', () => {
+    saveBuilderSettings({ title: 'Ask Anuj' }, 'project-a')
+    saveBuilderSettings({ title: 'Ask Shubh Bhagya' }, 'project-b')
+    saveBuilderSettings({ title: 'Demo' })
+    expect(loadBuilderSettings('project-a')).toEqual({ title: 'Ask Anuj' })
+    expect(loadBuilderSettings('project-b')).toEqual({ title: 'Ask Shubh Bhagya' })
+    expect(loadBuilderSettings()).toEqual({ title: 'Demo' })
+  })
+
+  it('says when nothing was saved for a project, so a new one starts from the defaults', () => {
+    expect(loadBuilderSettings('never-seen')).toBeNull()
   })
 })

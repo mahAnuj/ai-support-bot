@@ -83,6 +83,13 @@ const SCHEMA_STEPS: readonly SchemaStep[] = [
     sql: 'CREATE TABLE IF NOT EXISTS support_bot.log_settings (workspace_id uuid PRIMARY KEY REFERENCES support_bot.workspaces(id) ON DELETE CASCADE, enabled boolean NOT NULL DEFAULT false, retention_days integer NOT NULL DEFAULT 90, stats_enabled boolean NOT NULL DEFAULT true, updated_at timestamptz NOT NULL DEFAULT now())',
   },
   {
+    // Project names: a project is a workspace, one per site. Without this
+    // table projects still work and are shown unnamed.
+    object: 'support_bot.projects',
+    optional: true,
+    sql: 'CREATE TABLE IF NOT EXISTS support_bot.projects (workspace_id uuid PRIMARY KEY REFERENCES support_bot.workspaces(id) ON DELETE CASCADE, name text NOT NULL, created_at timestamptz NOT NULL DEFAULT now())',
+  },
+  {
     // Daily counts for the analytics panel: numbers only, no visitor text, so
     // they are kept even when the conversation log is off (unless the owner
     // turns counting off). One row per workspace per day (UTC).

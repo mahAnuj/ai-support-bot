@@ -30,6 +30,8 @@ export interface StorageConnection {
   connect(connectionString: string, sessionId: string | null, options?: { secureSetup?: boolean }): Promise<boolean>
   disconnect(): void
   refreshDocuments(): Promise<void>
+  /** Use another project's builder link (from /api/storage/projects) and load its documents. */
+  switchTo(token: string): Promise<void>
 }
 
 type StorageErrorState = StorageConnection['error']
@@ -209,6 +211,18 @@ export function useStorageConnection(): StorageConnection {
     }
   }, [available, applyLoad])
 
+  const switchTo = useCallback(async (newToken: string) => {
+    generation.current += 1
+    const started = generation.current
+    writeStoredToken(newToken)
+    setToken(newToken)
+    setError(null)
+    setLastMigration(null)
+    setDocuments(null)
+    const result = await loadDocuments(newToken)
+    if (started === generation.current) applyLoad(result)
+  }, [applyLoad])
+
   const disconnect = useCallback(() => {
     generation.current += 1
     writeStoredToken(null)
@@ -240,7 +254,8 @@ export function useStorageConnection(): StorageConnection {
       connect,
       disconnect,
       refreshDocuments,
+      switchTo,
     }),
-    [ready, available, activeToken, documents, connecting, error, lastMigration, requestHeaders, connect, disconnect, refreshDocuments],
+    [ready, available, activeToken, documents, connecting, error, lastMigration, requestHeaders, connect, disconnect, refreshDocuments, switchTo],
   )
 }

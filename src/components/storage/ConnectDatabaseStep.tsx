@@ -5,6 +5,7 @@ import type { StorageConnection } from './useStorageConnection'
 import AutomationKeys from './AutomationKeys'
 import DatabaseLogin from './DatabaseLogin'
 import YourAssistants from './YourAssistants'
+import ProjectSwitcher from './ProjectSwitcher'
 import ConversationLog from './ConversationLog'
 import StatsPanel from './StatsPanel'
 
@@ -20,6 +21,8 @@ export interface ConnectDatabaseStepProps {
   ownModel?: { token: string; model: string; host: string } | null
   // The suggested questions set in the builder, to pre-fill "Your assistants".
   builderStarters?: readonly string[]
+  // Told which project is open, and whether it was just created (Project switcher).
+  onProjectChange?: (id: string, isNew: boolean) => void
 }
 
 const SCHEMA_SQL_URL = 'https://github.com/mahAnuj/ai-support-bot/blob/main/scripts/support-bot-schema.sql'
@@ -75,7 +78,7 @@ function ErrorMessage({ message }: { message: string }) {
   )
 }
 
-export default function ConnectDatabaseStep({ storage, sessionId, sessionDocumentCount = 0, onDisconnect, disabledReason = null, ownModel = null, builderStarters = [] }: ConnectDatabaseStepProps): JSX.Element | null {
+export default function ConnectDatabaseStep({ storage, sessionId, sessionDocumentCount = 0, onDisconnect, disabledReason = null, ownModel = null, builderStarters = [], onProjectChange }: ConnectDatabaseStepProps): JSX.Element | null {
   const [expectedCopies, setExpectedCopies] = useState(0)
   const [value, setValue] = useState('')
   const [secure, setSecure] = useState(true)
@@ -111,6 +114,7 @@ export default function ConnectDatabaseStep({ storage, sessionId, sessionDocumen
           Stored in your database.
         </h3>
         <DatabaseLogin requestHeaders={storage.requestHeaders} onReconnect={disconnect} />
+        <ProjectSwitcher requestHeaders={storage.requestHeaders} switchTo={storage.switchTo} onProjectChange={onProjectChange} documentCount={storage.documents?.length ?? 0} />
         {migration && (
           <div className={BODY} role="status">
             {migration.setup?.status === 'created' && (

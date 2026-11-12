@@ -90,6 +90,7 @@ export default function DatabaseSetupGuide(): JSX.Element {
           <li><a className={LINK} href="#what-it-does">What one-click setup does</a></li>
           <li><a className={LINK} href="#manual">Manual setup</a></li>
           <li><a className={LINK} href="#upgrade">Upgrading an older setup</a></li>
+          <li><a className={LINK} href="#projects">One project per site</a></li>
           <li><a className={LINK} href="#edit">Changing an assistant after it&apos;s live</a></li>
           <li><a className={LINK} href="#log">Seeing what visitors asked</a></li>
           <li><a className={LINK} href="#keys">Keeping documents in sync</a></li>
@@ -197,6 +198,22 @@ export default function DatabaseSetupGuide(): JSX.Element {
       </p>
       <CodeBlock label="upgrade SQL" code={upgradeSql} />
 
+      <h2 id="projects" className={H2}>One project per site</h2>
+      <p className={P}>
+        One database can hold assistants for several sites. Once connected, the <em>Project</em> picker shows each project
+        with its document and assistant counts. <em>New project</em> starts an empty one with default settings, so a second
+        site doesn&apos;t begin from the first site&apos;s title and questions; <em>Rename</em> names it.
+      </p>
+      <ul className={LIST}>
+        <li>Each project has its own documents, assistants, automation keys, conversation log and daily stats.</li>
+        <li>Switching changes everything in the panel to that project. Embed code already on a site keeps working.</li>
+        <li>The builder form is remembered per project in this browser.</li>
+      </ul>
+      <p className={NOTE}>
+        Project names need the <C>support_bot.projects</C> table. One-click setup creates it; on an older setup, run the{' '}
+        <a className={LINK} href="#upgrade">upgrade SQL</a>. Without it, projects still work and show as unnamed.
+      </p>
+
       <h2 id="edit" className={H2}>Changing an assistant after it&apos;s live</h2>
       <p className={P}>
         Once connected, <em>Your assistants</em> in the builder lists every assistant in your database. <em>Edit</em> changes
@@ -213,7 +230,7 @@ export default function DatabaseSetupGuide(): JSX.Element {
           assistant&apos;s own rules, never instead of them, so an instruction cannot make it state facts your documents
           don&apos;t contain.
         </li>
-        <li>Documents are shared by every assistant in the database; upload or remove them in the builder at any time.</li>
+        <li>Documents are shared by every assistant in the same project; upload or remove them in the builder at any time.</li>
       </ul>
       <p className={NOTE}>
         <strong>Two limits.</strong> An assistant that uses your own model (your API credits) always keeps at least the sites
