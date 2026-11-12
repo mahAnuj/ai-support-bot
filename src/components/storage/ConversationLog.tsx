@@ -20,7 +20,7 @@ function when(iso: string): string {
   return Number.isNaN(d.getTime()) ? '' : d.toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 }
 
-export default function ConversationLog({ requestHeaders }: { requestHeaders: Record<string, string> }): JSX.Element | null {
+export default function ConversationLog({ requestHeaders, className }: { requestHeaders: Record<string, string>; className?: string }): JSX.Element | null {
   const headingId = useId()
   const toggleId = useId()
   const daysId = useId()
@@ -134,7 +134,7 @@ export default function ConversationLog({ requestHeaders }: { requestHeaders: Re
   }
 
   return (
-    <section id="conversation-log" aria-labelledby={headingId} className="mt-6 scroll-mt-6 border-t border-line pt-5">
+    <section id="conversation-log" aria-labelledby={headingId} className={className ?? 'mt-6 scroll-mt-6 border-t border-line pt-5'}>
       <h4 id={headingId} className="text-sm font-semibold text-ink">Conversation log</h4>
       <p className="mt-1 max-w-[60ch] text-sm text-ink-muted">
         Keep what visitors ask and what the assistant answers, to check the answers and see what your documents are missing.

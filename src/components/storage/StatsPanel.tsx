@@ -31,17 +31,18 @@ function shortDay(iso: string): string {
   return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', timeZone: 'UTC' })
 }
 
-function Tile({ label, value, sub }: { label: string; value: string; sub?: string }) {
+function Tile({ label, value, sub, featured = false }: { label: string; value: string; sub?: string; featured?: boolean }) {
+  // Featured tiles are the four headline numbers; the rest are diagnostics.
   return (
-    <div className="min-w-0 rounded-md border border-line px-3 py-2">
-      <p className="text-xs text-ink-muted">{label}</p>
-      <p className="mt-0.5 text-xl font-semibold tabular-nums text-ink">{value}</p>
+    <div className={`min-w-0 rounded-md border border-line ${featured ? 'bg-surface px-4 py-3' : 'px-3 py-2'}`}>
+      <p className={featured ? 'text-sm text-ink-muted' : 'text-xs text-ink-muted'}>{label}</p>
+      <p className={`mt-0.5 font-semibold tabular-nums text-ink ${featured ? 'text-3xl' : 'text-xl'}`}>{value}</p>
       {sub && <p className="text-xs text-ink-subtle">{sub}</p>}
     </div>
   )
 }
 
-export default function StatsPanel({ requestHeaders }: { requestHeaders: Record<string, string> }): JSX.Element | null {
+export default function StatsPanel({ requestHeaders, className }: { requestHeaders: Record<string, string>; className?: string }): JSX.Element | null {
   const headingId = useId()
   const [range, setRange] = useState(30)
   const [report, setReport] = useState<Report | null>(null)
@@ -78,7 +79,7 @@ export default function StatsPanel({ requestHeaders }: { requestHeaders: Record<
   const shown = hover !== null ? report.days[hover] : null
 
   return (
-    <section aria-labelledby={headingId} className="mt-6 border-t border-line pt-5">
+    <section aria-labelledby={headingId} className={className ?? 'mt-6 border-t border-line pt-5'}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h4 id={headingId} className="text-sm font-semibold text-ink">Questions and answers</h4>
         <label className="flex items-center gap-2 text-sm text-ink">
@@ -111,11 +112,13 @@ export default function StatsPanel({ requestHeaders }: { requestHeaders: Record<
         </p>
       ) : (
         <>
-          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <Tile label="Questions" value={String(t.questions)} />
-            <Tile label="Answered from documents" value={pct(t.matched, answered)} sub={`${t.matched} of ${answered}`} />
-            <Tile label="“Don’t know” answers" value={String(t.dontKnow)} sub={`about ${pct(t.dontKnow, answered)}`} />
-            <Tile label="Failures" value={String(t.failures)} sub={pct(t.failures, t.questions)} />
+          <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
+            <Tile featured label="Questions" value={String(t.questions)} />
+            <Tile featured label="Answered from documents" value={pct(t.matched, answered)} sub={`${t.matched} of ${answered}`} />
+            <Tile featured label="“Don’t know” answers" value={String(t.dontKnow)} sub={`about ${pct(t.dontKnow, answered)}`} />
+            <Tile featured label="Failures" value={String(t.failures)} sub={pct(t.failures, t.questions)} />
+          </div>
+          <div className="mt-2 grid grid-cols-2 gap-2 lg:grid-cols-4">
             <Tile label="Mean match score" value={t.meanScore === null ? '–' : String(t.meanScore)} sub="0–100, answers from documents" />
             <Tile label="Lowest match score" value={t.minScore === null ? '–' : String(t.minScore)} />
             <Tile label={`Low-match answers (below ${report.lowMatch})`} value={String(t.lowScore)} sub={pct(t.lowScore, t.matched)} />

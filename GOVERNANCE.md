@@ -77,6 +77,20 @@ controls; it is not a certification.
 
 ## Where data goes
 
+### Builder activity (operator notifications, optional)
+
+A deployment that sets `ACTIVITY_TELEGRAM_BOT_TOKEN` and
+`ACTIVITY_TELEGRAM_CHAT_ID` tells its operator, in one Telegram message per
+session, that someone visited the builder and what they tried: event names
+from a fixed list (opened the builder, loaded samples, uploaded documents,
+asked N questions in the preview, generated embed code, connected a database,
+started a new bot, opened Monitor), the referring site, the city and country
+from Vercel's headers, the time spent and desktop or mobile. Never document
+names or contents, questions, answers, connection strings or tokens; the IP
+address is used for a rate limit and dropped. Nothing is sent before 4 seconds
+on a visible tab. It covers the builder only, never widgets on customer sites.
+Without both variables the route does nothing.
+
 ### Demo (no database connected)
 
 - **Stays on the server:** uploaded documents are embedded in-process with

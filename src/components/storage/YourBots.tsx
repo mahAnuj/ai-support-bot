@@ -29,7 +29,7 @@ export default function YourBots({
   switchTo: (token: string) => Promise<void>
   /** Told which workspace is open, so the page can load that bot's settings. */
   onProjectChange?: (id: string, isNew: boolean) => void
-  /** Leave this bot (it stays in the list) and show the connect form for another database. */
+  /** Start a new bot from a blank builder; the open one stays in the list. */
   onNewBot?: () => void
 }): JSX.Element | null {
   const headingId = useId()
@@ -68,6 +68,9 @@ export default function YourBots({
     })()
     return () => { cancelled = true }
   }, [connected, token, requestHeaders, onProjectChange])
+
+  // A message is about the bot it was written for; another bot clears it.
+  useEffect(() => { setNote(null); setRenaming(false) }, [connected, current?.key])
 
   if (!connected && bots.length === 0) return null
 
@@ -112,44 +115,58 @@ export default function YourBots({
     }
   }
 
+  const draft = !connected
   return (
-    <section aria-labelledby={headingId} className="mt-4 rounded-md border border-line bg-sunken p-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h4 id={headingId} className="text-sm font-semibold text-ink">Your bots</h4>
-        {connected && onNewBot && <button type="button" className={PRIMARY} disabled={busy} onClick={onNewBot}>+ New bot</button>}
+    <section aria-labelledby={headingId} className="rounded-lg border border-line bg-surface p-4 shadow-sm sm:p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h2 id={headingId} className="text-base font-semibold text-ink">Your bots</h2>
+          <p className="mt-0.5 max-w-[64ch] text-sm text-ink-muted">
+            One bot per site, each with its own database and settings. Open one to change it or see how it is doing; embed code
+            already on a site keeps working whichever bot is open here.
+          </p>
+        </div>
+        {onNewBot && <button type="button" className={PRIMARY} disabled={busy} onClick={onNewBot}>+ New bot</button>}
       </div>
-      <p className="mt-1 text-xs text-ink-subtle">
-        One bot per site, each with its own database and settings. Bots you connect in this browser are listed here; open
-        one to change it. Embed code already on a site keeps working whichever bot is open.
-      </p>
-      {bots.length > 0 && (
-        <ul className="mt-3 divide-y divide-line rounded-md border border-line bg-surface">
-          {bots.map((bot) => {
-            const isOpen = connected && bot.key === current?.key
-            return (
-              <li key={bot.key} className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center">
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-ink [overflow-wrap:anywhere]">
-                    {bot.name ?? 'Unnamed bot'}
-                    {isOpen && <span className="ml-2 rounded-full bg-accent/10 px-2 py-0.5 text-xs font-semibold text-accent">Editing</span>}
-                  </p>
-                  <p className="text-xs text-ink-subtle [overflow-wrap:anywhere]">{bot.label}</p>
-                </div>
-                <div className="flex gap-2">
-                  {isOpen
-                    ? <button type="button" className={BUTTON} disabled={busy} onClick={() => { setRenaming(!renaming); setName(bot.name ?? ''); setNote(null) }}>Rename</button>
-                    : (
-                      <>
-                        <button type="button" className={BUTTON} disabled={busy} onClick={() => open(bot)} aria-label={`Open ${bot.name ?? bot.label}`}>Open</button>
-                        <button type="button" className={BUTTON} disabled={busy} onClick={() => forget(bot)} aria-label={`Forget ${bot.name ?? bot.label}`}>Forget</button>
-                      </>
-                    )}
-                </div>
-              </li>
-            )
-          })}
-        </ul>
-      )}
+      <ul className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {draft && (
+          <li className="flex min-w-0 flex-col justify-between gap-2 rounded-md border-2 border-dashed border-accent bg-accent-tint/40 p-3">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-ink">
+                New bot <span className="ml-1 rounded-full bg-accent/10 px-2 py-0.5 text-xs font-semibold text-accent">Editing</span>
+              </p>
+              <p className="mt-0.5 text-xs text-ink-muted">Not saved yet. Connect its database in step 2 to keep it.</p>
+            </div>
+          </li>
+        )}
+        {bots.map((bot) => {
+          const isOpen = connected && bot.key === current?.key
+          return (
+            <li
+              key={bot.key}
+              className={`flex min-w-0 flex-col justify-between gap-3 rounded-md border p-3 ${isOpen ? 'border-2 border-accent bg-accent-tint/40' : 'border-line bg-surface'}`}
+            >
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-ink [overflow-wrap:anywhere]">
+                  {bot.name ?? 'Unnamed bot'}
+                  {isOpen && <span className="ml-2 rounded-full bg-accent/10 px-2 py-0.5 text-xs font-semibold text-accent">Open</span>}
+                </p>
+                <p className="mt-0.5 text-xs text-ink-subtle [overflow-wrap:anywhere]">{bot.label}</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {isOpen
+                  ? <button type="button" className={BUTTON} disabled={busy} onClick={() => { setRenaming(!renaming); setName(bot.name ?? ''); setNote(null) }}>Rename</button>
+                  : (
+                    <>
+                      <button type="button" className={BUTTON} disabled={busy} onClick={() => open(bot)} aria-label={`Open ${bot.name ?? bot.label}`}>Open</button>
+                      <button type="button" className="inline-flex h-10 items-center rounded-md px-2 text-sm font-medium text-ink-muted hover:bg-sunken hover:text-ink disabled:opacity-60" disabled={busy} onClick={() => forget(bot)} aria-label={`Forget ${bot.name ?? bot.label}`}>Forget</button>
+                    </>
+                  )}
+              </div>
+            </li>
+          )
+        })}
+      </ul>
       {renaming && (
         <form onSubmit={rename} className="mt-3 flex flex-col gap-2 sm:flex-row">
           <label htmlFor={nameId} className="sr-only">Bot name</label>
@@ -157,7 +174,6 @@ export default function YourBots({
           <button type="submit" className={BUTTON} disabled={busy || !name.trim()}>Save name</button>
         </form>
       )}
-      {!connected && <p className="mt-2 text-xs text-ink-subtle">Or connect a new bot&apos;s database below.</p>}
       {note && <p role={note.ok ? 'status' : 'alert'} className={`mt-2 text-sm ${note.ok ? 'text-ink' : 'text-danger'}`}>{note.text}</p>}
     </section>
   )

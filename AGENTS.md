@@ -74,6 +74,7 @@ cd connector && npm ci && npm test   # reference connector server: tsc, then nod
 | `ALLOW_PRIVATE_DB_HOSTS` | Connecting to localhost/private/link-local database hosts | `1` to allow, including plain TCP to them. `NODE_ENV=development` also allows. Leave unset on public deployments |
 | `ALLOW_PRIVATE_MODEL_HOSTS` | Owner model addresses on localhost/private/link-local hosts (for example a local mock) | `1` to allow, including plain `http:` to them. `NODE_ENV=development` also allows. Read on every call. Leave unset on public deployments |
 | `ALLOW_PRIVATE_CONNECTOR_HOSTS` | Backend base URLs on localhost/private/link-local hosts (for example the reference server on `http://127.0.0.1:8080`) | `1` to allow, including plain `http:` to them. `NODE_ENV=development` also allows. Read on every call, so `sbc1_`/`sbw3_` tokens for such hosts are refused on a server without it. Leave unset on public deployments |
+| `ACTIVITY_TELEGRAM_BOT_TOKEN`, `ACTIVITY_TELEGRAM_CHAT_ID` | Builder activity notifications to the operator (`src/app/api/activity/route.ts`, client in `src/lib/activity.ts`) | Optional, both or neither; without them the route does nothing. Sends event names from `ACTIVITY_EVENTS` only, never document names, questions, answers, connection details or tokens; the IP is used for the rate limit only. One message per session, edited in place; a 4-second dwell on a visible tab, `navigator.webdriver` and an opt-out (`localStorage` `activity-optout`, or `?nopings=1`) gate it |
 | `TEST_DATABASE_URL` | Running `pg.integration.test.ts` (app and `connector/`) | Optional; the suite is skipped without it |
 
 Embeddings need no key: they run on the server (see `src/lib/embeddings.ts`).
@@ -92,8 +93,7 @@ are `force-dynamic` so the build does not bake in build-time env.
 A Next.js 15 App Router application that turns uploaded documents into a
 retrieval-backed support assistant, then emits an embeddable widget for it.
 
-- **`src/app/page.tsx`** — the builder UI: configure the assistant, upload docs,
-  preview the chat, generate embed code. Holds `UNIVERSAL_ASSISTANT.systemPrompt`.
+- **`src/app/page.tsx`** — the builder UI: configure the assistant, upload docs, preview the chat, generate embed code. Holds `UNIVERSAL_ASSISTANT.systemPrompt`. **Your bots** sits on top; with a database connected the open bot has three tabs: Build (the guided steps, kept mounted while hidden so the preview survives a tab switch), Monitor (`StatsPanel`, `ConversationLog`) and Settings (`YourAssistants`, `AutomationKeys`, disconnect). **+ New bot** and opening another bot reset the per-bot progress and remount the build steps (`builderRun`), so a second bot starts exactly like the first.
 - **`src/lib/llm.ts`** — prompts and `generateResponse` for answers. It takes
   a `ChatProvider` from the caller and never picks one itself.
 - **`src/lib/model/`** — the only way to reach a chat model.

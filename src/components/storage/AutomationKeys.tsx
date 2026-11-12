@@ -64,7 +64,7 @@ function when(iso: string | null): string {
   return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-export default function AutomationKeys({ requestHeaders }: { requestHeaders: Record<string, string> }): JSX.Element {
+export default function AutomationKeys({ requestHeaders, className }: { requestHeaders: Record<string, string>; className?: string }): JSX.Element {
   const headingId = useId()
   const labelId = useId()
   const lifetimeId = useId()
@@ -145,7 +145,7 @@ export default function AutomationKeys({ requestHeaders }: { requestHeaders: Rec
   const origin = typeof window === 'undefined' ? '' : window.location.origin
 
   return (
-    <section aria-labelledby={headingId} className="mt-6 border-t border-line pt-5">
+    <section aria-labelledby={headingId} className={className ?? 'mt-6 border-t border-line pt-5'}>
       <h4 id={headingId} className="text-sm font-semibold text-ink">Automation keys</h4>
       <p className="mt-1 max-w-[60ch] text-sm text-ink-muted">
         For keeping documents in sync from a script or CI job, such as a GitHub Action on every deploy. A key can upload,

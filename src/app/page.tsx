@@ -9,6 +9,13 @@ import DataDisclosure, { CONNECTOR_ANSWER_COPY } from '@/components/ui/DataDiscl
 import EmbedStep, { DEFAULT_PRIMARY_COLOR, toSafeHex, type WidgetConfig } from '@/components/ui/EmbedStep'
 import { readableTextOn } from '@/components/ui/contrast'
 import ConnectDatabaseStep from '@/components/storage/ConnectDatabaseStep'
+import YourBots from '@/components/storage/YourBots'
+import YourAssistants from '@/components/storage/YourAssistants'
+import StatsPanel from '@/components/storage/StatsPanel'
+import ConversationLog from '@/components/storage/ConversationLog'
+import AutomationKeys from '@/components/storage/AutomationKeys'
+import { forgetBot } from '@/lib/bot-list'
+import { startActivity, trackActivity } from '@/lib/activity'
 import StorageModeLabel from '@/components/storage/StorageModeLabel'
 import { useStorageConnection } from '@/components/storage/useStorageConnection'
 import OwnModelStep from '@/components/model/OwnModelStep'
@@ -79,6 +86,14 @@ const SIZE_OPTIONS: { value: WidgetConfig['size']; label: string; dimensions: st
 type UploadedDocument = { id?: string; filename: string; chunks: number }
 
 type StepStatus = 'done' | 'current' | 'upcoming'
+
+// The open bot's three views: build it (the guided steps), watch it, manage it.
+type View = 'build' | 'monitor' | 'settings'
+const VIEWS: { id: View; label: string }[] = [
+  { id: 'build', label: 'Build' },
+  { id: 'monitor', label: 'Monitor' },
+  { id: 'settings', label: 'Settings' },
+]
 
 const RAIL_STEPS = [
   { href: '#setup', label: 'Set up' },
@@ -205,6 +220,11 @@ export default function HomePage() {
   const [hasTried, setHasTried] = useState(false)
   const [hasEmbed, setHasEmbed] = useState(false)
   const [usingSamples, setUsingSamples] = useState(false)
+  const [view, setView] = useState<View>('build')
+  // Bumped when a bot is opened or a new one started, so the preview chat and
+  // embed step start fresh instead of showing the previous bot's state.
+  const [builderRun, setBuilderRun] = useState(0)
+  const [newBotNotice, setNewBotNotice] = useState(false)
   const [starterInputs, setStarterInputs] = useState<string[]>(() => Array(MAX_STARTER_QUESTIONS).fill(''))
   const starterQuestions = normalizeStarterQuestions(starterInputs)
   const [widgetConfig, setWidgetConfig] = useState<WidgetConfig>(DEFAULT_WIDGET_CONFIG)
@@ -241,6 +261,9 @@ export default function HomePage() {
     formProject.current = id
   }, [applySettings])
   const storage = useStorageConnection()
+  useEffect(() => startActivity(), [])
+  // A connect (or reopen through the form) sets lastMigration; a page load with a saved link does not.
+  useEffect(() => { if (storage.lastMigration) trackActivity('connect') }, [storage.lastMigration])
   useEffect(() => { if (storage.documents) setUploadedDocuments(storage.documents) }, [storage.documents])
   const ownModel = useOwnModel(storage.available)
   const savedModel = ownModel.model
@@ -253,6 +276,40 @@ export default function HomePage() {
     formProject.current = null
     applySettings({})
   }, [applySettings])
+  // What belongs to the bot on screen, not to the browser: progress, the
+  // sample flag and upload messages. Cleared when another bot opens.
+  const resetProgress = useCallback(() => {
+    setHasTried(false); setHasEmbed(false); setUsingSamples(false)
+    setUploadComplete(false); setUploadError(null); setUploadNotice(null)
+    setBuilderRun(n => n + 1)
+  }, [])
+  // + New bot: the same guided start as the very first bot. The open bot stays
+  // listed under Your bots and reopens with its documents and settings.
+  const handleNewBot = useCallback(() => {
+    if (storage.connected) storage.disconnect()
+    handleDisconnect()
+    resetProgress()
+    setView('build')
+    setNewBotNotice(true)
+    trackActivity('new_bot')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [storage, handleDisconnect, resetProgress])
+  const openBot = useCallback(async (token: string) => {
+    resetProgress()
+    setNewBotNotice(false)
+    await storage.switchTo(token)
+  }, [storage, resetProgress])
+  // Disconnect (Settings): forget this bot in this browser and start blank.
+  const handleForgetAndDisconnect = useCallback(() => {
+    forgetBot({ token: storage.token })
+    storage.disconnect()
+    handleDisconnect()
+    resetProgress()
+    setView('build')
+  }, [storage, handleDisconnect, resetProgress])
+  useEffect(() => { if (!storage.connected && view !== 'build') setView('build') }, [storage.connected, view])
+  useEffect(() => { if (view === 'monitor') trackActivity('monitor') }, [view])
+
   const connector = useConnector(storage.available, storage.ready)
   const connectorDocuments = connector.connected ? connector.documents : null
   useEffect(() => {
@@ -367,6 +424,7 @@ export default function HomePage() {
       }
 
       setUploadComplete(true)
+      if (!options?.sample) trackActivity('upload')
     } catch {
       setUploadError('Couldn\'t reach the server. Check your connection and try again.')
     } finally {
@@ -385,6 +443,7 @@ export default function HomePage() {
       )
       await handleFileUpload(files, { sample: true })
       setUsingSamples(true)
+      trackActivity('samples')
       // Only rename the assistant if the visitor has not already named it.
       setWidgetConfig(prev =>
         prev.title === DEFAULT_TITLE
@@ -429,8 +488,8 @@ export default function HomePage() {
     }
   }, [])
 
-  const handleMessageSent = useCallback(() => setHasTried(true), [])
-  const handleGenerated = useCallback(() => setHasEmbed(true), [])
+  const handleMessageSent = useCallback(() => { setHasTried(true); trackActivity('question') }, [])
+  const handleGenerated = useCallback(() => { setHasEmbed(true); trackActivity('embed') }, [])
 
   return (
     <>
@@ -445,6 +504,8 @@ export default function HomePage() {
             <p className="text-base font-semibold text-hero-ink">Support assistant builder</p>
           </div>
         </div>
+        {/* Monitor and Settings are for a bot that already exists: no pitch above them. */}
+        {view === 'build' && (
         <div className="mx-auto max-w-page px-4 pb-8 pt-10 sm:px-8 sm:pb-10 sm:pt-14">
           <h1 className="max-w-[22ch] text-3xl font-bold motion-safe:animate-enter sm:text-display">
             Build a support assistant from your own documents
@@ -454,10 +515,85 @@ export default function HomePage() {
           </p>
           <ProgressRail statuses={statuses} />
         </div>
+        )}
       </header>
 
       <main className="mx-auto max-w-page px-4 pb-28 pt-10 sm:px-8">
-        <div className="grid grid-cols-[minmax(0,1fr)] gap-x-10 gap-y-10 lg:grid-cols-[minmax(0,1fr)_420px] lg:grid-rows-[auto_auto_1fr]">
+        <div className="mb-8 flex flex-col gap-6">
+          <YourBots
+            connected={storage.connected}
+            token={storage.token}
+            requestHeaders={storage.requestHeaders}
+            switchTo={openBot}
+            onProjectChange={handleProjectChange}
+            onNewBot={storage.available ? handleNewBot : undefined}
+          />
+          {storage.connected && (
+            <div role="tablist" aria-label="This bot" className="flex gap-1 border-b border-line">
+              {VIEWS.map(v => (
+                <button
+                  key={v.id}
+                  type="button"
+                  role="tab"
+                  id={`tab-${v.id}`}
+                  aria-selected={view === v.id}
+                  aria-controls={`panel-${v.id}`}
+                  onClick={() => setView(v.id)}
+                  className={`-mb-px min-h-11 border-b-2 px-4 text-sm font-semibold ${
+                    view === v.id ? 'border-accent text-ink' : 'border-transparent text-ink-muted hover:text-ink'
+                  }`}
+                >
+                  {v.label}
+                </button>
+              ))}
+            </div>
+          )}
+          {newBotNotice && view === 'build' && !storage.connected && (
+            <div role="status" className="flex items-start justify-between gap-3 rounded-lg border border-accent/40 bg-accent-tint px-4 py-3 text-sm text-ink">
+              <p className="max-w-[70ch]">
+                <span className="font-semibold">New bot.</span> Set it up the same way: name it, add its documents, try it, then connect
+                its own database in step 2 to keep it. Your other bots stay saved under Your bots.
+              </p>
+              <button type="button" onClick={() => setNewBotNotice(false)} className="shrink-0 rounded-md px-2 py-1 text-sm font-medium text-ink-muted hover:bg-surface hover:text-ink" aria-label="Dismiss">
+                Dismiss
+              </button>
+            </div>
+          )}
+        </div>
+
+        {storage.connected && view === 'monitor' && (
+          <div id="panel-monitor" role="tabpanel" aria-labelledby="tab-monitor" className="flex flex-col gap-6">
+            <StatsPanel requestHeaders={storage.requestHeaders} className={PANEL} />
+            <ConversationLog requestHeaders={storage.requestHeaders} className={`${PANEL} scroll-mt-6`} />
+          </div>
+        )}
+
+        {storage.connected && view === 'settings' && (
+          <div id="panel-settings" role="tabpanel" aria-labelledby="tab-settings" className="flex flex-col gap-6">
+            <YourAssistants requestHeaders={storage.requestHeaders} ownModel={savedModel} builderStarters={starterQuestions} className={PANEL} />
+            <AutomationKeys requestHeaders={storage.requestHeaders} className={PANEL} />
+            <section aria-labelledby="disconnect-heading" className={PANEL}>
+              <h2 id="disconnect-heading" className="text-sm font-semibold text-ink">Disconnect this browser</h2>
+              <p className="mt-1 max-w-[60ch] text-sm text-ink-muted">
+                Forgets the link in this browser only, and removes this bot from Your bots here. Nothing is deleted from your database,
+                and connecting it again, here or in another browser, reopens this assistant with its documents. To cut off access,
+                change the database user&apos;s password; that also stops every embed and automation key made with it.
+              </p>
+              <button type="button" onClick={handleForgetAndDisconnect} className="mt-3 inline-flex h-11 items-center justify-center rounded-md border border-line-strong bg-surface px-5 text-sm font-semibold text-ink hover:bg-sunken">
+                Disconnect this browser
+              </button>
+            </section>
+          </div>
+        )}
+
+        <div
+          key={builderRun}
+          id="panel-build"
+          role={storage.connected ? 'tabpanel' : undefined}
+          aria-labelledby={storage.connected ? 'tab-build' : undefined}
+          hidden={view !== 'build'}
+          className="grid grid-cols-[minmax(0,1fr)] gap-x-10 gap-y-10 lg:grid-cols-[minmax(0,1fr)_420px] lg:grid-rows-[auto_auto_1fr]"
+        >
           <section id="setup" aria-labelledby={step1Id} className="min-w-0 scroll-mt-6 lg:col-start-1 lg:row-start-1">
             <StepHeader
               id={step1Id}
@@ -682,9 +818,7 @@ export default function HomePage() {
               sessionDocumentCount={storage.connected ? 0 : uploadedDocuments.length}
               onDisconnect={handleDisconnect}
               disabledReason={!storage.connected && (connector.connected || connector.pending) ? ONE_PLACE_FROM_BACKEND : null}
-              ownModel={savedModel}
-              builderStarters={starterQuestions}
-              onProjectChange={handleProjectChange}
+              onOpenTab={setView}
             />
             <ConnectBackendStep
               connector={connector}

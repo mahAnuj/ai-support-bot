@@ -530,8 +530,7 @@ tables existed needs `scripts/support-bot-schema.sql` and
 
 ## ✏️ Change an assistant after it's live
 
-With a database connected, **Your assistants** in the builder lists every
-assistant stored there. **Edit** changes one in place: the embed code on your
+With a database connected, **Your assistants** (in the builder's **Settings** tab) lists every assistant stored there. **Edit** changes one in place: the embed code on your
 site stays exactly the same, and visitors see the change on their next page
 load (the widget script is served `no-store`, and every answer reads the
 current settings).
@@ -579,13 +578,17 @@ use **Disconnect** on shared computers.
 
 ## 🗂 Your bots: one per site
 
+**Your bots** sits at the top of the builder. With a bot open, three tabs
+cover its life: **Build** (the four guided steps), **Monitor** (the daily
+numbers and the conversation log, full width) and **Settings** (your live
+assistants, automation keys, and disconnecting this browser).
+
 Managing several sites? Give each its own bot, with its own database and its
 own settings, and manage them all from the builder.
 
 1. Connect the first site's database and set the bot up. **Rename** it in
    **Your bots** (for example `shubhagya.com`).
-2. Click **+ New bot**. The current bot stays listed; the builder goes back
-   to a blank form and the connect box. Connect the next site's database.
+2. Click **+ New bot** at the top of the builder. The current bot stays listed, and the new one gets the same guided start as the first: a blank form at step 1, empty documents and preview, and its own database to connect in step 2.
 3. Repeat for each site. **Your bots** lists them all; **Open** switches to
    one, bringing back its documents, assistants, keys, log, stats and the
    builder form as you left it. No connection string is needed again.
@@ -602,8 +605,7 @@ in this browser only.
 
 ## 📝 Conversation log
 
-To check what the assistant tells visitors, turn on **Conversation log** in
-the builder's connected panel. It needs your own database: the demo and
+To check what the assistant tells visitors, turn on **Conversation log** in the builder's **Monitor** tab. It needs your own database: the demo and
 backend-connected modes keep no log.
 
 - **Off by default.** While it is on, the widget shows visitors *"Questions

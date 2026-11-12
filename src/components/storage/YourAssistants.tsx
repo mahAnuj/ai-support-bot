@@ -81,11 +81,13 @@ export default function YourAssistants({
   requestHeaders,
   ownModel,
   builderStarters = [],
+  className,
 }: {
   requestHeaders: Record<string, string>
   ownModel: { token: string; model: string; host: string } | null
   // The suggested questions set in the builder's Set up step.
   builderStarters?: readonly string[]
+  className?: string
 }): JSX.Element | null {
   const headingId = useId()
   const [assistants, setAssistants] = useState<Assistant[] | null>(null)
@@ -167,7 +169,7 @@ export default function YourAssistants({
   }
 
   return (
-    <section aria-labelledby={headingId} className="mt-6 border-t border-line pt-5">
+    <section aria-labelledby={headingId} className={className ?? 'mt-6 border-t border-line pt-5'}>
       <h4 id={headingId} className="text-sm font-semibold text-ink">Your assistants</h4>
       <p className="mt-1 max-w-[60ch] text-sm text-ink-muted">
         Change an assistant that is already on your site. Saving updates it in place: the embed code stays the same, and

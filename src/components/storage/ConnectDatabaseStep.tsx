@@ -2,13 +2,8 @@
 
 import { useId, useState, type FormEvent, type JSX } from 'react'
 import type { StorageConnection } from './useStorageConnection'
-import AutomationKeys from './AutomationKeys'
 import DatabaseLogin from './DatabaseLogin'
-import YourAssistants from './YourAssistants'
-import YourBots from './YourBots'
 import { forgetBot } from '@/lib/bot-list'
-import ConversationLog from './ConversationLog'
-import StatsPanel from './StatsPanel'
 
 export interface ConnectDatabaseStepProps {
   storage: StorageConnection
@@ -18,12 +13,8 @@ export interface ConnectDatabaseStepProps {
   onDisconnect?: () => void
   // When set, the form is shown disabled with this one-line reason.
   disabledReason?: string | null
-  // The model connected under "Use your own model", if any, for "Your assistants".
-  ownModel?: { token: string; model: string; host: string } | null
-  // The suggested questions set in the builder, to pre-fill "Your assistants".
-  builderStarters?: readonly string[]
-  // Told which workspace is open, so the page loads that bot's settings (Your bots).
-  onProjectChange?: (id: string, isNew: boolean) => void
+  // Opens the Monitor or Settings tab, where a connected bot is watched and managed.
+  onOpenTab?: (tab: 'monitor' | 'settings') => void
 }
 
 const SCHEMA_SQL_URL = 'https://github.com/mahAnuj/ai-support-bot/blob/main/scripts/support-bot-schema.sql'
@@ -79,7 +70,7 @@ function ErrorMessage({ message }: { message: string }) {
   )
 }
 
-export default function ConnectDatabaseStep({ storage, sessionId, sessionDocumentCount = 0, onDisconnect, disabledReason = null, ownModel = null, builderStarters = [], onProjectChange }: ConnectDatabaseStepProps): JSX.Element | null {
+export default function ConnectDatabaseStep({ storage, sessionId, sessionDocumentCount = 0, onDisconnect, disabledReason = null, onOpenTab }: ConnectDatabaseStepProps): JSX.Element | null {
   const [expectedCopies, setExpectedCopies] = useState(0)
   const [value, setValue] = useState('')
   const [secure, setSecure] = useState(true)
@@ -103,13 +94,9 @@ export default function ConnectDatabaseStep({ storage, sessionId, sessionDocumen
   }
 
   if (storage.connected) {
-    // Disconnect forgets this bot in this browser; + New bot keeps it listed.
+    // Reconnecting with a limited login forgets this bot's admin link first.
     const disconnect = () => {
       forgetBot({ token: storage.token })
-      storage.disconnect()
-      onDisconnect?.()
-    }
-    const newBot = () => {
       storage.disconnect()
       onDisconnect?.()
     }
@@ -121,7 +108,6 @@ export default function ConnectDatabaseStep({ storage, sessionId, sessionDocumen
           Stored in your database.
         </h3>
         <DatabaseLogin requestHeaders={storage.requestHeaders} onReconnect={disconnect} />
-        <YourBots connected token={storage.token} requestHeaders={storage.requestHeaders} switchTo={storage.switchTo} onProjectChange={onProjectChange} onNewBot={newBot} />
         {migration && (
           <div className={BODY} role="status">
             {migration.setup?.status === 'created' && (
@@ -155,20 +141,12 @@ export default function ConnectDatabaseStep({ storage, sessionId, sessionDocumen
           Generate new embed code below. Embed code made before connecting keeps working only until this server restarts.
         </p>
         {storage.error && <ErrorMessage message={storage.error.message} />}
-        <YourAssistants requestHeaders={storage.requestHeaders} ownModel={ownModel} builderStarters={builderStarters} />
-        <StatsPanel requestHeaders={storage.requestHeaders} />
-        <ConversationLog requestHeaders={storage.requestHeaders} />
-        <AutomationKeys requestHeaders={storage.requestHeaders} />
-        <div className="mt-4 flex flex-col items-start gap-2">
-          <button type="button" onClick={disconnect} className={SECONDARY_BUTTON}>
-            Disconnect this browser
-          </button>
-          <p className="max-w-[60ch] text-xs text-ink-muted">
-            This forgets the link in this browser only, and removes this bot from Your bots here. Nothing is deleted from your database, and connecting it again,
-            here or in another browser, reopens this assistant with its documents. To cut off access, change the
-            database user&apos;s password; that also stops every embed and automation key made with it.
-          </p>
-        </div>
+        {onOpenTab && (
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button type="button" onClick={() => onOpenTab('monitor')} className={SECONDARY_BUTTON}>See questions and answers</button>
+            <button type="button" onClick={() => onOpenTab('settings')} className={SECONDARY_BUTTON}>Live assistants and keys</button>
+          </div>
+        )}
       </section>
     )
   }
@@ -191,7 +169,6 @@ export default function ConnectDatabaseStep({ storage, sessionId, sessionDocumen
         Demo documents and widgets are deleted when this server restarts. Connect your own Postgres database with pgvector
         to keep them. Documents already in this session are moved across.
       </p>
-      <YourBots connected={false} token={null} requestHeaders={storage.requestHeaders} switchTo={storage.switchTo} />
 
       <details className="mt-4 rounded-md border border-line bg-sunken px-3 py-2 text-sm text-ink-muted">
         <summary className="cursor-pointer py-1 font-medium text-ink">Which login should I use?</summary>
