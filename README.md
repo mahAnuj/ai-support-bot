@@ -23,7 +23,7 @@ About 810 tests across the app and the connector. About 40 of them need a dispos
 - **Your Documents**: Upload business documents (PDF, TXT, MD, DOCX) for the assistant to answer from
 - **Live Preview**: See exactly how your assistant will look and behave
 - **One-line embed**: Generate embeddable JavaScript code for your website
-- **Projects**: One database, one project per site, each with its own documents, assistants, keys, log and stats; switch between them without reconnecting
+- **Several sites**: Give each site its own database (the builder keeps each one's settings apart), or keep several sites in one database as separate projects
 - **Your assistants**: Edit an assistant that is already on your site, including your own instructions ("never quote prices"), without new embed code
 - **Automation keys**: Let a script or CI job keep the documents in sync, with per-key expiry and an activity log
 - **One-click database setup**: The app creates a limited database login for itself, and shows which login it is using
@@ -574,13 +574,18 @@ use another browser, connect again; to revoke everything made with a login,
 change that login's password. The builder link sits in browser storage, so
 use **Disconnect** on shared computers.
 
-## 🗂 Projects: one per site
+## 🗂 Several sites
 
-One database can serve several sites. With a database connected, the
-**Project** picker in the builder's connected panel lists your projects with
-their document and assistant counts. **New project** starts an empty one (no
-documents, default settings), so a second site never begins from the first
-site's title and questions; **Rename** names it.
+**The usual setup is one database per site.** Disconnect, connect the next
+site's database, and the builder starts from the defaults rather than the
+previous site's title and questions. Each database's form is remembered in
+this browser and comes back when you connect it again; a form filled in
+before connecting is kept for the database you connect.
+
+**Or several sites in one database, as projects.** With a database connected,
+choose *add it as a separate project in this one*. Once there are two, a
+**Project** picker lists them with their document and assistant counts;
+**New project** starts an empty one with default settings, **Rename** names it.
 
 Each project keeps its own documents, assistants, automation keys,
 conversation log and daily stats. Switching swaps this browser's builder link

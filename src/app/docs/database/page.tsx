@@ -90,7 +90,7 @@ export default function DatabaseSetupGuide(): JSX.Element {
           <li><a className={LINK} href="#what-it-does">What one-click setup does</a></li>
           <li><a className={LINK} href="#manual">Manual setup</a></li>
           <li><a className={LINK} href="#upgrade">Upgrading an older setup</a></li>
-          <li><a className={LINK} href="#projects">One project per site</a></li>
+          <li><a className={LINK} href="#projects">Several sites</a></li>
           <li><a className={LINK} href="#edit">Changing an assistant after it&apos;s live</a></li>
           <li><a className={LINK} href="#log">Seeing what visitors asked</a></li>
           <li><a className={LINK} href="#keys">Keeping documents in sync</a></li>
@@ -198,11 +198,15 @@ export default function DatabaseSetupGuide(): JSX.Element {
       </p>
       <CodeBlock label="upgrade SQL" code={upgradeSql} />
 
-      <h2 id="projects" className={H2}>One project per site</h2>
+      <h2 id="projects" className={H2}>Several sites</h2>
       <p className={P}>
-        One database can hold assistants for several sites. Once connected, the <em>Project</em> picker shows each project
-        with its document and assistant counts. <em>New project</em> starts an empty one with default settings, so a second
-        site doesn&apos;t begin from the first site&apos;s title and questions; <em>Rename</em> names it.
+        The usual setup is one database per site. <em>Disconnect</em>, connect the next site&apos;s database, and the builder
+        starts from the defaults rather than the last site&apos;s title and questions. Each database&apos;s settings are
+        remembered in this browser and come back when you connect it again.
+      </p>
+      <p className={P}>
+        To keep several sites in one database instead, choose <em>add it as a separate project in this one</em> once
+        connected. With two or more, a <em>Project</em> picker shows each with its document and assistant counts.
       </p>
       <ul className={LIST}>
         <li>Each project has its own documents, assistants, automation keys, conversation log and daily stats.</li>

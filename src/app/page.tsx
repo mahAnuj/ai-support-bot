@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useEffect, useId, useState } from 'react'
+import React, { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { MAX_STARTER_LENGTH, MAX_STARTER_QUESTIONS, normalizeStarterQuestions } from '@/lib/starter-questions'
 import { loadBuilderSettings, saveBuilderSettings, type SavedBuilderSettings } from '@/lib/builder-settings'
 import ChatInterface from '@/components/ui/ChatInterface'
@@ -226,21 +226,33 @@ export default function HomePage() {
   useEffect(() => {
     if (settingsLoaded) saveBuilderSettings({ ...widgetConfig, starterInputs }, projectId)
   }, [settingsLoaded, widgetConfig, starterInputs, projectId])
-  // Another project opened (Your projects). A new one starts from the defaults;
-  // an existing one gets what was saved for it, or keeps the current form,
-  // which becomes its own (the first time a project is seen in this browser).
+  // Which project the form on screen belongs to; null while it is an unattached
+  // draft (filled in before connecting).
+  const formProject = useRef<string | null>(null)
+  // A project opened: on connect (any database) or from the project picker.
+  // It gets what was saved for it in this browser. Without that, a draft is
+  // adopted, but a form that belongs to another project or database is not:
+  // the new one starts from the defaults, never from the last site's values.
   const handleProjectChange = useCallback((id: string, isNew: boolean) => {
     setProjectId(id)
     const saved = loadBuilderSettings(id)
     if (saved) applySettings(saved)
-    else if (isNew) applySettings({})
+    else if (isNew || (formProject.current !== null && formProject.current !== id)) applySettings({})
+    formProject.current = id
   }, [applySettings])
   const storage = useStorageConnection()
   useEffect(() => { if (storage.documents) setUploadedDocuments(storage.documents) }, [storage.documents])
   const ownModel = useOwnModel(storage.available)
   const savedModel = ownModel.model
   const modelInfo = savedModel ? { model: savedModel.model, host: savedModel.host } : null
-  const handleDisconnect = useCallback(() => { setUploadedDocuments([]); setSessionId(null); setProjectId(null) }, [])
+  // The disconnected project's form stays saved under its own key and returns
+  // on reconnect; the builder goes back to a blank draft, so the next database
+  // does not start from this one's title and questions.
+  const handleDisconnect = useCallback(() => {
+    setUploadedDocuments([]); setSessionId(null); setProjectId(null)
+    formProject.current = null
+    applySettings({})
+  }, [applySettings])
   const connector = useConnector(storage.available, storage.ready)
   const connectorDocuments = connector.connected ? connector.documents : null
   useEffect(() => {

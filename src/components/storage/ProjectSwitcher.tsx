@@ -113,6 +113,20 @@ export default function ProjectSwitcher({
     }
   }
 
+  // The usual setup is one database per site, so a database with one project
+  // gets a single quiet line; the picker appears once there is a choice.
+  if (projects.length < 2 && mode === 'idle' && !note) {
+    return (
+      <p className="mt-3 text-xs text-ink-subtle">
+        Another site? Connect its own database, or{' '}
+        <button type="button" className="font-semibold text-ink underline underline-offset-2 hover:text-accent" onClick={() => { setMode('new'); setName('') }}>
+          add it as a separate project in this one
+        </button>
+        .
+      </p>
+    )
+  }
+
   return (
     <div className="mt-4 rounded-md border border-line bg-sunken p-3">
       <label htmlFor={selectId} className="text-sm font-medium text-ink">Project</label>
@@ -126,8 +140,8 @@ export default function ProjectSwitcher({
         </div>
       </div>
       <p className="mt-1.5 text-xs text-ink-subtle">
-        One project per site: each has its own documents, assistants, automation keys, log and stats. Switching changes
-        everything below to that project; embed code already on a site keeps working.
+        Separate projects in one database: each has its own documents, assistants, automation keys, log and stats.
+        Switching changes everything below to that project; embed code already on a site keeps working.
       </p>
       {mode !== 'idle' && (
         <form onSubmit={submit} className="mt-3 flex flex-col gap-2 sm:flex-row">
