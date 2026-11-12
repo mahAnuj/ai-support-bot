@@ -135,6 +135,9 @@ export async function POST(request: NextRequest) {
     console.log('Widget Chat API - Widget found:', ctx.label)
 
     const widgetBot = `widget:${fingerprint(String(widgetKey))}`
+    // A site's own shared-model limit applies only to a bot locked to exact
+    // sites, and the origin was checked against that list just above.
+    const verifiedSite = ctx.access.kind === 'exact' ? origin : null
     const refuseAtCap = (claim: ClaimResult) => {
       if (claim.allowed) return null
       console.warn(`Widget chat shared model daily limit reached ${ctx.label}`)
@@ -144,7 +147,7 @@ export async function POST(request: NextRequest) {
     if (ctx.kind === 'connector') {
       // Neither the owner's backend nor the owner's model answers: the shared model does, within its daily cap.
       if (!ctx.answer && !ctx.model) {
-        const refused = refuseAtCap(await claimSharedModelQuestion({ id: widgetBot }))
+        const refused = refuseAtCap(await claimSharedModelQuestion({ id: widgetBot, site: verifiedSite }))
         if (refused) return refused
       }
       // A backend widget answers from its backend or not at all: any failure is a 503, never a Groq answer.
@@ -177,8 +180,8 @@ export async function POST(request: NextRequest) {
     const { store, widget, kind, label, model } = ctx
     // The shared demo model's daily cap, counted while documents are searched.
     const sharedClaim = model ? null : claimSharedModelQuestion(ctx.database
-      ? { id: `ws:${ctx.database.connection.fingerprint}:${ctx.database.workspaceId}`, database: ctx.database }
-      : { id: widgetBot })
+      ? { id: `ws:${ctx.database.connection.fingerprint}:${ctx.database.workspaceId}`, database: ctx.database, site: verifiedSite }
+      : { id: widgetBot, site: verifiedSite })
     
     let ragResult = null
     let isEnhanced = false

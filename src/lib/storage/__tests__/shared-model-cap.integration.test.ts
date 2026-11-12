@@ -30,18 +30,27 @@ run('shared model daily cap', () => {
   const req = (url: string, init: { method?: string; headers?: Record<string, string>; body?: string } = {}) =>
     new NextRequest(new URL(url, 'http://localhost'), { method: init.method ?? 'GET', headers: init.headers, body: init.body })
 
-  const newBot = async () => {
+  const newBot = async (sites: string[] = []) => {
     const ws = (await createPostgresStore(conn, '00000000-0000-0000-0000-000000000000').createWorkspace()).id
     workspaces.push(ws)
     const store = createPostgresStore(conn, ws)
     await store.storeDocument(ws, 'faq.md', [{ content: 'Answers.', embedding: axis, index: 0 }])
     const widget = await store.createWidget(ws, { name: 'w', title: 'Ask', welcome_message: 'Hi', primary_color: '#14425c', position: 'bottom-right', size: 'medium', allowed_domains: [] })
+    if (sites.length) {
+      await (await getPool(conn)).query('INSERT INTO support_bot.widget_prefs (widget_id, workspace_id, allowed_origins) VALUES ($1, $2, $3)', [widget.id, ws, sites])
+    }
     return { ws, builder: sealBuilderToken({ conn: conn.normalized, workspaceId: ws }), embed: sealWidgetToken({ conn: conn.normalized, workspaceId: ws, widgetId: widget.id }) }
   }
-  const ask = (embed: string) => {
+  const ask = (embed: string, origin?: string) => {
     mockedEmbed.mockResolvedValueOnce(axis)
     mockedAnswer.mockResolvedValueOnce({ message: 'An answer.' })
-    return chat(req('/api/widget/chat', { method: 'POST', headers: { 'content-type': 'application/json', 'x-real-ip': randomUUID() }, body: JSON.stringify({ message: 'q', widgetKey: embed }) }))
+    const headers: Record<string, string> = { 'content-type': 'application/json', 'x-real-ip': randomUUID(), ...(origin ? { origin } : {}) }
+    return chat(req('/api/widget/chat', { method: 'POST', headers, body: JSON.stringify({ message: 'q', widgetKey: embed }) }))
+  }
+  const statuses = async (embed: string, n: number, origin?: string) => {
+    const out: number[] = []
+    for (let i = 0; i < n; i++) out.push((await ask(embed, origin)).status)
+    return out
   }
 
   beforeAll(async () => {
@@ -89,6 +98,26 @@ run('shared model daily cap', () => {
     resetSharedModelMemory() // a fresh instance: its memory counter is empty
     expect((await ask(bot.embed)).status).toBe(200)
     expect((await ask(bot.embed)).status).toBe(429)
+  })
+
+  it("applies a site's own limit or none, only to a bot locked to that site", async () => {
+    process.env.SHARED_MODEL_SITE_LIMITS = 'anujmahajan.com=off, https://shubhagya.com=5'
+    try {
+      // Locked to the site with no limit: past the default 3.
+      const mine = await newBot(['https://anujmahajan.com'])
+      expect(await statuses(mine.embed, 6, 'https://anujmahajan.com')).toEqual([200, 200, 200, 200, 200, 200])
+      // Locked to the site with 5.
+      const theirs = await newBot(['https://shubhagya.com'])
+      expect(await statuses(theirs.embed, 6, 'https://shubhagya.com')).toEqual([200, 200, 200, 200, 200, 429])
+      // Open to every site: naming anujmahajan.com does not lift its limit.
+      const open = await newBot()
+      expect(await statuses(open.embed, 4, 'https://anujmahajan.com')).toEqual([200, 200, 200, 429])
+      // Locked to two sites: a request from the one without its own limit gets the default.
+      const both = await newBot(['https://anujmahajan.com', 'https://example.com'])
+      expect(await statuses(both.embed, 4, 'https://example.com')).toEqual([200, 200, 200, 429])
+    } finally {
+      delete process.env.SHARED_MODEL_SITE_LIMITS
+    }
   })
 
   it('never lets concurrent questions past the cap', async () => {

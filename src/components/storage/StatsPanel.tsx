@@ -96,9 +96,9 @@ export default function StatsPanel({ requestHeaders }: { requestHeaders: Record<
         <p className="mt-2 max-w-[60ch] rounded-md border border-line bg-sunken px-3 py-2 text-sm text-ink">
           <span className="font-semibold">Shared demo model:</span>{' '}
           {report.sharedModel.usedToday != null
-            ? `${report.sharedModel.usedToday} of ${report.sharedModel.limit} questions used today (UTC). `
-            : `up to ${report.sharedModel.limit} questions a day. `}
-          After that, visitors are asked to come back tomorrow. Assistants on your own model have no limit: connect one under{' '}
+            ? `${report.sharedModel.usedToday} questions used today (UTC). The usual limit is ${report.sharedModel.limit} a day per bot; `
+            : `the usual limit is ${report.sharedModel.limit} questions a day per bot; `}
+          a site can have its own. After it, visitors are asked to come back tomorrow. Assistants on your own model have no limit: connect one under{' '}
           <em>Use your own model</em> and choose it in <em>Your assistants</em>.
         </p>
       )}

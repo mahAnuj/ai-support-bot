@@ -182,6 +182,7 @@ GROQ_MODEL=openai/gpt-oss-20b
 NEXT_PUBLIC_BASE_URL=https://yourdomain.com
 EMBED_TOKEN_KEY=          # openssl rand -base64 32; turns on "connect your own database", "use your own model" and "connect your backend"
 SHARED_MODEL_DAILY_LIMIT= # questions per bot per UTC day on the shared demo model (default 200; 0 or off = no limit)
+SHARED_MODEL_SITE_LIMITS= # per-site overrides, e.g. "anujmahajan.com=off, shubhagya.com=1000"
 ALLOW_PRIVATE_DB_HOSTS=   # 1 = allow localhost/private database hosts on a production build
 ALLOW_PRIVATE_MODEL_HOSTS= # 1 = allow localhost/private model addresses on a production build; leave unset in production
 ALLOW_PRIVATE_CONNECTOR_HOSTS= # 1 = allow localhost/private backend addresses on a production build; leave unset in production
@@ -718,6 +719,14 @@ answered all the questions it can for today. Please try again tomorrow."*
   in memory; that is the only counter for bots without a database, and the
   backstop when the table is missing. A question is refused when either is
   full.
+- **Per site**, the deployment's operator can set another limit or none in
+  `SHARED_MODEL_SITE_LIMITS`, for example
+  `anujmahajan.com=off, shubhagya.com=1000` (comma separated; `off` or `0` =
+  no limit; exact hostname, so list `www.` separately). It applies only to a
+  bot locked to an exact list of allowed sites, for a request from one of
+  them; a bot open to every site always gets the default, so it cannot borrow
+  another site's limit by sending that site's name. Bot owners cannot change
+  it. On Vercel: Project → Settings → Environment Variables, then redeploy.
 - The owner sees today's use under *Questions and answers* in the builder.
 - The database count can be edited by the database owner, so this is a
   fair-use limit for a shared key, not a security boundary. The per-visitor
