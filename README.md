@@ -14,7 +14,7 @@ Upload your documents, preview the assistant, and paste one `<script>` tag into 
 - **Answers written for visitors.** Visitors never see source file names or match scores, are never asked to upload anything, and see honest waiting messages while an answer is on its way.
 - **Honest about what it protects.** [GOVERNANCE.md](GOVERNANCE.md) lists what is enforced, where data goes, and what is still open. It describes controls; it is not a certification.
 
-About 790 tests across the app and the connector. About 20 of them need a disposable Postgres (`TEST_DATABASE_URL`); the rest need no database, network or API keys. MIT licensed.
+About 810 tests across the app and the connector. About 40 of them need a disposable Postgres (`TEST_DATABASE_URL`); the rest need no database, network or API keys. MIT licensed.
 
 ## ✨ What It Does
 
@@ -303,6 +303,17 @@ any missing `support_bot` objects itself when you press Connect. It never runs
 `CREATE EXTENSION`, `DROP` or `TRUNCATE`. If the tables already exist but were
 made for another schema version or embedding size, Connect fails with "made for
 a different version or embedding size" and nothing is changed.
+
+### Upgrading a database set up with an earlier version
+
+Run [`scripts/support-bot-upgrade.sql`](scripts/support-bot-upgrade.sql) once
+as the admin login. It creates the tables added since v1 (automation keys and
+their activity, `widget_prefs`, the conversation log, daily stats), adds newer
+columns to tables made from an older script, and grants every assistant login
+(`support_bot_app`, and the `support_bot_app_<6 hex>` logins one-click setup
+makes) the role script's rights on them. It is idempotent and never drops,
+empties or rewrites anything. `src/lib/storage/__tests__/schema.test.ts` fails
+if a new optional table is missing from it.
 
 ### Step 2 (recommended, or use one-click setup): a least-privilege role
 

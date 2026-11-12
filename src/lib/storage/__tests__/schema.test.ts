@@ -34,3 +34,19 @@ describe('support_bot schema', () => {
     expect(SCHEMA_STATEMENTS.some((sql) => sql.includes(`vector(${EMBEDDING_DIM})`))).toBe(true)
   })
 })
+
+// scripts/support-bot-upgrade.sql brings an older database up to date, so every
+// table added after v1 must be in it, or that database silently lacks a feature.
+describe('upgrade script', () => {
+  it('creates every optional table the app knows about', () => {
+    const fs = require('node:fs') as typeof import('node:fs')
+    const path = require('node:path') as typeof import('node:path')
+    const upgrade = fs.readFileSync(path.join(process.cwd(), 'scripts', 'support-bot-upgrade.sql'), 'utf8')
+    const tables = SCHEMA_STATEMENTS.filter((sql) => /^CREATE TABLE IF NOT EXISTS support_bot\.(api_keys|key_events|widget_prefs|conversations|log_settings|daily_stats) /.test(sql))
+    expect(tables).toHaveLength(6)
+    for (const sql of tables) {
+      const name = sql.match(/support_bot\.(\w+)/)![1]
+      expect(upgrade).toContain(`CREATE TABLE IF NOT EXISTS support_bot.${name} `)
+    }
+  })
+})

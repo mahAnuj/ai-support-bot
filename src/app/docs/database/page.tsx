@@ -71,6 +71,7 @@ DROP ROLE support_bot_app_xxxxxx;`
 export default function DatabaseSetupGuide(): JSX.Element {
   const schemaSql = readScript('support-bot-schema.sql')
   const roleSql = readScript('support-bot-role.sql')
+  const upgradeSql = readScript('support-bot-upgrade.sql')
   return (
     <main className="mx-auto max-w-[46rem] px-4 pb-24 pt-10 sm:px-6">
       <Link href="/" className={`${LINK} text-sm`}>&larr; Back to the builder</Link>
@@ -88,6 +89,7 @@ export default function DatabaseSetupGuide(): JSX.Element {
           <li><a className={LINK} href="#one-click">One-click setup (recommended)</a></li>
           <li><a className={LINK} href="#what-it-does">What one-click setup does</a></li>
           <li><a className={LINK} href="#manual">Manual setup</a></li>
+          <li><a className={LINK} href="#upgrade">Upgrading an older setup</a></li>
           <li><a className={LINK} href="#edit">Changing an assistant after it&apos;s live</a></li>
           <li><a className={LINK} href="#log">Seeing what visitors asked</a></li>
           <li><a className={LINK} href="#keys">Keeping documents in sync</a></li>
@@ -185,6 +187,15 @@ export default function DatabaseSetupGuide(): JSX.Element {
         Paste it into the builder and click <em>Connect</em>. The checkbox does not matter here: a login that cannot
         create logins is used as it is.
       </p>
+
+      <h2 id="upgrade" className={H2}>Upgrading an older setup</h2>
+      <p className={P}>
+        Set up before automation keys, <em>Your assistants</em>, the conversation log or daily stats existed? Run this once as
+        the admin login. It adds the newer tables and columns, and gives every assistant login (<C>support_bot_app</C> and the
+        <C> support_bot_app_</C> ones one-click setup makes) the same limited rights as before. It is safe to run more than once
+        and never drops or changes your data. The builder tells you when a feature is waiting for it.
+      </p>
+      <CodeBlock label="upgrade SQL" code={upgradeSql} />
 
       <h2 id="edit" className={H2}>Changing an assistant after it&apos;s live</h2>
       <p className={P}>
