@@ -23,7 +23,7 @@ About 810 tests across the app and the connector. About 40 of them need a dispos
 - **Your Documents**: Upload business documents (PDF, TXT, MD, DOCX) for the assistant to answer from
 - **Live Preview**: See exactly how your assistant will look and behave
 - **One-line embed**: Generate embeddable JavaScript code for your website
-- **Several sites**: Give each site its own database (the builder keeps each one's settings apart), or create a project per site in one database
+- **Your bots**: One bot per site, each with its own database and settings, all listed in the builder; open any of them without the connection string
 - **Your assistants**: Edit an assistant that is already on your site, including your own instructions ("never quote prices"), without new embed code
 - **Automation keys**: Let a script or CI job keep the documents in sync, with per-key expiry and an activity log
 - **One-click database setup**: The app creates a limited database login for itself, and shows which login it is using
@@ -574,32 +574,28 @@ use another browser, connect again; to revoke everything made with a login,
 change that login's password. The builder link sits in browser storage, so
 use **Disconnect** on shared computers.
 
-## 🗂 Several sites
+## 🗂 Your bots: one per site
 
-**The usual setup is one database per site.** Disconnect, connect the next
-site's database, and the builder starts from the defaults rather than the
-previous site's title and questions. Each database's form is remembered in
-this browser and comes back when you connect it again; a form filled in
-before connecting is kept for the database you connect.
+Managing several sites? Give each its own bot, with its own database and its
+own settings, and manage them all from the builder.
 
-**Or several bots in one database, as projects.** With a database connected,
-the **Project** picker lists your projects with their document and assistant
-counts. **+ New project** starts an empty one (no documents, default
-settings) for the next site; **Rename** names it.
+1. Connect the first site's database and set the bot up. **Rename** it in
+   **Your bots** (for example `shubhagya.com`).
+2. Click **+ New bot**. The current bot stays listed; the builder goes back
+   to a blank form and the connect box. Connect the next site's database.
+3. Repeat for each site. **Your bots** lists them all; **Open** switches to
+   one, bringing back its documents, assistants, keys, log, stats and the
+   builder form as you left it. No connection string is needed again.
 
-Each project keeps its own documents, assistants, automation keys,
-conversation log and daily stats. Switching swaps this browser's builder link
-for that project's and reloads everything below it; embed code already on a
-site keeps working, whichever project is open. The builder form (title,
-welcome message, questions) is remembered per project in this browser.
-
-Projects are workspaces (`support_bot.workspaces`); names live in the optional
-`support_bot.projects` table. One-click setup creates it; on an older database
-run the upgrade script (`scripts/support-bot-upgrade.sql`). Without it,
-projects still work and show as "Unnamed project (date)". Reconnecting reopens
-the most recently used project that has documents; pick any other from the
-list. Only the builder link can list, create, rename or switch projects, and
-only within the database it was made for.
+The list is kept in this browser (each entry holds that database's sealed
+builder link, the same thing the builder already keeps for the open one), so
+use the same browser, or connect a bot once in another to add it there.
+**Forget** removes a bot from the list; **Disconnect this browser** removes the
+open one. Neither deletes anything from the database, and embed code already
+on a site keeps working whichever bot is open. Names are also saved in the
+database when it has the optional `support_bot.projects` table (created by
+one-click setup or `scripts/support-bot-upgrade.sql`); otherwise they are kept
+in this browser only.
 
 ## 📝 Conversation log
 

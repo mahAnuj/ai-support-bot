@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { clientIp, isRateLimited } from '../../../../lib/guard'
 import { StorageError, mapDriverError, safeErrorSummary } from '../../../../lib/storage/errors'
+import { fingerprint } from '../../../../lib/storage/log'
 import { getPool } from '../../../../lib/storage/pg-pool'
 import { createProject, isProjectId, listProjects, normalizeProjectName, renameProject, openProject } from '../../../../lib/storage/projects'
 import { resolveOwnerDatabase, storageErrorResponse } from '../../../../lib/storage/resolve'
@@ -26,7 +27,11 @@ export async function GET(request: NextRequest) {
   if (!c.ok) return c.res
   try {
     await ensureSchema(await getPool(c.ctx.connection))
-    return NextResponse.json(await listProjects(c.ctx.connection, c.ctx.workspaceId), { headers: { 'Cache-Control': 'no-store' } })
+    const conn = c.ctx.connection
+    // Which database this is, for the builder's "Your bots" list: a key from
+    // the address only (never the login or password) and a readable label.
+    const database = { key: fingerprint(`${conn.host}:${conn.port}/${conn.database}`), label: `${conn.database} on ${conn.host}` }
+    return NextResponse.json({ ...(await listProjects(conn, c.ctx.workspaceId)), database }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (e) {
     console.error(`projects list failed ${c.ctx.label} ${safeErrorSummary(e)}`)
     return storageErrorResponse(mapDriverError(e))

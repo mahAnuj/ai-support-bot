@@ -67,6 +67,10 @@ run('projects', () => {
     const list = await (await listProjects(req('/api/storage/projects', { headers: { [STORAGE_TOKEN_HEADER]: body.token } }))).json()
     const mine = list.projects.filter((p: { id: string }) => created.includes(p.id))
     expect(list.namesAvailable).toBe(true)
+    // The database is identified by its address only: never the login or password.
+    expect(list.database.key).toMatch(/^[0-9a-f]{8}$/)
+    expect(list.database.label).toBe(`${conn.database} on ${conn.host}`)
+    expect(JSON.stringify(list.database)).not.toContain(conn.password)
     expect(mine.find((p: { id: string }) => p.id === siteA)).toMatchObject({ documents: 1, assistants: 1, current: false })
     expect(mine.find((p: { id: string }) => p.id === body.id)).toMatchObject({ name: 'shubhagya.com', documents: 0, assistants: 0, current: true })
   })

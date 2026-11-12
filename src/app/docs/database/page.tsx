@@ -90,7 +90,7 @@ export default function DatabaseSetupGuide(): JSX.Element {
           <li><a className={LINK} href="#what-it-does">What one-click setup does</a></li>
           <li><a className={LINK} href="#manual">Manual setup</a></li>
           <li><a className={LINK} href="#upgrade">Upgrading an older setup</a></li>
-          <li><a className={LINK} href="#projects">Several sites</a></li>
+          <li><a className={LINK} href="#projects">One bot per site</a></li>
           <li><a className={LINK} href="#edit">Changing an assistant after it&apos;s live</a></li>
           <li><a className={LINK} href="#log">Seeing what visitors asked</a></li>
           <li><a className={LINK} href="#keys">Keeping documents in sync</a></li>
@@ -198,25 +198,17 @@ export default function DatabaseSetupGuide(): JSX.Element {
       </p>
       <CodeBlock label="upgrade SQL" code={upgradeSql} />
 
-      <h2 id="projects" className={H2}>Several sites</h2>
+      <h2 id="projects" className={H2}>One bot per site</h2>
       <p className={P}>
-        The usual setup is one database per site. <em>Disconnect</em>, connect the next site&apos;s database, and the builder
-        starts from the defaults rather than the last site&apos;s title and questions. Each database&apos;s settings are
-        remembered in this browser and come back when you connect it again.
-      </p>
-      <p className={P}>
-        Or keep several bots in one database: once connected, the <em>Project</em> picker shows each project with its
-        document and assistant counts, and <em>+ New project</em> starts an empty one with default settings for the next site.
+        Managing several sites? Give each its own bot, with its own database and settings. Connect the first database,
+        then <em>Rename</em> it under <em>Your bots</em>. <em>+ New bot</em> keeps it listed and shows the connect box for
+        the next site&apos;s database, starting from a blank form.
       </p>
       <ul className={LIST}>
-        <li>Each project has its own documents, assistants, automation keys, conversation log and daily stats.</li>
-        <li>Switching changes everything in the panel to that project. Embed code already on a site keeps working.</li>
-        <li>The builder form is remembered per project in this browser.</li>
+        <li><em>Open</em> switches to a bot, with its documents, assistants, keys, log, stats and form as you left them.</li>
+        <li>No connection string is needed again in the same browser. The list is kept in this browser only.</li>
+        <li><em>Forget</em> removes a bot from the list. Nothing is deleted from its database, and its embed code keeps working.</li>
       </ul>
-      <p className={NOTE}>
-        Project names need the <C>support_bot.projects</C> table. One-click setup creates it; on an older setup, run the{' '}
-        <a className={LINK} href="#upgrade">upgrade SQL</a>. Without it, projects still work and show as unnamed.
-      </p>
 
       <h2 id="edit" className={H2}>Changing an assistant after it&apos;s live</h2>
       <p className={P}>
@@ -234,7 +226,7 @@ export default function DatabaseSetupGuide(): JSX.Element {
           assistant&apos;s own rules, never instead of them, so an instruction cannot make it state facts your documents
           don&apos;t contain.
         </li>
-        <li>Documents are shared by every assistant in the same project; upload or remove them in the builder at any time.</li>
+        <li>Documents are shared by every assistant of the same bot; upload or remove them in the builder at any time.</li>
       </ul>
       <p className={NOTE}>
         <strong>Two limits.</strong> An assistant that uses your own model (your API credits) always keeps at least the sites

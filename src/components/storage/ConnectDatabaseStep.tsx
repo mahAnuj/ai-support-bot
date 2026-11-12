@@ -5,7 +5,8 @@ import type { StorageConnection } from './useStorageConnection'
 import AutomationKeys from './AutomationKeys'
 import DatabaseLogin from './DatabaseLogin'
 import YourAssistants from './YourAssistants'
-import ProjectSwitcher from './ProjectSwitcher'
+import YourBots from './YourBots'
+import { forgetBot } from '@/lib/bot-list'
 import ConversationLog from './ConversationLog'
 import StatsPanel from './StatsPanel'
 
@@ -21,7 +22,7 @@ export interface ConnectDatabaseStepProps {
   ownModel?: { token: string; model: string; host: string } | null
   // The suggested questions set in the builder, to pre-fill "Your assistants".
   builderStarters?: readonly string[]
-  // Told which project is open, and whether it was just created (Project switcher).
+  // Told which workspace is open, so the page loads that bot's settings (Your bots).
   onProjectChange?: (id: string, isNew: boolean) => void
 }
 
@@ -102,7 +103,13 @@ export default function ConnectDatabaseStep({ storage, sessionId, sessionDocumen
   }
 
   if (storage.connected) {
+    // Disconnect forgets this bot in this browser; + New bot keeps it listed.
     const disconnect = () => {
+      forgetBot({ token: storage.token })
+      storage.disconnect()
+      onDisconnect?.()
+    }
+    const newBot = () => {
       storage.disconnect()
       onDisconnect?.()
     }
@@ -114,7 +121,7 @@ export default function ConnectDatabaseStep({ storage, sessionId, sessionDocumen
           Stored in your database.
         </h3>
         <DatabaseLogin requestHeaders={storage.requestHeaders} onReconnect={disconnect} />
-        <ProjectSwitcher requestHeaders={storage.requestHeaders} switchTo={storage.switchTo} onProjectChange={onProjectChange} documentCount={storage.documents?.length ?? 0} />
+        <YourBots connected token={storage.token} requestHeaders={storage.requestHeaders} switchTo={storage.switchTo} onProjectChange={onProjectChange} onNewBot={newBot} />
         {migration && (
           <div className={BODY} role="status">
             {migration.setup?.status === 'created' && (
@@ -157,7 +164,7 @@ export default function ConnectDatabaseStep({ storage, sessionId, sessionDocumen
             Disconnect this browser
           </button>
           <p className="max-w-[60ch] text-xs text-ink-muted">
-            This forgets the link in this browser only. Nothing is deleted from your database, and connecting it again,
+            This forgets the link in this browser only, and removes this bot from Your bots here. Nothing is deleted from your database, and connecting it again,
             here or in another browser, reopens this assistant with its documents. To cut off access, change the
             database user&apos;s password; that also stops every embed and automation key made with it.
           </p>
@@ -184,6 +191,7 @@ export default function ConnectDatabaseStep({ storage, sessionId, sessionDocumen
         Demo documents and widgets are deleted when this server restarts. Connect your own Postgres database with pgvector
         to keep them. Documents already in this session are moved across.
       </p>
+      <YourBots connected={false} token={null} requestHeaders={storage.requestHeaders} switchTo={storage.switchTo} />
 
       <details className="mt-4 rounded-md border border-line bg-sunken px-3 py-2 text-sm text-ink-muted">
         <summary className="cursor-pointer py-1 font-medium text-ink">Which login should I use?</summary>
