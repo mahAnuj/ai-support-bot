@@ -42,8 +42,8 @@ describe('upgrade script', () => {
     const fs = require('node:fs') as typeof import('node:fs')
     const path = require('node:path') as typeof import('node:path')
     const upgrade = fs.readFileSync(path.join(process.cwd(), 'scripts', 'support-bot-upgrade.sql'), 'utf8')
-    const tables = SCHEMA_STATEMENTS.filter((sql) => /^CREATE TABLE IF NOT EXISTS support_bot\.(api_keys|key_events|widget_prefs|conversations|log_settings|daily_stats|projects) /.test(sql))
-    expect(tables).toHaveLength(7)
+    const tables = SCHEMA_STATEMENTS.filter((sql) => /^CREATE TABLE IF NOT EXISTS support_bot\.(api_keys|key_events|widget_prefs|conversations|log_settings|daily_stats|projects|shared_model_usage) /.test(sql))
+    expect(tables).toHaveLength(8)
     for (const sql of tables) {
       const name = sql.match(/support_bot\.(\w+)/)![1]
       expect(upgrade).toContain(`CREATE TABLE IF NOT EXISTS support_bot.${name} `)

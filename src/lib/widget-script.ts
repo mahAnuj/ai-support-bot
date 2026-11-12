@@ -575,7 +575,9 @@ export function widgetScript(widget: Widget, baseUrl: string, savedStarters: rea
       // A failed request still returns a message and a placeholder session
       // id, so check the status before treating the body as an answer.
       if (!response.ok || !data || typeof data.message !== 'string' || !data.message) {
-        addError(response.status === 429
+        addError(data && data.code === 'daily_limit' && typeof data.message === 'string'
+          ? data.message
+          : response.status === 429
           ? 'Too many messages from this network. Wait a minute and try again.'
           : response.status === 403
             ? "This assistant isn't available on this site."

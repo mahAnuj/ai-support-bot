@@ -9,6 +9,8 @@ import { getCachedEmbedding } from '../../../../lib/rag'
 import { matchScore, MIN_SIMILARITY } from '../../../../lib/embeddings'
 import { clientIp, isRateLimited, LIMITS, widgetCorsHeaders, widgetOriginAllowed } from '../../../../lib/guard'
 import { resolveWidget } from '../../../../lib/storage/resolve'
+import { claimSharedModelQuestion, type ClaimResult } from '../../../../lib/shared-model-cap'
+import { fingerprint } from '../../../../lib/storage/log'
 import { retrievalLog } from '../../../../lib/storage/log'
 import { safeErrorSummary } from '../../../../lib/storage/errors'
 import { answerWithConnector } from '../../../../lib/connector/answer'
@@ -45,6 +47,10 @@ const UNAVAILABLE_BODY = {
   isEnhanced: false,
   sessionId: 'error-session',
 }
+
+// The bot used up today's questions on the shared demo model (shared-model-cap.ts).
+const DAILY_LIMIT_MESSAGE = "This assistant has answered all the questions it can for today. Please try again tomorrow."
+const dailyLimitBody = (cap: number) => ({ error: 'Daily limit reached', code: 'daily_limit', message: DAILY_LIMIT_MESSAGE, limit: cap })
 
 // Runs after the reply is sent; outside a request scope (tests, scripts) it runs at once.
 function later(task: () => Promise<unknown>) {
@@ -128,7 +134,19 @@ export async function POST(request: NextRequest) {
 
     console.log('Widget Chat API - Widget found:', ctx.label)
 
+    const widgetBot = `widget:${fingerprint(String(widgetKey))}`
+    const refuseAtCap = (claim: ClaimResult) => {
+      if (claim.allowed) return null
+      console.warn(`Widget chat shared model daily limit reached ${ctx.label}`)
+      return corsJson(dailyLimitBody(claim.cap), 429, cors)
+    }
+
     if (ctx.kind === 'connector') {
+      // Neither the owner's backend nor the owner's model answers: the shared model does, within its daily cap.
+      if (!ctx.answer && !ctx.model) {
+        const refused = refuseAtCap(await claimSharedModelQuestion({ id: widgetBot }))
+        if (refused) return refused
+      }
       // A backend widget answers from its backend or not at all: any failure is a 503, never a Groq answer.
       try {
         const result = await answerWithConnector({
@@ -157,6 +175,10 @@ export async function POST(request: NextRequest) {
     }
 
     const { store, widget, kind, label, model } = ctx
+    // The shared demo model's daily cap, counted while documents are searched.
+    const sharedClaim = model ? null : claimSharedModelQuestion(ctx.database
+      ? { id: `ws:${ctx.database.connection.fingerprint}:${ctx.database.workspaceId}`, database: ctx.database }
+      : { id: widgetBot })
     
     let ragResult = null
     let isEnhanced = false
@@ -243,6 +265,11 @@ export async function POST(request: NextRequest) {
     // Generate the answer with the widget's own prompts
     const systemPrompt = widgetSystemPrompt(widget.system_prompt)
     
+    if (sharedClaim) {
+      const refused = refuseAtCap(await sharedClaim)
+      if (refused) return refused
+    }
+
     // An owner model answers alone: a failure is an error, never a Groq answer (D8)
     const provider = model ? ownerProvider(model) : demoProvider()
     let response

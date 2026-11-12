@@ -10,7 +10,10 @@ type Day = {
   day: string; questions: number; matched: number; noMatch: number; dontKnow: number; failures: number
   meanScore: number | null; minScore: number | null; lowScore: number
 }
-type Report = { available: boolean; enabled: boolean; days: Day[]; totals: Omit<Day, 'day'>; lowMatch: number }
+type Report = {
+  available: boolean; enabled: boolean; days: Day[]; totals: Omit<Day, 'day'>; lowMatch: number
+  sharedModel?: { limit: number | null; usedToday: number | null }
+}
 
 // Validated for this chart (chroma, lightness band, contrast on the white surface);
 // the brand accent #136150 reads as gray at bar size.
@@ -89,6 +92,16 @@ export default function StatsPanel({ requestHeaders }: { requestHeaders: Record<
         Daily counts from your widget, kept in your database. Numbers only: no question text, so this stays on even with the
         conversation log off.
       </p>
+      {report.sharedModel?.limit != null && (
+        <p className="mt-2 max-w-[60ch] rounded-md border border-line bg-sunken px-3 py-2 text-sm text-ink">
+          <span className="font-semibold">Shared demo model:</span>{' '}
+          {report.sharedModel.usedToday != null
+            ? `${report.sharedModel.usedToday} of ${report.sharedModel.limit} questions used today (UTC). `
+            : `up to ${report.sharedModel.limit} questions a day. `}
+          After that, visitors are asked to come back tomorrow. Assistants on your own model have no limit: connect one under{' '}
+          <em>Use your own model</em> and choose it in <em>Your assistants</em>.
+        </p>
+      )}
 
       {!report.available ? (
         <p role="alert" className="mt-3 max-w-[60ch] rounded-md border border-line bg-sunken px-3 py-2 text-sm text-ink">

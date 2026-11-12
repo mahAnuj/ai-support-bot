@@ -1,0 +1,101 @@
+/** @jest-environment node */
+// Runs only with TEST_DATABASE_URL. The shared demo model's daily cap,
+// counted in the bot's own database, through the real chat route.
+import { randomBytes, randomUUID } from 'node:crypto'
+import { NextRequest } from 'next/server'
+import { POST as chat } from '../../../app/api/widget/chat/route'
+import { GET as getStats } from '../../../app/api/storage/stats/route'
+import { generateResponse } from '../../llm'
+import { getCachedEmbedding } from '../../rag'
+import { claimSharedModelQuestion, resetSharedModelMemory } from '../../shared-model-cap'
+import { validateConnectionString, type ParsedConnection } from '../connection'
+import { STORAGE_TOKEN_HEADER } from '../errors'
+import { discardPool, getPool } from '../pg-pool'
+import { createPostgresStore } from '../pg-store'
+import { ensureSchema } from '../schema'
+import { sealBuilderToken, sealWidgetToken } from '../token'
+
+jest.mock('../../llm', () => ({ ...jest.requireActual('../../llm'), generateResponse: jest.fn() }))
+jest.mock('../../rag', () => ({ ...jest.requireActual('../../rag'), getCachedEmbedding: jest.fn() }))
+const mockedAnswer = generateResponse as jest.MockedFunction<typeof generateResponse>
+const mockedEmbed = getCachedEmbedding as jest.MockedFunction<typeof getCachedEmbedding>
+
+const run = process.env.TEST_DATABASE_URL ? describe : describe.skip
+const axis = Array.from({ length: 384 }, (_, i) => (i === 0 ? 1 : 0))
+
+run('shared model daily cap', () => {
+  const savedEnv = process.env
+  let conn: ParsedConnection
+  const workspaces: string[] = []
+  const req = (url: string, init: { method?: string; headers?: Record<string, string>; body?: string } = {}) =>
+    new NextRequest(new URL(url, 'http://localhost'), { method: init.method ?? 'GET', headers: init.headers, body: init.body })
+
+  const newBot = async () => {
+    const ws = (await createPostgresStore(conn, '00000000-0000-0000-0000-000000000000').createWorkspace()).id
+    workspaces.push(ws)
+    const store = createPostgresStore(conn, ws)
+    await store.storeDocument(ws, 'faq.md', [{ content: 'Answers.', embedding: axis, index: 0 }])
+    const widget = await store.createWidget(ws, { name: 'w', title: 'Ask', welcome_message: 'Hi', primary_color: '#14425c', position: 'bottom-right', size: 'medium', allowed_domains: [] })
+    return { ws, builder: sealBuilderToken({ conn: conn.normalized, workspaceId: ws }), embed: sealWidgetToken({ conn: conn.normalized, workspaceId: ws, widgetId: widget.id }) }
+  }
+  const ask = (embed: string) => {
+    mockedEmbed.mockResolvedValueOnce(axis)
+    mockedAnswer.mockResolvedValueOnce({ message: 'An answer.' })
+    return chat(req('/api/widget/chat', { method: 'POST', headers: { 'content-type': 'application/json', 'x-real-ip': randomUUID() }, body: JSON.stringify({ message: 'q', widgetKey: embed }) }))
+  }
+
+  beforeAll(async () => {
+    jest.spyOn(console, 'log').mockImplementation(() => {})
+    jest.spyOn(console, 'warn').mockImplementation(() => {})
+    jest.spyOn(console, 'error').mockImplementation(() => {})
+    process.env = { ...savedEnv, EMBED_TOKEN_KEY: randomBytes(32).toString('base64'), ALLOW_PRIVATE_DB_HOSTS: '1', SHARED_MODEL_DAILY_LIMIT: '3' }
+    const v = validateConnectionString(process.env.TEST_DATABASE_URL, { allowPrivate: true })
+    if (!v.ok) throw new Error('bad TEST_DATABASE_URL')
+    conn = v.connection
+    await ensureSchema(await getPool(conn))
+  })
+
+  beforeEach(() => { resetSharedModelMemory(); mockedAnswer.mockReset(); mockedEmbed.mockReset() })
+
+  afterAll(async () => {
+    try {
+      await (await getPool(conn)).query('DELETE FROM support_bot.workspaces WHERE id = ANY($1::uuid[])', [workspaces])
+    } finally {
+      await discardPool(conn)
+      process.env = savedEnv
+      jest.restoreAllMocks()
+    }
+  })
+
+  it('answers up to the cap, then refuses without calling the model, and reports it to the owner', async () => {
+    const bot = await newBot()
+    for (let i = 0; i < 3; i++) expect((await ask(bot.embed)).status).toBe(200)
+    const refused = await ask(bot.embed)
+    expect(refused.status).toBe(429)
+    expect(await refused.json()).toMatchObject({ code: 'daily_limit', limit: 3, message: expect.stringContaining('try again tomorrow') })
+    expect(mockedAnswer).toHaveBeenCalledTimes(3)
+
+    // Another bot has its own allowance.
+    expect((await ask((await newBot()).embed)).status).toBe(200)
+
+    const stats = await (await getStats(req('/api/storage/stats?days=7', { headers: { [STORAGE_TOKEN_HEADER]: bot.builder } }))).json()
+    expect(stats.sharedModel).toEqual({ limit: 3, usedToday: 3 })
+  })
+
+  it('holds across server instances: the database counter is the one that decides', async () => {
+    const bot = await newBot()
+    expect((await ask(bot.embed)).status).toBe(200)
+    expect((await ask(bot.embed)).status).toBe(200)
+    resetSharedModelMemory() // a fresh instance: its memory counter is empty
+    expect((await ask(bot.embed)).status).toBe(200)
+    expect((await ask(bot.embed)).status).toBe(429)
+  })
+
+  it('never lets concurrent questions past the cap', async () => {
+    const { ws } = await newBot()
+    // Distinct memory ids, as if each came to a different instance.
+    const results = await Promise.all(Array.from({ length: 12 }, () =>
+      claimSharedModelQuestion({ id: randomUUID(), database: { connection: conn, workspaceId: ws } }, new Date(), { SHARED_MODEL_DAILY_LIMIT: '5' } as unknown as NodeJS.ProcessEnv)))
+    expect(results.filter((r) => r.allowed)).toHaveLength(5)
+  })
+})

@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import { sharedModelDailyLimit } from '@/lib/shared-model-cap'
 import path from 'node:path'
 import type { Metadata } from 'next'
 import Link from 'next/link'
@@ -69,6 +70,7 @@ REVOKE ALL ON SCHEMA support_bot FROM support_bot_app_xxxxxx;
 DROP ROLE support_bot_app_xxxxxx;`
 
 export default function DatabaseSetupGuide(): JSX.Element {
+  const sharedLimit = sharedModelDailyLimit()
   const schemaSql = readScript('support-bot-schema.sql')
   const roleSql = readScript('support-bot-role.sql')
   const upgradeSql = readScript('support-bot-upgrade.sql')
@@ -239,6 +241,15 @@ export default function DatabaseSetupGuide(): JSX.Element {
         logs in, which your database checks. A successful connect gives this browser an encrypted link, and every change
         (editing assistants, managing keys) requires it, for this database only. Automation keys and embed code cannot make
         changes. To use another browser, connect again. Use <em>Disconnect</em> on shared computers.
+      </p>
+
+      <h3 className={H3}>The shared demo model&apos;s daily limit</h3>
+      <p className={P}>
+        {sharedLimit === null
+          ? 'Assistants on the shared demo model have no daily limit on this deployment.'
+          : `Assistants on the shared demo model can answer up to ${sharedLimit} questions a day each (UTC), because every bot shares that model. After that, visitors are asked to try again tomorrow.`}{' '}
+        An assistant on your own model has no limit: choose your model under <em>Edit</em>. Today&apos;s use is shown under{' '}
+        <em>Questions and answers</em>.
       </p>
 
       <h2 id="log" className={H2}>Seeing what visitors asked</h2>

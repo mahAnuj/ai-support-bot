@@ -5,6 +5,7 @@ import { StorageError, mapDriverError, safeErrorSummary } from '../../../../lib/
 import { getPool } from '../../../../lib/storage/pg-pool'
 import { resolveOwnerDatabase, storageErrorResponse } from '../../../../lib/storage/resolve'
 import { ensureSchema } from '../../../../lib/storage/schema'
+import { sharedModelDailyLimit, sharedModelUsedToday } from '../../../../lib/shared-model-cap'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,8 +18,13 @@ export async function GET(request: NextRequest) {
   if (!c.ok) return c.res
   try {
     await ensureSchema(await getPool(c.ctx.connection))
-    const report = await readDailyStats(c.ctx.connection, c.ctx.workspaceId, request.nextUrl.searchParams.get('days'))
-    return NextResponse.json(report, { headers: { 'Cache-Control': 'no-store' } })
+    const [report, used] = await Promise.all([
+      readDailyStats(c.ctx.connection, c.ctx.workspaceId, request.nextUrl.searchParams.get('days')),
+      sharedModelUsedToday(c.ctx.connection, c.ctx.workspaceId),
+    ])
+    // The shared demo model's daily cap and today's use (null: no cap, or not counted in this database).
+    const sharedModel = { limit: sharedModelDailyLimit(), usedToday: used }
+    return NextResponse.json({ ...report, sharedModel }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (e) {
     console.error(`stats read failed ${c.ctx.label} ${safeErrorSummary(e)}`)
     return storageErrorResponse(mapDriverError(e))

@@ -2,7 +2,7 @@
 --
 -- Run as the database owner or an admin (Neon: neondb_owner; Supabase:
 -- postgres) if your database was set up before these features existed:
--- automation keys, Your assistants, the conversation log, daily stats and projects.
+-- automation keys, Your assistants, the conversation log, daily stats, projects and the shared model's daily cap.
 -- Safe to run more than once: everything is IF NOT EXISTS, and it never drops,
 -- empties or rewrites anything.
 --
@@ -29,6 +29,9 @@ ALTER TABLE support_bot.log_settings ADD COLUMN IF NOT EXISTS stats_enabled bool
 
 -- Projects: names for workspaces, one per site
 CREATE TABLE IF NOT EXISTS support_bot.projects (workspace_id uuid PRIMARY KEY REFERENCES support_bot.workspaces(id) ON DELETE CASCADE, name text NOT NULL, created_at timestamptz NOT NULL DEFAULT now());
+
+-- Shared demo model: questions per day, for its daily cap
+CREATE TABLE IF NOT EXISTS support_bot.shared_model_usage (workspace_id uuid NOT NULL REFERENCES support_bot.workspaces(id) ON DELETE CASCADE, day date NOT NULL, questions integer NOT NULL DEFAULT 0, PRIMARY KEY (workspace_id, day));
 
 -- Daily stats
 CREATE TABLE IF NOT EXISTS support_bot.daily_stats (workspace_id uuid NOT NULL REFERENCES support_bot.workspaces(id) ON DELETE CASCADE, day date NOT NULL, questions integer NOT NULL DEFAULT 0, matched integer NOT NULL DEFAULT 0, no_match integer NOT NULL DEFAULT 0, dont_know integer NOT NULL DEFAULT 0, failures integer NOT NULL DEFAULT 0, score_sum integer NOT NULL DEFAULT 0, score_count integer NOT NULL DEFAULT 0, score_min smallint, low_score integer NOT NULL DEFAULT 0, PRIMARY KEY (workspace_id, day));

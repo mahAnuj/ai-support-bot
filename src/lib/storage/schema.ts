@@ -90,6 +90,14 @@ const SCHEMA_STEPS: readonly SchemaStep[] = [
     sql: 'CREATE TABLE IF NOT EXISTS support_bot.projects (workspace_id uuid PRIMARY KEY REFERENCES support_bot.workspaces(id) ON DELETE CASCADE, name text NOT NULL, created_at timestamptz NOT NULL DEFAULT now())',
   },
   {
+    // Questions answered by the shared demo model, per bot per day, for its
+    // daily cap (src/lib/shared-model-cap.ts). Without this table the cap is
+    // counted per server instance only.
+    object: 'support_bot.shared_model_usage',
+    optional: true,
+    sql: 'CREATE TABLE IF NOT EXISTS support_bot.shared_model_usage (workspace_id uuid NOT NULL REFERENCES support_bot.workspaces(id) ON DELETE CASCADE, day date NOT NULL, questions integer NOT NULL DEFAULT 0, PRIMARY KEY (workspace_id, day))',
+  },
+  {
     // Daily counts for the analytics panel: numbers only, no visitor text, so
     // they are kept even when the conversation log is off (unless the owner
     // turns counting off). One row per workspace per day (UTC).

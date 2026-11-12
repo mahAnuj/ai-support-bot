@@ -28,6 +28,7 @@ About 810 tests across the app and the connector. About 40 of them need a dispos
 - **Automation keys**: Let a script or CI job keep the documents in sync, with per-key expiry and an activity log
 - **One-click database setup**: The app creates a limited database login for itself, and shows which login it is using
 - **Conversation log** (optional): Questions and answers from your widget, kept in your database, with each answer's match score, filterable to unanswered or low-match answers, and downloadable as CSV
+- **Fair use on the shared model**: Each bot gets 200 questions a day on the shared demo model (configurable); bots on their own model have no limit
 - **Daily stats**: Questions per day, answered from documents, "don't know" answers, failures, and the mean and lowest match score, as numbers only in your database
 - **Professional UI**: Clean, mobile-responsive design that works on any website
 
@@ -180,6 +181,7 @@ GROQ_API_KEY=your_groq_api_key
 GROQ_MODEL=openai/gpt-oss-20b
 NEXT_PUBLIC_BASE_URL=https://yourdomain.com
 EMBED_TOKEN_KEY=          # openssl rand -base64 32; turns on "connect your own database", "use your own model" and "connect your backend"
+SHARED_MODEL_DAILY_LIMIT= # questions per bot per UTC day on the shared demo model (default 200; 0 or off = no limit)
 ALLOW_PRIVATE_DB_HOSTS=   # 1 = allow localhost/private database hosts on a production build
 ALLOW_PRIVATE_MODEL_HOSTS= # 1 = allow localhost/private model addresses on a production build; leave unset in production
 ALLOW_PRIVATE_CONNECTOR_HOSTS= # 1 = allow localhost/private backend addresses on a production build; leave unset in production
@@ -697,6 +699,29 @@ header, so the list does not stop someone who copies your embed token from
 calling the chat API directly. Without a list, any site can use the tag. The
 builder preview is not affected by the list. See
 [GOVERNANCE.md](GOVERNANCE.md#known-gaps) for the details.
+
+## 🚦 Daily limit on the shared demo model
+
+Widget questions that the owner's own model or backend does not answer go to
+the deployment's shared Groq key, which every bot shares. So each bot may ask
+it **200 questions per UTC day** by default (`SHARED_MODEL_DAILY_LIMIT`; `0` or
+`off` removes the limit). After that, visitors see *"This assistant has
+answered all the questions it can for today. Please try again tomorrow."*
+(HTTP 429, `code: "daily_limit"`), and the model is not called.
+
+- **Assistants on your own model, or answered by your own backend, are never
+  counted.** Connect one under *Use your own model* and choose it in *Your
+  assistants* to remove the limit.
+- For a bot with its own database, the count is kept there
+  (`support_bot.shared_model_usage`, one row per day, claimed with one atomic
+  upsert), so it holds across every server instance. Each instance also counts
+  in memory; that is the only counter for bots without a database, and the
+  backstop when the table is missing. A question is refused when either is
+  full.
+- The owner sees today's use under *Questions and answers* in the builder.
+- The database count can be edited by the database owner, so this is a
+  fair-use limit for a shared key, not a security boundary. The per-visitor
+  limit (20 messages a minute per IP) still applies on top.
 
 ## 🤖 Use your own model
 

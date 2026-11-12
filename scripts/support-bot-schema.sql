@@ -41,6 +41,8 @@ CREATE INDEX IF NOT EXISTS conversations_workspace_idx ON support_bot.conversati
 CREATE TABLE IF NOT EXISTS support_bot.log_settings (workspace_id uuid PRIMARY KEY REFERENCES support_bot.workspaces(id) ON DELETE CASCADE, enabled boolean NOT NULL DEFAULT false, retention_days integer NOT NULL DEFAULT 90, stats_enabled boolean NOT NULL DEFAULT true, updated_at timestamptz NOT NULL DEFAULT now());
 -- Project names (a project is a workspace, one per site).
 CREATE TABLE IF NOT EXISTS support_bot.projects (workspace_id uuid PRIMARY KEY REFERENCES support_bot.workspaces(id) ON DELETE CASCADE, name text NOT NULL, created_at timestamptz NOT NULL DEFAULT now());
+-- Questions answered by the shared demo model per day, for its daily cap.
+CREATE TABLE IF NOT EXISTS support_bot.shared_model_usage (workspace_id uuid NOT NULL REFERENCES support_bot.workspaces(id) ON DELETE CASCADE, day date NOT NULL, questions integer NOT NULL DEFAULT 0, PRIMARY KEY (workspace_id, day));
 -- Daily counts for the analytics panel: numbers only, no visitor text.
 CREATE TABLE IF NOT EXISTS support_bot.daily_stats (workspace_id uuid NOT NULL REFERENCES support_bot.workspaces(id) ON DELETE CASCADE, day date NOT NULL, questions integer NOT NULL DEFAULT 0, matched integer NOT NULL DEFAULT 0, no_match integer NOT NULL DEFAULT 0, dont_know integer NOT NULL DEFAULT 0, failures integer NOT NULL DEFAULT 0, score_sum integer NOT NULL DEFAULT 0, score_count integer NOT NULL DEFAULT 0, score_min smallint, low_score integer NOT NULL DEFAULT 0, PRIMARY KEY (workspace_id, day));
 -- Settings edited under "Your assistants" (suggested questions, allowed sites, model); a row wins over the embed code.
