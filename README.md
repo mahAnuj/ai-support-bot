@@ -10,6 +10,7 @@ Upload your documents, preview the assistant, and paste one `<script>` tag into 
 - **Guarded by default.** The server refuses to call localhost or private-network addresses for model, database or backend URLs (unless the operator opts in); widgets answer only on the sites you list; per-IP rate limits and size caps bound abuse and spend.
 - **Your database, set up safely in one click.** Connect with your admin login and the app creates its own limited login that can reach only its own tables, then keeps only that one. See [One-click setup](#one-click-setup-recommended).
 - **Change it after it's live, with the same embed code.** Title, welcome message, colours, suggested questions, allowed sites, the model and your own instructions are edited in the builder and reach your site on the next page load. See [Change an assistant after it's live](#-change-an-assistant-after-its-live).
+- **See what visitors asked, in your own database.** An optional conversation log keeps each question and answer for 1 to 730 days (90 by default), with a notice to visitors while it is on, so you can check answers and find what your documents are missing. See [Conversation log](#-conversation-log).
 - **Answers written for visitors.** Visitors never see source file names or match scores, are never asked to upload anything, and see honest waiting messages while an answer is on its way.
 - **Honest about what it protects.** [GOVERNANCE.md](GOVERNANCE.md) lists what is enforced, where data goes, and what is still open. It describes controls; it is not a certification.
 
@@ -25,6 +26,7 @@ About 790 tests across the app and the connector. About 20 of them need a dispos
 - **Your assistants**: Edit an assistant that is already on your site, including your own instructions ("never quote prices"), without new embed code
 - **Automation keys**: Let a script or CI job keep the documents in sync, with per-key expiry and an activity log
 - **One-click database setup**: The app creates a limited database login for itself, and shows which login it is using
+- **Conversation log** (optional): Questions and answers from your widget, kept in your database, filterable to the ones your documents could not answer, and downloadable as CSV
 - **Professional UI**: Clean, mobile-responsive design that works on any website
 
 ### 📚 **Intelligent Document Processing**
@@ -559,6 +561,41 @@ use another browser, connect again; to revoke everything made with a login,
 change that login's password. The builder link sits in browser storage, so
 use **Disconnect** on shared computers.
 
+## 📝 Conversation log
+
+To check what the assistant tells visitors, turn on **Conversation log** in
+the builder's connected panel. It needs your own database: the demo and
+backend-connected modes keep no log.
+
+- **Off by default.** While it is on, the widget shows visitors *"Questions
+  and answers are saved to improve this assistant."* under the chat box.
+- **Logged only with the notice showing.** The widget asks whether the log is
+  on when it is first opened (`POST /api/widget/status`) and sends
+  `logNotice: true` only after it has displayed the notice; the server logs a
+  question only with that flag and the log switched on. A failed or slow check
+  means "not logged", never "logged without notice".
+- **What is kept:** the question, the answer, whether any document matched,
+  the documents used, the time, and a random per-page-view chat id. No IP
+  address, user agent or cookie. Builder-preview questions are never logged.
+- **Where:** `support_bot.conversations` and `support_bot.log_settings`, in
+  your database. This server keeps nothing; the write happens after the reply
+  is sent (`after()`), so it adds no wait for the visitor, and a failed write
+  never fails an answer.
+- **How long:** 1 to 730 days, 90 by default. Older entries are deleted on
+  every write, and at once when you shorten the period. **Delete all** empties
+  it.
+- **Reading it:** newest first, with a filter for questions no document
+  matched (the list of what your documents are missing), and **Download CSV**
+  (cells a spreadsheet would run as a formula are quoted).
+- **Owner only:** the builder link is required; automation keys and embed
+  codes are refused.
+
+A limited login made before these tables existed needs them created and
+granted by an admin: run `scripts/support-bot-schema.sql` and
+`scripts/support-bot-role.sql` again (the role needs `DELETE` on
+`conversations` for the retention clean-up), or connect once with your admin
+login and one-click setup.
+
 ## 💬 Suggested questions
 
 Up to four "Try asking" questions can be set in the builder. They show under
@@ -845,7 +882,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide.
 ## 🚀 Roadmap
 
 - [ ] **Multi-language Support**: Support for non-English documents
-- [ ] **Conversation log** (in progress): Questions and answers kept in your own database, off by default, with a visitor notice and a retention period
+- [x] **Conversation log**: Questions and answers kept in your own database, off by default, with a visitor notice and a retention period
+- [ ] **Projects**: Several assistants for different sites in one database, each with its own documents
 - [ ] **Custom Domains**: White-label deployment options
 - [ ] **Team Collaboration**: Multi-user workspace management
 - [x] **API access for documents**: Automation keys upload, list and remove documents (`/api/upload`, `/api/storage/documents`)

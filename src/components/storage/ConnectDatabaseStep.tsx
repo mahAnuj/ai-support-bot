@@ -5,6 +5,7 @@ import type { StorageConnection } from './useStorageConnection'
 import AutomationKeys from './AutomationKeys'
 import DatabaseLogin from './DatabaseLogin'
 import YourAssistants from './YourAssistants'
+import ConversationLog from './ConversationLog'
 
 export interface ConnectDatabaseStepProps {
   storage: StorageConnection
@@ -143,6 +144,7 @@ export default function ConnectDatabaseStep({ storage, sessionId, sessionDocumen
         </p>
         {storage.error && <ErrorMessage message={storage.error.message} />}
         <YourAssistants requestHeaders={storage.requestHeaders} ownModel={ownModel} builderStarters={builderStarters} />
+        <ConversationLog requestHeaders={storage.requestHeaders} />
         <AutomationKeys requestHeaders={storage.requestHeaders} />
         <div className="mt-4 flex flex-col items-start gap-2">
           <button type="button" onClick={disconnect} className={SECONDARY_BUTTON}>

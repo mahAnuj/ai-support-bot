@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
+import { recordTurn } from '../../../../lib/storage/conversation-log'
 import { DEFAULT_WIDGET_SYSTEM_PROMPT, chatErrorCode, generateResponse, widgetSystemPrompt } from '../../../../lib/llm'
 import { demoProvider, ownerProvider } from '../../../../lib/model/provider'
 import { isModelError } from '../../../../lib/model/shared'
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
       return corsJson({ error: 'Too many requests' }, 429)
     }
 
-    const { message, widgetKey, sessionId } = await request.json()
+    const { message, widgetKey, sessionId, chatId, logNotice } = await request.json()
 
     if (typeof message === 'string' && message.length > LIMITS.message) {
       return corsJson({ error: 'Message too long' }, 400)
@@ -245,6 +246,17 @@ export async function POST(request: NextRequest) {
       return corsJson(UNAVAILABLE_BODY, 503, cors)
     }
     
+    // The conversation log: only for a database-backed widget, only when the
+    // owner turned it on (recordTurn checks), and only when the widget says it
+    // showed the visitor the notice. Written after the reply is sent.
+    if (ctx.database && logNotice === true && typeof message === 'string') {
+      const { connection, workspaceId } = ctx.database
+      const turn = { chatId, question: message, answer: response.message, matched: isEnhanced, sources: ragResult?.sources || [] }
+      const write = () => recordTurn(connection, workspaceId, turn).then(() => undefined)
+      // after() needs a request scope; outside one (tests, scripts) write directly.
+      try { after(write) } catch { void write() }
+    }
+
     const responseData: any = {
       message: response.message,
       confidence,

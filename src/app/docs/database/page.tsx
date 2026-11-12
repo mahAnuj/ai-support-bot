@@ -89,6 +89,7 @@ export default function DatabaseSetupGuide(): JSX.Element {
           <li><a className={LINK} href="#what-it-does">What one-click setup does</a></li>
           <li><a className={LINK} href="#manual">Manual setup</a></li>
           <li><a className={LINK} href="#edit">Changing an assistant after it&apos;s live</a></li>
+          <li><a className={LINK} href="#log">Seeing what visitors asked</a></li>
           <li><a className={LINK} href="#keys">Keeping documents in sync</a></li>
           <li><a className={LINK} href="#access">Managing access</a></li>
           <li><a className={LINK} href="#trouble">Troubleshooting</a></li>
@@ -214,6 +215,23 @@ export default function DatabaseSetupGuide(): JSX.Element {
         logs in, which your database checks. A successful connect gives this browser an encrypted link, and every change
         (editing assistants, managing keys) requires it, for this database only. Automation keys and embed code cannot make
         changes. To use another browser, connect again. Use <em>Disconnect</em> on shared computers.
+      </p>
+
+      <h2 id="log" className={H2}>Seeing what visitors asked</h2>
+      <p className={P}>
+        Turn on <em>Conversation log</em> in the builder to keep each visitor question and the assistant&apos;s answer, in your
+        database, to check the answers and see what your documents are missing. It needs your own database.
+      </p>
+      <ul className={LIST}>
+        <li>Off by default. While it is on, visitors see &ldquo;Questions and answers are saved to improve this assistant.&rdquo; under the chat box, and only questions sent with that notice showing are kept.</li>
+        <li>Kept: the question, the answer, whether any document matched, the documents used and the time. No IP address, browser details or cookies.</li>
+        <li>Kept for 1 to 730 days, 90 by default; older entries are deleted automatically, and <em>Delete all</em> empties the log.</li>
+        <li>Filter to the questions no document matched, and download everything as a CSV file.</li>
+        <li>Questions you ask in the builder&apos;s preview are never logged.</li>
+      </ul>
+      <p className={NOTE}>
+        <strong>Tell your visitors in your own privacy notice too.</strong> The widget&apos;s notice says the questions are
+        saved; depending on where you and your visitors are, you may also need to mention it in your site&apos;s privacy policy.
       </p>
 
       <h2 id="keys" className={H2}>Keeping documents in sync</h2>

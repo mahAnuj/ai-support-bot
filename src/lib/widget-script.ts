@@ -208,6 +208,11 @@ export function widgetScript(widget: Widget, baseUrl: string, savedStarters: rea
     .ai-widget-root .ai-widget-dot:nth-child(2) { animation-delay: 150ms; }
     .ai-widget-root .ai-widget-dot:nth-child(3) { animation-delay: 300ms; }
 
+    .ai-widget-root .ai-widget-log-notice {
+      flex: none; margin: 0; padding: 6px 12px 0; font-size: 12px; line-height: 16px; color: #45534E; background: #FFFFFF;
+      border-top: 1px solid #DCE2DF;
+    }
+    .ai-widget-root .ai-widget-log-notice + .ai-widget-input-container { border-top: 0; }
     .ai-widget-root .ai-widget-input-container {
       flex: none; display: flex; gap: 8px; padding: 12px;
       background: #FFFFFF; border-top: 1px solid #DCE2DF;
@@ -282,6 +287,7 @@ export function widgetScript(widget: Widget, baseUrl: string, savedStarters: rea
         </div>
       </div>
       <div class="ai-widget-messages" id="ai-widget-messages" role="log" aria-live="polite" aria-label="Conversation"></div>
+      <p class="ai-widget-log-notice" id="ai-widget-log-notice" hidden>Questions and answers are saved to improve this assistant.</p>
       <div class="ai-widget-input-container">
         <input type="text" class="ai-widget-input" id="ai-widget-input" aria-label="Message" placeholder="Ask a question" maxlength="2000" autocomplete="off">
         <button type="button" class="ai-widget-send-btn" id="ai-widget-send">Send</button>
@@ -297,6 +303,28 @@ export function widgetScript(widget: Widget, baseUrl: string, savedStarters: rea
   const input = document.getElementById('ai-widget-input');
   const sendBtn = document.getElementById('ai-widget-send');
   const messagesContainer = document.getElementById('ai-widget-messages');
+  const logNoticeEl = document.getElementById('ai-widget-log-notice');
+  // Conversation log: asked once, on first open. A question is logged only if
+  // this notice was showing when it was sent (the server checks the flag), so
+  // a failed or slow check means "not logged", never "logged without notice".
+  let logNoticeShown = false;
+  let statusAsked = false;
+  // Groups this page view's questions in the owner's log; identifies no one.
+  const chatId = (window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID() : null;
+  function askLoggingStatus() {
+    if (statusAsked) return;
+    statusAsked = true;
+    fetch(apiBaseUrl + '/api/widget/status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ widgetKey: widgetConfig.widgetKey }),
+    }).then(function (r) { return r.ok ? r.json() : null; }).then(function (data) {
+      if (data && data.logging === true) {
+        logNoticeEl.hidden = false;
+        logNoticeShown = true;
+      }
+    }).catch(function () {});
+  }
   const titleEl = document.getElementById('ai-widget-title');
 
   let isOpen = false;
@@ -476,6 +504,7 @@ export function widgetScript(widget: Widget, baseUrl: string, savedStarters: rea
     button.setAttribute('aria-expanded', 'true');
     button.setAttribute('aria-label', 'Close chat');
     input.focus();
+    askLoggingStatus();
   }
 
   function setExpanded(expanded) {
@@ -533,7 +562,9 @@ export function widgetScript(widget: Widget, baseUrl: string, savedStarters: rea
         body: JSON.stringify({
           message,
           widgetKey: widgetConfig.widgetKey,
-          sessionId: sessionId
+          sessionId: sessionId,
+          chatId: chatId,
+          logNotice: logNoticeShown
         }),
       });
 
