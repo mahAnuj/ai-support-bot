@@ -72,14 +72,38 @@ export default function YourBots({
     return () => { cancelled = true }
   }, [connected, token, requestHeaders, onProjectChange])
 
-  // A bot nobody named takes its display title ("Ask about Anuj's work"), so the
-  // list never fills with "Unnamed bot". Only when the title is known to belong
-  // to the open workspace, so one bot is never named after another's form.
-  // Saved in this browser, and in the database when it has the names table.
-  const autoName = title && current && title.projectId === current.projectId ? title.text.replace(/\s+/g, ' ').trim().slice(0, 60) : ''
+  // A bot nobody named is named for you, so the list never fills with
+  // "Unnamed bot". First choice: the title of its live assistant, from the
+  // database (the most recently edited one), which is what Settings shows and
+  // is the same in every browser. Otherwise, once there is no live assistant,
+  // the builder's display title, but only when that title is known to belong
+  // to the open workspace and typing has paused. Never over a chosen name.
+  const [liveTitle, setLiveTitle] = useState<{ projectId: string; text: string | null } | null>(null)
+  useEffect(() => {
+    if (!current) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch('/api/storage/widgets', { headers: requestHeaders, cache: 'no-store' })
+        const body = await res.json().catch(() => null)
+        const list = res.ok && Array.isArray(body?.assistants) ? (body.assistants as { title?: unknown; updatedAt?: unknown }[]) : []
+        const latest = list
+          .filter((a) => typeof a.title === 'string' && a.title.trim())
+          .sort((a, b) => String(b.updatedAt ?? '').localeCompare(String(a.updatedAt ?? '')))[0]
+        if (!cancelled) setLiveTitle({ projectId: current.projectId, text: latest ? String(latest.title) : null })
+      } catch {
+        if (!cancelled) setLiveTitle({ projectId: current.projectId, text: null })
+      }
+    })()
+    return () => { cancelled = true }
+  }, [current, requestHeaders])
+
+  const fromLive = liveTitle && current && liveTitle.projectId === current.projectId ? liveTitle.text : undefined
+  const fromForm = fromLive === null && title && current && title.projectId === current.projectId ? title.text : ''
+  const autoName = (fromLive || fromForm || '').replace(/\s+/g, ' ').trim().slice(0, 60)
   useEffect(() => {
     if (!current || !autoName) return
-    // Waits for typing to pause, so a title being typed is not taken half-way.
+    // A live title is applied at once; a form title waits for typing to pause.
     const timer = window.setTimeout(() => {
       const bot = loadBotList().find((b) => b.key === current.key)
       if (!bot || bot.name) return
@@ -89,9 +113,9 @@ export default function YourBots({
         headers: { ...requestHeaders, 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'rename', id: current.projectId, name: autoName }),
       }).catch(() => { /* kept in this browser either way */ })
-    }, 2000)
+    }, fromLive ? 0 : 2000)
     return () => window.clearTimeout(timer)
-  }, [current, autoName, requestHeaders])
+  }, [current, autoName, fromLive, requestHeaders])
 
   // A message is about the bot it was written for; another bot clears it.
   useEffect(() => { setNote(null); setRenaming(false) }, [connected, current?.key])
